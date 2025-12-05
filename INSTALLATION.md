@@ -18,9 +18,8 @@
    - Click "Add"
 
 2. **Install the Integration**
-   - Click "+ Explore & Download Repositories"
-   - Search for "ACWD Water Usage"
-   - Click "Download"
+   - From the HACS search bar, search for "ACWD Water Usage"
+   - Click "Download" from either the three dots menu (top right) or the Download button at the bottom right
    - Restart Home Assistant
 
 3. **Configure the Integration**
