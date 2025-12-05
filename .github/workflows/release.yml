@@ -1,0 +1,61 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.1)'
+        required: true
+        type: string
+      release_type:
+        description: 'Release type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update manifest.json version
+        run: |
+          sed -i 's/"version": ".*"/"version": "${{ inputs.version }}"/' custom_components/acwd/manifest.json
+
+      - name: Move Unreleased to version in CHANGELOG
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          sed -i "s/## \[Unreleased\]/## [Unreleased]\n\n## [${{ inputs.version }}] - $DATE/" CHANGELOG.md
+
+          # Update comparison links at bottom
+          sed -i "s|\[Unreleased\]:.*|[Unreleased]: https://github.com/funkadelic/acwd_usage/compare/v${{ inputs.version }}...HEAD\n[${{ inputs.version }}]: https://github.com/funkadelic/acwd_usage/releases/tag/v${{ inputs.version }}|" CHANGELOG.md
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add custom_components/acwd/manifest.json CHANGELOG.md
+          git commit -m "chore: bump version to ${{ inputs.version }}"
+          git push
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ inputs.version }}
+          release_name: v${{ inputs.version }}
+          body: |
+            See [CHANGELOG.md](https://github.com/funkadelic/acwd_usage/blob/v${{ inputs.version }}/CHANGELOG.md) for details.
+          draft: false
+          prerelease: false
