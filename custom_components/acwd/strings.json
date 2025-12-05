@@ -3,10 +3,14 @@
     "step": {
       "user": {
         "title": "Connect to ACWD Portal",
-        "description": "Enter your ACWD portal credentials",
+        "description": "Enter your ACWD portal credentials (portal.acwd.org). Your credentials are stored securely in Home Assistant and used only to retrieve water usage data from your account.",
         "data": {
           "username": "Email Address",
           "password": "Password"
+        },
+        "data_description": {
+          "username": "The email address you use to log in to the ACWD portal",
+          "password": "Your ACWD portal password"
         }
       }
     },
