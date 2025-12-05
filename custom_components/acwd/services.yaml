@@ -1,0 +1,42 @@
+import_hourly_data:
+  name: Import hourly water usage data
+  description: Import hourly water usage data for a specific date into long-term statistics for the Energy Dashboard.
+  fields:
+    date:
+      name: Date
+      description: Date to import data for (YYYY-MM-DD). Must be at least 2 days ago due to 24-hour data delay.
+      required: true
+      example: "2025-12-01"
+      selector:
+        date:
+    granularity:
+      name: Granularity
+      description: Data granularity to import
+      required: false
+      default: "hourly"
+      selector:
+        select:
+          options:
+            - label: "Hourly"
+              value: "hourly"
+            - label: "15-minute intervals"
+              value: "quarter_hourly"
+
+import_daily_data:
+  name: Import daily water usage data
+  description: Import daily water usage data for a date range into long-term statistics.
+  fields:
+    start_date:
+      name: Start date
+      description: Start date for import (YYYY-MM-DD)
+      required: true
+      example: "2025-11-01"
+      selector:
+        date:
+    end_date:
+      name: End date
+      description: End date for import (YYYY-MM-DD)
+      required: true
+      example: "2025-11-30"
+      selector:
+        date:

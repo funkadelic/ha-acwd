@@ -1,0 +1,7 @@
+{
+  "name": "ACWD Water Usage",
+  "render_readme": true,
+  "domains": ["sensor"],
+  "iot_class": "Cloud Polling",
+  "homeassistant": "2023.1.0"
+}

@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to ACWD Portal",
+        "description": "Enter your ACWD portal credentials",
+        "data": {
+          "username": "Email Address",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to ACWD portal",
+      "invalid_auth": "Invalid username or password",
+      "unknown": "Unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "Account is already configured"
+    }
+  }
+}
