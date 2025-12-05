@@ -71,6 +71,16 @@ async def _async_import_initial_history(
         end_date = (datetime.now() - timedelta(days=2)).date()
         start_date = end_date - timedelta(days=INITIAL_IMPORT_DAYS - 1)
 
+        # Login once and reuse the session for all imports
+        logged_in = await hass.async_add_executor_job(coordinator.client.login)
+        if not logged_in:
+            _LOGGER.error("Failed to login for initial history import")
+            hass.config_entries.async_update_entry(
+                coordinator.entry,
+                data={**coordinator.entry.data, CONF_INITIAL_IMPORT_DONE: True}
+            )
+            return
+
         # Import each day's hourly data
         successful_imports = 0
         failed_imports = 0
@@ -79,17 +89,10 @@ async def _async_import_initial_history(
             import_date = start_date + timedelta(days=day_offset)
 
             try:
-                # Login for each day (to avoid session timeout)
-                logged_in = await hass.async_add_executor_job(coordinator.client.login)
-                if not logged_in:
-                    _LOGGER.warning(f"Login failed during initial import for {import_date}")
-                    failed_imports += 1
-                    continue
-
                 # Format date for API
                 date_str = import_date.strftime("%m/%d/%Y")
 
-                # Fetch hourly data
+                # Fetch hourly data (already logged in)
                 data = await hass.async_add_executor_job(
                     coordinator.client.get_usage_data,
                     'H',  # mode
@@ -102,7 +105,6 @@ async def _async_import_initial_history(
                 if not data:
                     _LOGGER.debug(f"No data returned for initial import of {import_date}")
                     failed_imports += 1
-                    await hass.async_add_executor_job(coordinator.client.logout)
                     continue
 
                 # Extract hourly records
@@ -111,7 +113,6 @@ async def _async_import_initial_history(
                 if not hourly_records:
                     _LOGGER.debug(f"No hourly records for {import_date}")
                     failed_imports += 1
-                    await hass.async_add_executor_job(coordinator.client.logout)
                     continue
 
                 # Import into statistics
@@ -123,19 +124,15 @@ async def _async_import_initial_history(
                 successful_imports += 1
                 _LOGGER.info(f"Initial import: imported {import_date} ({successful_imports}/{INITIAL_IMPORT_DAYS})")
 
-                # Logout after each day
-                await hass.async_add_executor_job(coordinator.client.logout)
-
-                # Small delay to avoid hammering the API
-                await hass.async_create_task(hass.loop.run_in_executor(None, lambda: None))
-
             except Exception as err:
                 _LOGGER.warning(f"Failed to import initial data for {import_date}: {err}")
                 failed_imports += 1
-                try:
-                    await hass.async_add_executor_job(coordinator.client.logout)
-                except:
-                    pass
+
+        # Logout once at the end
+        try:
+            await hass.async_add_executor_job(coordinator.client.logout)
+        except Exception as err:
+            _LOGGER.debug(f"Error during logout: {err}")
 
         # Mark initial import as done (even if some days failed)
         hass.config_entries.async_update_entry(
@@ -201,9 +198,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.error("Account number not available")
             return
 
+        # Create a new client instance for the service call
+        service_client = ACWDClient(
+            entry.data[CONF_USERNAME],
+            entry.data[CONF_PASSWORD]
+        )
+
         try:
-            # Login
-            logged_in = await hass.async_add_executor_job(coordinator.client.login)
+            # Login with the new client
+            logged_in = await hass.async_add_executor_job(service_client.login)
             if not logged_in:
                 _LOGGER.error("Failed to login to ACWD portal")
                 return
@@ -214,7 +217,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             # Fetch hourly data
             hourly_type = 'Q' if granularity == "quarter_hourly" else 'H'
             data = await hass.async_add_executor_job(
-                coordinator.client.get_usage_data,
+                service_client.get_usage_data,
                 'H',  # mode
                 None,  # date_from
                 None,  # date_to
@@ -249,7 +252,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except Exception as err:
             _LOGGER.error(f"Error importing hourly data: {err}")
         finally:
-            await hass.async_add_executor_job(coordinator.client.logout)
+            await hass.async_add_executor_job(service_client.logout)
 
     async def handle_import_daily(call: ServiceCall) -> None:
         """Handle the import_daily_data service call."""
@@ -261,9 +264,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.error("Account number not available")
             return
 
+        # Create a new client instance for the service call
+        service_client = ACWDClient(
+            entry.data[CONF_USERNAME],
+            entry.data[CONF_PASSWORD]
+        )
+
         try:
-            # Login
-            logged_in = await hass.async_add_executor_job(coordinator.client.login)
+            # Login with the new client
+            logged_in = await hass.async_add_executor_job(service_client.login)
             if not logged_in:
                 _LOGGER.error("Failed to login to ACWD portal")
                 return
@@ -274,7 +283,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
             # Fetch daily data
             data = await hass.async_add_executor_job(
-                coordinator.client.get_usage_data,
+                service_client.get_usage_data,
                 'D',  # mode
                 start_str,  # date_from
                 end_str,  # date_to
@@ -303,7 +312,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except Exception as err:
             _LOGGER.error(f"Error importing daily data: {err}")
         finally:
-            await hass.async_add_executor_job(coordinator.client.logout)
+            await hass.async_add_executor_job(service_client.logout)
 
     # Register services
     hass.services.async_register(
