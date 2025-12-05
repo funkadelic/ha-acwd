@@ -3,6 +3,7 @@
 ## HACS Installation (Recommended)
 
 ### Prerequisites
+
 - Home Assistant 2023.1.0 or newer
 - HACS installed
 
@@ -10,7 +11,6 @@
 
 1. **Add Custom Repository**
    - Open HACS
-   - Click on "Integrations"
    - Click the three dots menu (top right)
    - Select "Custom repositories"
    - Add repository URL: `https://github.com/funkadelic/acwd_usage`
@@ -35,6 +35,7 @@
 ## Manual Installation
 
 1. **Download the Integration**
+
    ```bash
    cd /config
    mkdir -p custom_components
@@ -97,10 +98,12 @@ Service: `acwd.import_hourly_data`
 Import hourly or 15-minute interval data for a specific date.
 
 **Parameters:**
+
 - `date`: Date to import (YYYY-MM-DD format, must be at least 2 days ago)
 - `granularity`: Choose `hourly` (default) or `quarter_hourly` (15-minute intervals)
 
 **Example:**
+
 ```yaml
 service: acwd.import_hourly_data
 data:
@@ -126,10 +129,12 @@ Service: `acwd.import_daily_data`
 Import daily summary data for a date range.
 
 **Parameters:**
+
 - `start_date`: Start date (YYYY-MM-DD)
 - `end_date`: End date (YYYY-MM-DD)
 
 **Example:**
+
 ```yaml
 service: acwd.import_daily_data
 data:
@@ -147,15 +152,18 @@ data:
 ## Troubleshooting
 
 ### Integration not appearing
+
 - Ensure you've restarted Home Assistant after installation
 - Check logs in Settings → System → Logs
 
 ### Login fails
-- Verify credentials at https://portal.acwd.org/portal/
+
+- Verify credentials at <https://portal.acwd.org/portal/>
 - Check for special characters in password (the integration handles these correctly)
 - Ensure your account is active
 
 ### No data showing
+
 - ACWD has a 24-hour data delay - current day's data is not available
 - Wait 6 hours for first data refresh
 - Check integration logs for errors
@@ -163,6 +171,7 @@ data:
 ## Update Frequency
 
 The integration updates every 6 hours. This is appropriate because:
+
 - ACWD portal has a 24-hour data delay
 - Billing cycles are long (typically 2 months)
 - Frequent updates are unnecessary and would waste resources
@@ -170,4 +179,4 @@ The integration updates every 6 hours. This is appropriate because:
 ## Support
 
 For issues, please open a GitHub issue at:
-https://github.com/funkadelic/acwd_usage/issues
+<https://github.com/funkadelic/acwd_usage/issues>
