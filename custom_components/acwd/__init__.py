@@ -66,13 +66,19 @@ async def _async_import_initial_history(
 
     _LOGGER.info(f"Starting initial import of last {INITIAL_IMPORT_DAYS} days of hourly data")
 
+    # Create a fresh client for initial import
+    import_client = ACWDClient(
+        coordinator.entry.data[CONF_USERNAME],
+        coordinator.entry.data[CONF_PASSWORD]
+    )
+
     try:
         # Calculate date range (ending 2 days ago due to 24-hour delay)
         end_date = (datetime.now() - timedelta(days=2)).date()
         start_date = end_date - timedelta(days=INITIAL_IMPORT_DAYS - 1)
 
         # Login once and reuse the session for all imports
-        logged_in = await hass.async_add_executor_job(coordinator.client.login)
+        logged_in = await hass.async_add_executor_job(import_client.login)
         if not logged_in:
             _LOGGER.error("Failed to login for initial history import")
             hass.config_entries.async_update_entry(
@@ -94,7 +100,7 @@ async def _async_import_initial_history(
 
                 # Fetch hourly data (already logged in)
                 data = await hass.async_add_executor_job(
-                    coordinator.client.get_usage_data,
+                    import_client.get_usage_data,
                     'H',  # mode
                     None,  # date_from
                     None,  # date_to
@@ -130,7 +136,7 @@ async def _async_import_initial_history(
 
         # Logout once at the end
         try:
-            await hass.async_add_executor_job(coordinator.client.logout)
+            await hass.async_add_executor_job(import_client.logout)
         except Exception as err:
             _LOGGER.debug(f"Error during logout: {err}")
 

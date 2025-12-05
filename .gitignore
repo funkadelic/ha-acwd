@@ -17,3 +17,9 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+# Credentials (never commit these)
+.env
+.credentials
+*.credentials
+run_tests_local.bat
