@@ -68,7 +68,7 @@ class ACWDCurrentUsageSensor(ACWDSensorBase):
     """Sensor for current billing cycle usage (for Energy Dashboard)."""
 
     _attr_device_class = SensorDeviceClass.WATER
-    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_state_class = SensorStateClass.TOTAL
     _attr_native_unit_of_measurement = UnitOfVolume.GALLONS
     _attr_suggested_display_precision = 0
 
