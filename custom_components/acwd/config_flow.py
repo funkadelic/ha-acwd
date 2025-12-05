@@ -63,6 +63,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle the initial step."""
         errors: dict[str, str] = {}
 
+        _LOGGER.info("ACWD Config Flow: Displaying user setup form")
+
         if user_input is not None:
             try:
                 info = await validate_input(self.hass, user_input)
@@ -81,7 +83,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(title=info["title"], data=user_input)
 
         return self.async_show_form(
-            step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
+            step_id="user",
+            data_schema=STEP_USER_DATA_SCHEMA,
+            errors=errors,
+            description_placeholders={},
         )
 
 
