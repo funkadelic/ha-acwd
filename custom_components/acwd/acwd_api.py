@@ -242,31 +242,92 @@ class ACWDClient:
 
         usage_url = f"{self.base_url}Usages.aspx/LoadWaterUsage"
 
-        # Based on browser behavior: use empty string for MeterNumber and "W" for Type
-        payload = {
-            'Type': 'W',  # Water type (not 'G' for graph)
-            'Mode': mode,
-            'strDate': str_date or '',  # Required for hourly/15-min mode
-            'hourlyType': hourly_type,  # 'H' for hourly, 'Q' for 15-minute intervals
-            'seasonId': '' if mode == 'B' else 0,  # Empty string for billing cycle
-            'weatherOverlay': 0,
-            'usageyear': '',
-            'MeterNumber': '',  # Use empty string as per browser behavior
-            'DateFromDaily': date_from or '',
-            'DateToDaily': date_to or '',
-            'isNoDashboard': True
-        }
+        # Convert MM/DD/YYYY date to "Month D, YYYY" format if provided
+        formatted_date = ''
+        if str_date:
+            try:
+                from datetime import datetime
+                date_obj = datetime.strptime(str_date, '%m/%d/%Y')
+                # Format as "December 4, 2025" (no leading zero on day)
+                formatted_date = date_obj.strftime('%B %d, %Y').replace(' 0', ' ')
+            except:
+                formatted_date = str_date  # Fallback to original if parsing fails
 
+        # Set up headers for API requests
         import json
         headers = {
             'Content-Type': 'application/json; charset=UTF-8',
             'X-Requested-With': 'XMLHttpRequest',
-            'Referer': f"{self.base_url}usages.aspx?type=WU"
+            'Referer': f"{self.base_url}usages.aspx?type=WU",
+            'isajax': '1'
         }
 
-        # Add CSRF token if available
+        # Add CSRF token to header (lowercase as per browser)
         if self.csrf_token:
-            headers['CSRFToken'] = self.csrf_token
+            headers['csrftoken'] = self.csrf_token
+
+        # Get water meter number
+        # The water meter number is not in the login response - it's loaded dynamically
+        # Call BindMultiMeter API to discover available meters and select AMI meter
+
+        # Try to discover the correct meter number if not cached
+        if not hasattr(self, '_water_meter_number'):
+            # Call BindMultiMeter endpoint to get list of available meters
+            bind_meter_url = f"{self.base_url}Usages.aspx/BindMultiMeter"
+            bind_payload = {"MeterType": "W"}  # W for water
+
+            try:
+                bind_response = self.session.post(
+                    bind_meter_url,
+                    json=bind_payload,
+                    headers=headers
+                )
+
+                if bind_response.status_code == 200:
+                    bind_result = bind_response.json()
+                    if 'd' in bind_result:
+                        bind_data = json.loads(bind_result['d'])
+                        meter_details = bind_data.get('MeterDetails', [])
+
+                        # Find AMI-enabled meter (smart meter with hourly data)
+                        ami_meter = None
+                        for meter in meter_details:
+                            if meter.get('IsAMI') and meter.get('MeterType') == 'W':
+                                ami_meter = meter.get('MeterNumber', '')
+                                logger.info(f"Found AMI water meter: {ami_meter}")
+                                break
+
+                        if ami_meter:
+                            self._water_meter_number = ami_meter
+                        else:
+                            # No AMI meter found, try first water meter or empty
+                            if meter_details:
+                                self._water_meter_number = meter_details[0].get('MeterNumber', '')
+                                logger.info(f"No AMI meter found, using first meter: {self._water_meter_number}")
+                            else:
+                                self._water_meter_number = ''
+                                logger.warning("No water meters found, using empty meter number")
+            except Exception as e:
+                logger.error(f"Error fetching meter list: {e}")
+                self._water_meter_number = ''
+
+        # Use cached meter number
+        meter_number = self._water_meter_number if hasattr(self, '_water_meter_number') else ''
+
+        # Build final payload with discovered meter number
+        payload = {
+            'Type': 'G',  # Graph type (as per browser)
+            'Mode': mode,
+            'strDate': formatted_date,  # Format: "December 4, 2025"
+            'hourlyType': hourly_type,  # 'H' for hourly, 'Q' for 15-minute intervals
+            'seasonId': '' if mode == 'B' else 0,  # Empty string for billing cycle
+            'weatherOverlay': 0,
+            'usageyear': '',
+            'MeterNumber': meter_number,
+            'DateFromDaily': date_from or '',
+            'DateToDaily': date_to or '',
+            'isNoDashboard': True
+        }
 
         response = self.session.post(
             usage_url,

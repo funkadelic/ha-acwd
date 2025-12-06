@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2025-12-06
+
+### Fixed
+
+- Fixed hourly usage data not being retrieved from ACWD portal API
+- Fixed API request format to match browser behavior (Type='G' for graph mode, lowercase csrftoken header)
+- Fixed date format for API requests (changed from MM/DD/YYYY to "Month D, YYYY")
+- Implemented automatic AMI (smart) water meter discovery via BindMultiMeter API endpoint
+- Added proper meter selection to prioritize AMI-enabled meters with hourly data capability
+
+### Changed
+
+- Updated API client to automatically detect and use AMI water meters for hourly usage data
+- Improved CSRF token handling with fresh token fetched from usage page before each request
+
 ## [1.0.2] - 2025-12-05
 
 ### Added
@@ -48,7 +63,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Five water usage sensors (current cycle, projected, last billing, average, highest)
 - 15-minute interval support via manual service
 
-[Unreleased]: https://github.com/funkadelic/acwd_usage/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/funkadelic/acwd_usage/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/funkadelic/acwd_usage/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/funkadelic/acwd_usage/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/funkadelic/acwd_usage/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/funkadelic/acwd_usage/releases/tag/v1.0.0
