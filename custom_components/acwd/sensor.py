@@ -65,10 +65,14 @@ class ACWDSensorBase(CoordinatorEntity, SensorEntity):
 
 
 class ACWDCurrentUsageSensor(ACWDSensorBase):
-    """Sensor for current billing cycle usage (for Energy Dashboard)."""
+    """Sensor for current billing cycle usage total.
+
+    Note: This shows the total water used in the current billing cycle (typically 2 months).
+    For daily/hourly consumption in the Energy Dashboard, use the imported statistics instead.
+    """
 
     _attr_device_class = SensorDeviceClass.WATER
-    _attr_state_class = SensorStateClass.TOTAL
+    # No state_class - this is a snapshot of billing cycle total, not for Energy Dashboard
     _attr_native_unit_of_measurement = UnitOfVolume.GALLONS
     _attr_suggested_display_precision = 0
 
