@@ -38,7 +38,7 @@ jobs:
           sed -i "s/## \[Unreleased\]/## [Unreleased]\n\n## [${{ inputs.version }}] - $DATE/" CHANGELOG.md
 
           # Update comparison links at bottom
-          sed -i "s|\[Unreleased\]:.*|[Unreleased]: https://github.com/funkadelic/acwd_usage/compare/v${{ inputs.version }}...HEAD\n[${{ inputs.version }}]: https://github.com/funkadelic/acwd_usage/releases/tag/v${{ inputs.version }}|" CHANGELOG.md
+          sed -i "s|\[Unreleased\]:.*|[Unreleased]: https://github.com/funkadelic/ha-acwd/compare/v${{ inputs.version }}...HEAD\n[${{ inputs.version }}]: https://github.com/funkadelic/ha-acwd/releases/tag/v${{ inputs.version }}|" CHANGELOG.md
 
       - name: Commit version bump
         run: |
@@ -56,6 +56,6 @@ jobs:
           tag_name: v${{ inputs.version }}
           release_name: v${{ inputs.version }}
           body: |
-            See [CHANGELOG.md](https://github.com/funkadelic/acwd_usage/blob/v${{ inputs.version }}/CHANGELOG.md) for details.
+            See [CHANGELOG.md](https://github.com/funkadelic/ha-acwd/blob/v${{ inputs.version }}/CHANGELOG.md) for details.
           draft: false
           prerelease: false

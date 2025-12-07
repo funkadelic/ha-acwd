@@ -13,7 +13,7 @@
    - Open HACS
    - Click the three dots menu (top right)
    - Select "Custom repositories"
-   - Add repository URL: `https://github.com/funkadelic/acwd_usage`
+   - Add repository URL: `https://github.com/funkadelic/ha-acwd`
    - Category: "Integration"
    - Click "Add"
 
@@ -39,7 +39,7 @@
    cd /config
    mkdir -p custom_components
    cd custom_components
-   git clone https://github.com/funkadelic/acwd_usage.git acwd
+   git clone https://github.com/funkadelic/ha-acwd.git acwd
    ```
 
 2. **Or Download ZIP**
@@ -178,4 +178,4 @@ The integration updates every 6 hours. This is appropriate because:
 ## Support
 
 For issues, please open a GitHub issue at:
-<https://github.com/funkadelic/acwd_usage/issues>
+<https://github.com/funkadelic/ha-acwd/issues>

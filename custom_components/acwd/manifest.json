@@ -4,10 +4,10 @@
   "codeowners": ["@funkadelic"],
   "config_flow": true,
   "dependencies": ["recorder"],
-  "documentation": "https://github.com/funkadelic/acwd_usage",
+  "documentation": "https://github.com/funkadelic/ha-acwd",
   "integration_type": "service",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/funkadelic/acwd_usage/issues",
+  "issue_tracker": "https://github.com/funkadelic/ha-acwd/issues",
   "requirements": [
     "beautifulsoup4>=4.12.0",
     "requests>=2.31.0"
