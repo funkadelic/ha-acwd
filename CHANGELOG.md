@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.5] - 2025-12-07
+
+### Fixed
+
+- Added missing `recorder` dependency to manifest.json (required for statistics import functionality)
+- Fixed hourly timestamp parsing to correctly parse "12:00 AM" format from API (was showing all hours as 00:00)
+
+### Changed
+
+- Updated repository URLs to correct location (funkadelic/ha-acwd)
+- Added hassfest GitHub workflow for automated validation
+
 ## [1.0.4] - 2025-12-06
 
 ### Fixed
