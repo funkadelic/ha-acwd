@@ -94,13 +94,10 @@ class ACWDCurrentUsageSensor(ACWDSensorBase):
         if not tentative_data:
             return None
 
-        # Get current usage in HCF
-        current_hcf = tentative_data[0].get("SoFar", 0)
+        # Get current usage (already in gallons from API)
+        current_gallons = tentative_data[0].get("SoFar", 0)
 
-        # Convert HCF -> Gallons
-        gallons = current_hcf * HCF_TO_GALLONS
-
-        return round(gallons, 2)
+        return round(current_gallons, 2)
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -114,15 +111,15 @@ class ACWDCurrentUsageSensor(ACWDSensorBase):
 
         data = tentative_data[0]
 
-        # Calculate values in different units
-        current_hcf = data.get("SoFar", 0)
-        current_gallons = current_hcf * HCF_TO_GALLONS
+        # API returns values already in gallons
+        current_gallons = data.get("SoFar", 0)
+        expected_gallons = data.get("ExpectedUsage", 0)
 
         return {
-            "usage_hcf": current_hcf,
+            "usage_hcf": round(current_gallons / HCF_TO_GALLONS, 2),
             "usage_gallons": round(current_gallons, 2),
-            "expected_total_hcf": data.get("ExpectedUsage", 0),
-            "expected_total_gallons": round(data.get("ExpectedUsage", 0) * HCF_TO_GALLONS, 2),
+            "expected_total_hcf": round(expected_gallons / HCF_TO_GALLONS, 2),
+            "expected_total_gallons": round(expected_gallons, 2),
             "cycle_date": data.get("UsageDate"),
         }
 
@@ -151,8 +148,9 @@ class ACWDCurrentCycleSensor(ACWDSensorBase):
         if not tentative_data:
             return None
 
-        expected_hcf = tentative_data[0].get("ExpectedUsage", 0)
-        return round(expected_hcf * HCF_TO_GALLONS, 2)
+        # API returns gallons already
+        expected_gallons = tentative_data[0].get("ExpectedUsage", 0)
+        return round(expected_gallons, 2)
 
 
 class ACWDLastBillingCycleSensor(ACWDSensorBase):
@@ -181,9 +179,10 @@ class ACWDLastBillingCycleSensor(ACWDSensorBase):
 
         # Get the most recent completed billing cycle
         last_cycle = usage_records[-1]
-        usage_hcf = last_cycle.get("UsageValue", 0)
+        # API returns gallons already
+        usage_gallons = last_cycle.get("UsageValue", 0)
 
-        return round(usage_hcf * HCF_TO_GALLONS, 2)
+        return round(usage_gallons, 2)
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -196,13 +195,15 @@ class ACWDLastBillingCycleSensor(ACWDSensorBase):
             return {}
 
         last_cycle = usage_records[-1]
+        # API returns gallons already
+        usage_gallons = last_cycle.get("UsageValue", 0)
 
         return {
             "from_date": last_cycle.get("FromDate"),
             "to_date": last_cycle.get("ToDate"),
             "usage_date": last_cycle.get("UsageDate"),
             "service_charge": last_cycle.get("ServiceCharge"),
-            "usage_hcf": last_cycle.get("UsageValue"),
+            "usage_hcf": round(usage_gallons / HCF_TO_GALLONS, 2),
             "high_usage_level": last_cycle.get("HighUsage"),
         }
 
@@ -231,8 +232,9 @@ class ACWDAverageSensor(ACWDSensorBase):
         if not tentative_data:
             return None
 
-        average_hcf = tentative_data[0].get("Average", 0)
-        return round(average_hcf * HCF_TO_GALLONS, 2)
+        # API returns gallons already
+        average_gallons = tentative_data[0].get("Average", 0)
+        return round(average_gallons, 2)
 
 
 class ACWDHighestSensor(ACWDSensorBase):
@@ -259,5 +261,6 @@ class ACWDHighestSensor(ACWDSensorBase):
         if not tentative_data:
             return None
 
-        highest_hcf = tentative_data[0].get("Highest", 0)
-        return round(highest_hcf * HCF_TO_GALLONS, 2)
+        # API returns gallons already
+        highest_gallons = tentative_data[0].get("Highest", 0)
+        return round(highest_gallons, 2)

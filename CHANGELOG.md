@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.6] - 2025-12-07
+
+### Fixed
+
+- **CRITICAL**: Fixed sensor values being inflated by 748x (showing millions of gallons instead of thousands)
+  - Billing API returns values already in gallons, not HCF
+  - Removed incorrect HCF-to-gallons conversion from all billing cycle sensors
+  - Affected sensors: Current Cycle Usage, Current Cycle Projected, Last Billing Cycle, Average Usage, Highest Usage Ever
+  - Example: Sensor now correctly shows ~8,873 gallons instead of 6,637,281 gallons
+
 ## [1.0.5] - 2025-12-07
 
 ### Fixed
