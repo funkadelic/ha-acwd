@@ -3,6 +3,7 @@
   "name": "ACWD Water Usage",
   "codeowners": ["@funkadelic"],
   "config_flow": true,
+  "dependencies": ["recorder"],
   "documentation": "https://github.com/funkadelic/acwd_usage",
   "integration_type": "service",
   "iot_class": "cloud_polling",
