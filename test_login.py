@@ -199,7 +199,7 @@ def test_hourly_data_conversion(username, password):
     print('  ' + '=' * 40)
     print(f'\n  Daily Total: {daily_total:,.2f} gallons ({len(hourly_data)} hours)')
     print(f'  Average per hour: {daily_total / len(hourly_data):,.2f} gallons')
-    print(f'\n  This is stored in HA as statistic: acwd:<account>_hourly_usage')
+    print(f'\n  This is stored in HA as statistic: acwd:<meter_number>_hourly_usage')
 
     client.logout()
     print('\n[PASS] Hourly data conversion test succeeded')

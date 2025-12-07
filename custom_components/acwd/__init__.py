@@ -59,11 +59,6 @@ async def _async_import_initial_history(
         _LOGGER.debug("Initial history import already completed, skipping")
         return
 
-    account_number = coordinator.client.user_info.get("AccountNumber")
-    if not account_number:
-        _LOGGER.warning("Cannot import initial history: account number not available")
-        return
-
     _LOGGER.info(f"Starting initial import of last {INITIAL_IMPORT_DAYS} days of hourly data")
 
     # Create a fresh client for initial import
@@ -90,6 +85,7 @@ async def _async_import_initial_history(
         # Import each day's hourly data
         successful_imports = 0
         failed_imports = 0
+        meter_number = None
 
         for day_offset in range(INITIAL_IMPORT_DAYS):
             import_date = start_date + timedelta(days=day_offset)
@@ -113,6 +109,14 @@ async def _async_import_initial_history(
                     failed_imports += 1
                     continue
 
+                # Get meter number from client (populated after first get_usage_data call)
+                if not meter_number:
+                    meter_number = import_client.meter_number
+                    if not meter_number:
+                        _LOGGER.warning("Cannot import initial history: meter number not available")
+                        failed_imports += 1
+                        continue
+
                 # Extract hourly records
                 hourly_records = data.get("objUsageGenerationResultSetTwo", [])
 
@@ -124,7 +128,7 @@ async def _async_import_initial_history(
                 # Import into statistics
                 date_dt = datetime.combine(import_date, datetime.min.time())
                 await async_import_hourly_statistics(
-                    hass, str(account_number), hourly_records, date_dt
+                    hass, meter_number, hourly_records, date_dt
                 )
 
                 successful_imports += 1
@@ -199,11 +203,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
             return
 
-        account_number = coordinator.client.user_info.get("AccountNumber")
-        if not account_number:
-            _LOGGER.error("Account number not available")
-            return
-
         # Create a new client instance for the service call
         service_client = ACWDClient(
             entry.data[CONF_USERNAME],
@@ -235,6 +234,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 _LOGGER.error(f"No data returned for {date}")
                 return
 
+            # Get meter number from client
+            meter_number = service_client.meter_number
+            if not meter_number:
+                _LOGGER.error("Meter number not available")
+                return
+
             # Extract hourly records
             hourly_records = data.get("objUsageGenerationResultSetTwo", [])
 
@@ -246,11 +251,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             date_dt = datetime.combine(date, datetime.min.time())
             if granularity == "quarter_hourly":
                 await async_import_quarter_hourly_statistics(
-                    hass, str(account_number), hourly_records, date_dt
+                    hass, meter_number, hourly_records, date_dt
                 )
             else:
                 await async_import_hourly_statistics(
-                    hass, str(account_number), hourly_records, date_dt
+                    hass, meter_number, hourly_records, date_dt
                 )
 
             _LOGGER.info(f"Successfully imported {granularity} data for {date}")
@@ -399,11 +404,6 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
         if self._last_hourly_import_date == yesterday:
             return
 
-        account_number = self.client.user_info.get("AccountNumber")
-        if not account_number:
-            _LOGGER.debug("Account number not available for hourly import")
-            return
-
         try:
             _LOGGER.info(f"Importing hourly data for {yesterday}")
 
@@ -424,6 +424,12 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.debug(f"No hourly data returned for {yesterday}")
                 return
 
+            # Get meter number from client
+            meter_number = self.client.meter_number
+            if not meter_number:
+                _LOGGER.debug("Meter number not available for hourly import")
+                return
+
             # Extract hourly records
             hourly_records = data.get("objUsageGenerationResultSetTwo", [])
 
@@ -434,7 +440,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             # Import into statistics
             date_dt = datetime.combine(yesterday, datetime.min.time())
             await async_import_hourly_statistics(
-                self.hass, str(account_number), hourly_records, date_dt
+                self.hass, meter_number, hourly_records, date_dt
             )
 
             # Mark as imported

@@ -23,7 +23,7 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_import_hourly_statistics(
     hass: HomeAssistant,
-    account_number: str,
+    meter_number: str,
     hourly_data: list[dict[str, Any]],
     date: datetime,
 ) -> None:
@@ -34,17 +34,17 @@ async def async_import_hourly_statistics(
 
     Args:
         hass: Home Assistant instance
-        account_number: ACWD account number
+        meter_number: Water meter number
         hourly_data: List of hourly usage records from ACWD API
         date: The date for which this hourly data applies
     """
-    statistic_id = f"{DOMAIN}:{account_number}_hourly_usage"
+    statistic_id = f"{DOMAIN}:{meter_number}_hourly_usage"
 
     # Create metadata for the statistics
     metadata = StatisticMetaData(
         has_mean=False,
         has_sum=True,
-        name=f"ACWD Water Hourly Usage - {account_number}",
+        name=f"ACWD Water Hourly Usage - Meter {meter_number}",
         source=DOMAIN,
         statistic_id=statistic_id,
         unit_of_measurement=UnitOfVolume.GALLONS,
@@ -104,7 +104,7 @@ async def async_import_hourly_statistics(
 
 async def async_import_quarter_hourly_statistics(
     hass: HomeAssistant,
-    account_number: str,
+    meter_number: str,
     quarter_hourly_data: list[dict[str, Any]],
     date: datetime,
 ) -> None:
@@ -115,17 +115,17 @@ async def async_import_quarter_hourly_statistics(
 
     Args:
         hass: Home Assistant instance
-        account_number: ACWD account number
+        meter_number: Water meter number
         quarter_hourly_data: List of 15-minute usage records from ACWD API
         date: The date for which this data applies
     """
-    statistic_id = f"{DOMAIN}:{account_number}_quarter_hourly_usage"
+    statistic_id = f"{DOMAIN}:{meter_number}_quarter_hourly_usage"
 
     # Create metadata for the statistics
     metadata = StatisticMetaData(
         has_mean=False,
         has_sum=True,
-        name=f"ACWD Water 15-Min Usage - {account_number}",
+        name=f"ACWD Water 15-Min Usage - Meter {meter_number}",
         source=DOMAIN,
         statistic_id=statistic_id,
         unit_of_measurement=UnitOfVolume.GALLONS,
@@ -178,7 +178,7 @@ async def async_import_quarter_hourly_statistics(
 
 async def async_import_daily_statistics(
     hass: HomeAssistant,
-    account_number: str,
+    meter_number: str,
     daily_data: list[dict[str, Any]],
 ) -> None:
     """Import daily water usage data as statistics.
@@ -188,16 +188,16 @@ async def async_import_daily_statistics(
 
     Args:
         hass: Home Assistant instance
-        account_number: ACWD account number
+        meter_number: Water meter number
         daily_data: List of daily usage records from ACWD API
     """
-    statistic_id = f"{DOMAIN}:{account_number}_daily_usage"
+    statistic_id = f"{DOMAIN}:{meter_number}_daily_usage"
 
     # Create metadata
     metadata = StatisticMetaData(
         has_mean=False,
         has_sum=True,
-        name=f"ACWD Water Daily Usage - {account_number}",
+        name=f"ACWD Water Daily Usage - Meter {meter_number}",
         source=DOMAIN,
         statistic_id=statistic_id,
         unit_of_measurement=UnitOfVolume.GALLONS,

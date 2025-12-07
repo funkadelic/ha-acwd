@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.7] - 2025-12-07
+
+### Changed
+
+- **Statistics ID now uses meter number instead of internal account number**
+  - Provides clearer identification of which meter the statistics belong to
+  - **Note**: This creates a new statistic. Old statistics with the previous ID will remain but won't receive new data.
+
 ## [1.0.6] - 2025-12-07
 
 ### Fixed

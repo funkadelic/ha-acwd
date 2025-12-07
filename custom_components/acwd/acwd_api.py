@@ -25,6 +25,7 @@ class ACWDClient:
         self.logged_in = False
         self.user_info = {}
         self.csrf_token = None
+        self._water_meter_number = None
 
     def _get_hidden_fields(self, soup):
         """Extract all hidden form fields from the login page"""
@@ -271,7 +272,7 @@ class ACWDClient:
         # Call BindMultiMeter API to discover available meters and select AMI meter
 
         # Try to discover the correct meter number if not cached
-        if not hasattr(self, '_water_meter_number'):
+        if self._water_meter_number is None:
             # Call BindMultiMeter endpoint to get list of available meters
             bind_meter_url = f"{self.base_url}Usages.aspx/BindMultiMeter"
             bind_payload = {"MeterType": "W"}  # W for water
@@ -312,7 +313,7 @@ class ACWDClient:
                 self._water_meter_number = ''
 
         # Use cached meter number
-        meter_number = self._water_meter_number if hasattr(self, '_water_meter_number') else ''
+        meter_number = self._water_meter_number if self._water_meter_number is not None else ''
 
         # Build final payload with discovered meter number
         payload = {
@@ -359,6 +360,16 @@ class ACWDClient:
             # TODO: Find and implement logout URL if needed
             self.session.close()
             self.logged_in = False
+
+    @property
+    def meter_number(self):
+        """Get the water meter number.
+
+        Returns the AMI-enabled water meter number discovered from the
+        BindMultiMeter API call. This is populated during the first call
+        to get_usage_data().
+        """
+        return self._water_meter_number
 
 
 def main():
