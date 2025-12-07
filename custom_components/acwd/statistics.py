@@ -16,7 +16,7 @@ from homeassistant.const import UnitOfVolume
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, HCF_TO_GALLONS
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -68,11 +68,16 @@ async def async_import_hourly_statistics(
 
     for record in hourly_data:
         # Parse the hour and usage value
-        hour = record.get("Hour", 0)  # Hour of day (0-23)
-        usage_hcf = record.get("UsageValue", 0)  # Usage in HCF
+        hourly_str = record.get("Hourly", "12:00 AM")  # Format: "12:00 AM", "1:00 AM", etc.
+        usage_gallons = record.get("UsageValue", 0)
 
-        # Convert HCF to gallons
-        usage_gallons = usage_hcf * HCF_TO_GALLONS
+        # Parse hour from "HH:MM AM/PM" format
+        try:
+            time_obj = datetime.strptime(hourly_str, "%I:%M %p")
+            hour = time_obj.hour
+        except (ValueError, TypeError):
+            _LOGGER.warning(f"Could not parse hourly time: {hourly_str}")
+            hour = 0
 
         # Add to cumulative sum
         cumulative_sum += usage_gallons
@@ -146,10 +151,7 @@ async def async_import_quarter_hourly_statistics(
         # Assuming API returns Hour and Quarter (0, 15, 30, 45)
         hour = record.get("Hour", 0)
         minute = record.get("Minute", 0)  # Should be 0, 15, 30, or 45
-        usage_hcf = record.get("UsageValue", 0)
-
-        # Convert HCF to gallons
-        usage_gallons = usage_hcf * HCF_TO_GALLONS
+        usage_gallons = record.get("UsageValue", 0)
 
         # Add to cumulative sum
         cumulative_sum += usage_gallons
@@ -219,7 +221,7 @@ async def async_import_daily_statistics(
     for record in daily_data:
         # Parse date and usage
         date_str = record.get("UsageDate")  # Format: "December 3, 2025"
-        usage_hcf = record.get("UsageValue", 0)
+        usage_gallons = record.get("UsageValue", 0)
 
         if not date_str:
             continue
@@ -230,9 +232,6 @@ async def async_import_daily_statistics(
         except (ValueError, TypeError):
             _LOGGER.warning(f"Could not parse date: {date_str}")
             continue
-
-        # Convert HCF to gallons
-        usage_gallons = usage_hcf * HCF_TO_GALLONS
 
         # Add to cumulative sum
         cumulative_sum += usage_gallons

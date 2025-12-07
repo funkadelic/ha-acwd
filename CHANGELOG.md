@@ -11,11 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed statistics import inflating water usage by 748x due to incorrect HCF-to-gallons conversion
 - Fixed Energy Dashboard showing misleading billing cycle totals instead of daily consumption
 
 ### Changed
 
 - Removed state_class from Current Cycle Usage sensor to prevent it from appearing in Energy Dashboard (use imported hourly statistics instead)
+- Statistics import now correctly uses raw gallon values from API without conversion
 
 ## [1.0.3] - 2025-12-06
 
