@@ -42,128 +42,6 @@ SERVICE_IMPORT_DAILY_SCHEMA = vol.Schema({
 })
 
 # Configuration option keys
-CONF_INITIAL_IMPORT_DONE = "initial_import_done"
-INITIAL_IMPORT_DAYS = 7  # Import last 7 days on first setup
-
-
-async def _async_import_initial_history(
-    hass: HomeAssistant, coordinator: ACWDDataUpdateCoordinator
-) -> None:
-    """Import initial historical data on first setup.
-
-    Imports the last 7 days of hourly data when the integration is first installed.
-    This runs in the background and won't block setup if it fails.
-    """
-    # Check if initial import has already been done
-    if coordinator.entry.data.get(CONF_INITIAL_IMPORT_DONE, False):
-        _LOGGER.debug("Initial history import already completed, skipping")
-        return
-
-    _LOGGER.info(f"Starting initial import of last {INITIAL_IMPORT_DAYS} days of hourly data")
-
-    # Create a fresh client for initial import
-    import_client = ACWDClient(
-        coordinator.entry.data[CONF_USERNAME],
-        coordinator.entry.data[CONF_PASSWORD]
-    )
-
-    try:
-        # Calculate date range (ending 2 days ago due to 24-hour delay)
-        end_date = (datetime.now() - timedelta(days=2)).date()
-        start_date = end_date - timedelta(days=INITIAL_IMPORT_DAYS - 1)
-
-        # Login once and reuse the session for all imports
-        logged_in = await hass.async_add_executor_job(import_client.login)
-        if not logged_in:
-            _LOGGER.error("Failed to login for initial history import")
-            hass.config_entries.async_update_entry(
-                coordinator.entry,
-                data={**coordinator.entry.data, CONF_INITIAL_IMPORT_DONE: True}
-            )
-            return
-
-        # Import each day's hourly data
-        successful_imports = 0
-        failed_imports = 0
-        meter_number = None
-
-        for day_offset in range(INITIAL_IMPORT_DAYS):
-            import_date = start_date + timedelta(days=day_offset)
-
-            try:
-                # Format date for API
-                date_str = import_date.strftime("%m/%d/%Y")
-
-                # Fetch hourly data (already logged in)
-                data = await hass.async_add_executor_job(
-                    import_client.get_usage_data,
-                    'H',  # mode
-                    None,  # date_from
-                    None,  # date_to
-                    date_str,  # str_date
-                    'H'  # hourly_type
-                )
-
-                if not data:
-                    _LOGGER.debug(f"No data returned for initial import of {import_date}")
-                    failed_imports += 1
-                    continue
-
-                # Get meter number from client (populated after first get_usage_data call)
-                if not meter_number:
-                    meter_number = import_client.meter_number
-                    if not meter_number:
-                        _LOGGER.warning("Cannot import initial history: meter number not available")
-                        failed_imports += 1
-                        continue
-
-                # Extract hourly records
-                hourly_records = data.get("objUsageGenerationResultSetTwo", [])
-
-                if not hourly_records:
-                    _LOGGER.debug(f"No hourly records for {import_date}")
-                    failed_imports += 1
-                    continue
-
-                # Import into statistics
-                date_dt = datetime.combine(import_date, datetime.min.time())
-                await async_import_hourly_statistics(
-                    hass, meter_number, hourly_records, date_dt
-                )
-
-                successful_imports += 1
-                _LOGGER.info(f"Initial import: imported {import_date} ({successful_imports}/{INITIAL_IMPORT_DAYS})")
-
-            except Exception as err:
-                _LOGGER.warning(f"Failed to import initial data for {import_date}: {err}")
-                failed_imports += 1
-
-        # Logout once at the end
-        try:
-            await hass.async_add_executor_job(import_client.logout)
-        except Exception as err:
-            _LOGGER.debug(f"Error during logout: {err}")
-
-        # Mark initial import as done (even if some days failed)
-        hass.config_entries.async_update_entry(
-            coordinator.entry,
-            data={**coordinator.entry.data, CONF_INITIAL_IMPORT_DONE: True}
-        )
-
-        _LOGGER.info(
-            f"Initial history import completed: {successful_imports} successful, "
-            f"{failed_imports} failed out of {INITIAL_IMPORT_DAYS} days"
-        )
-
-    except Exception as err:
-        _LOGGER.error(f"Error during initial history import: {err}")
-        # Mark as done anyway to avoid retrying on every restart
-        hass.config_entries.async_update_entry(
-            coordinator.entry,
-            data={**coordinator.entry.data, CONF_INITIAL_IMPORT_DONE: True}
-        )
-
-
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up ACWD Water Usage from a config entry."""
     hass.data.setdefault(DOMAIN, {})
@@ -184,9 +62,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Set up platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
-    # First-run: Import last 7 days of historical hourly data
-    await _async_import_initial_history(hass, coordinator)
 
     # Register services
     async def handle_import_hourly(call: ServiceCall) -> None:

@@ -48,6 +48,7 @@ async def async_import_hourly_statistics(
         source=DOMAIN,
         statistic_id=statistic_id,
         unit_of_measurement=UnitOfVolume.GALLONS,
+        mean_type=None,
     )
 
     # Get the last imported statistics to determine the cumulative sum
@@ -129,6 +130,7 @@ async def async_import_quarter_hourly_statistics(
         source=DOMAIN,
         statistic_id=statistic_id,
         unit_of_measurement=UnitOfVolume.GALLONS,
+        mean_type=None,
     )
 
     # Get the last imported statistics
@@ -201,6 +203,7 @@ async def async_import_daily_statistics(
         source=DOMAIN,
         statistic_id=statistic_id,
         unit_of_measurement=UnitOfVolume.GALLONS,
+        mean_type=None,
     )
 
     # Get last statistics

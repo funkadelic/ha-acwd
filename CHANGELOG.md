@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.8] - 2025-12-07
+
+### Removed
+
+- **Removed automatic initial 7-day history import on first setup**
+  - Eliminates complexity and prevents duplicate import issues
+  - Users can still import historical data using the `acwd.import_usage_data` service
+  - Automatic daily import continues to work normally (imports yesterday's data each day)
+  - Simplifies codebase and makes integration more reliable
+
+### Fixed
+
+- Added `mean_type=None` to all StatisticMetaData to comply with Home Assistant 2026.11 requirements
+
 ## [1.0.7] - 2025-12-07
 
 ### Changed
