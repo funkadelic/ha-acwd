@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.9] - 2025-12-07
+
+### Changed
+
+- **Reduced update interval from 6 hours to 1 hour for more frequent data checks**
+- **Changed automatic import to fetch yesterday's data (1 day ago) instead of 2 days ago**
+  - Allows for faster data availability in Home Assistant
+  - Integration will now attempt to import yesterday's data and log when data becomes available
+- **Added logging to show the last hourly window with non-zero usage**
+  - Helps identify actual ACWD data reporting delay
+  - Logged as: "Last hour with data for YYYY-MM-DD: HH:MM AM/PM"
+
 ## [1.0.8] - 2025-12-07
 
 ### Removed

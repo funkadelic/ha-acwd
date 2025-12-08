@@ -23,8 +23,8 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
-# Update interval - ACWD has 24-hour data delay, update every 6 hours
-UPDATE_INTERVAL = timedelta(hours=6)
+# Update interval - check for new data every hour
+UPDATE_INTERVAL = timedelta(hours=1)
 
 # Service names
 SERVICE_IMPORT_HOURLY = "import_hourly_data"
@@ -272,8 +272,8 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _import_yesterday_hourly_data(self):
         """Automatically import yesterday's hourly data into statistics."""
-        # Calculate yesterday's date (2 days ago to account for 24-hour delay)
-        yesterday = (datetime.now() - timedelta(days=2)).date()
+        # Calculate yesterday's date (1 day ago)
+        yesterday = (datetime.now() - timedelta(days=1)).date()
 
         # Only import once per day
         if self._last_hourly_import_date == yesterday:
@@ -311,6 +311,19 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             if not hourly_records:
                 _LOGGER.debug(f"No hourly records available for {yesterday}")
                 return
+
+            # Find last hour with usage > 0 to determine actual data availability
+            last_nonzero_hour = None
+            for record in reversed(hourly_records):
+                usage = record.get("UsageValue", 0)
+                if usage > 0:
+                    last_nonzero_hour = record.get("Hourly", "unknown")
+                    break
+
+            if last_nonzero_hour:
+                _LOGGER.info(f"Last hour with data for {yesterday}: {last_nonzero_hour}")
+            else:
+                _LOGGER.info(f"No non-zero usage found for {yesterday}")
 
             # Import into statistics
             date_dt = datetime.combine(yesterday, datetime.min.time())
