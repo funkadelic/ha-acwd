@@ -56,7 +56,7 @@ After installation, add the water sensor to your Energy Dashboard:
 
 1. Go to **Settings → Dashboards → Energy**
 2. Under "Water Consumption", click "Add Water Source"
-3. Select **"ACWD Water - [Your Name] Current Cycle Usage"**
+3. Select **"ACWD Water Hourly Usage - Meter XXXXXXXXX"** (where XXXXXXXXX is your actual AMI meter number)
 4. Click "Save"
 
 The sensor provides water consumption in gallons, compatible with the Energy Dashboard.
@@ -75,16 +75,17 @@ The integration creates the following sensors:
 
 ## Granular Hourly Data
 
-The integration automatically imports hourly water usage data into Home Assistant's long-term statistics database. This provides **granular hourly breakdowns** in the Energy Dashboard for historical days.
+The integration automatically imports hourly water usage data into Home Assistant's long-term statistics database. This provides **near real-time hourly breakdowns** in the Energy Dashboard.
 
 ### How It Works
 
-1. **First-Time Setup**: On initial installation, the integration automatically imports the **last 7 days** of hourly water usage data. This provides immediate historical context in your Energy Dashboard.
-2. **Ongoing Automatic Import**: Every 6 hours, the integration automatically imports hourly data for 2 days ago (accounting for ACWD's 24-hour data delay)
-3. **Energy Dashboard Integration**: The hourly data appears in the Energy Dashboard, allowing you to see water usage broken down by hour for any historical day
+1. **First-Time Setup**: On initial installation, the integration automatically imports **yesterday's complete hourly data**. This provides immediate feedback that the integration is working.
+2. **Ongoing Automatic Import**: Every hour, the integration automatically imports **today's partial hourly data** (whatever ACWD has available, typically with a 3-4 hour delay)
+3. **Energy Dashboard Integration**: The hourly data appears in the Energy Dashboard, allowing you to see water usage broken down by hour
 4. **Long-term Storage**: Data is stored in Home Assistant's statistics database, separate from regular sensor states
+5. **Smart Duplicate Handling**: Re-importing the same hour automatically replaces the old value - no duplicates
 
-**Note:** The initial 7-day import happens in the background after setup completes. You can check the Home Assistant logs to monitor progress.
+**Example:** At 2 PM, you'll typically see today's data up to ~11 AM. The integration fetches updates every hour as more data becomes available.
 
 ### Manual Data Import Services
 
@@ -98,7 +99,7 @@ Import hourly or 15-minute interval data for a specific date.
 
 **Parameters:**
 
-- `date`: Date to import (YYYY-MM-DD format, must be at least 2 days ago)
+- `date`: Date to import (YYYY-MM-DD format)
 - `granularity`: Choose `hourly` (default) or `quarter_hourly` (15-minute intervals)
 
 **Example:**
@@ -163,17 +164,20 @@ data:
 
 ### No data showing
 
-- ACWD has a 24-hour data delay - current day's data is not available
-- Wait 6 hours for first data refresh
+- ACWD has a variable reporting delay (typically 3-4 hours)
+- Today's data is available, but with a delay
+- Check integration logs for "Latest available data" messages
+- Wait up to 1 hour for next automatic import
 - Check integration logs for errors
 
 ## Update Frequency
 
-The integration updates every 6 hours. This is appropriate because:
+The integration updates **every hour**. This provides:
 
-- ACWD portal has a 24-hour data delay
-- Billing cycles are long (typically 2 months)
-- Frequent updates are unnecessary and would waste resources
+- Near real-time water usage updates
+- Today's partial data imported automatically
+- Adapts to ACWD's variable reporting delay
+- Energy Dashboard shows current day usage with minimal lag
 
 ## Support
 

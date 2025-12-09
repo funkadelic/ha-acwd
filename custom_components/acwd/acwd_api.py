@@ -64,7 +64,7 @@ class ACWDClient:
 
         # Store CSRF token for future requests
         self.csrf_token = csrf_token
-        logger.info(f"CSRF Token: {csrf_token[:20]}...")
+        logger.debug("CSRF token obtained")
 
         # Step 3: Call updateState endpoint
         logger.info("Calling updateState endpoint...")
@@ -119,7 +119,7 @@ class ACWDClient:
         # Step 5: Check the response from validateLogin
         try:
             result = validate_response.json()
-            logger.info(f"validateLogin response: {result}")
+            logger.debug("validateLogin response received")
 
             # ASP.NET WebMethods wrap response in 'd' property
             if 'd' not in result:
@@ -129,7 +129,7 @@ class ACWDClient:
             # Parse the inner JSON (it's a JSON string inside 'd')
             import json
             login_data = json.loads(result['d'])
-            logger.info(f"Parsed login data (first 200 chars): {str(login_data)[:200]}...")
+            logger.debug("Login response parsed successfully")
 
             # Check for special cases
             if result['d'] == "Migrated User Found":
@@ -157,9 +157,7 @@ class ACWDClient:
 
                         # Store user info
                         self.user_info = main_table
-                        logger.info(f"Logged in as: {main_table.get('Name', 'Unknown')}")
-                        logger.info(f"Account Number: {main_table.get('AccountNumber', 'N/A')}")
-                        logger.info(f"Utility Account: {main_table.get('UtilityAccountNumber', 'N/A')}")
+                        logger.debug("User information stored")
 
                         # Determine which dashboard to use
                         dashboard_option = main_table.get('DashboardOption', '1')

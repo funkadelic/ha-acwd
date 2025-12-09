@@ -19,7 +19,7 @@ A **HACS-compatible custom integration** that brings your ACWD (Alameda County W
 | Average Usage | Historical average per cycle | Gallons | ❌ No |
 | Highest Usage Ever | Peak usage record | Gallons | ❌ No |
 
-The integration updates every **6 hours** and automatically imports **hourly water usage data** for historical days, providing granular breakdowns in the Energy Dashboard.
+The integration updates **every hour** and automatically imports **today's partial hourly water usage data**, providing near real-time granular breakdowns in the Energy Dashboard.
 
 ## Installation
 
@@ -33,20 +33,22 @@ See [INSTALLATION.md](INSTALLATION.md) for complete setup instructions including
 
 ## Key Features
 
-- **Automatic Initial Import**: On first installation, automatically imports the last 7 days of hourly data
-- **Continuous Hourly Tracking**: Automatically imports yesterday's hourly usage every 6 hours
+- **Near Real-Time Updates**: Hourly polling automatically imports today's partial usage data (adapts to ACWD's variable reporting delay)
+- **Automatic Initial Import**: On first installation, imports yesterday's complete hourly data for immediate feedback
 - **Manual Import Services**: Import historical data for any date range via Home Assistant services
 - **Energy Dashboard Integration**: Full compatibility with Home Assistant's Energy Dashboard
 - **Long-term Statistics**: Data stored in HA's statistics database for historical analysis
 - **15-Minute Interval Support**: Optional 15-minute data available via manual service (note: Energy Dashboard displays hourly granularity; 15-min data useful for custom cards, automations, and advanced analysis)
+- **Smart Duplicate Handling**: Statistics system automatically handles re-imports by replacing existing timestamps
 
 ## Data Availability
 
-⚠️ **The ACWD portal has a 24-hour data delay**. This means:
+⚠️ **The ACWD portal has a variable reporting delay** (typically 3-4 hours). This means:
 
-- Today's usage data is **NOT** available
-- You can only retrieve data from yesterday and earlier
-- This limitation applies to the ACWD portal itself
+- Today's usage data **is available**, but with a delay
+- The integration fetches whatever ACWD has available every hour
+- Example: At 2 PM, you'll typically see data up to ~11 AM
+- This delay applies to the ACWD portal itself, not the integration
 
 ## Contributing
 
