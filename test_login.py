@@ -57,7 +57,9 @@ def get_credentials():
 
 def test_fresh_client_instances(username, password):
     """Test creating multiple fresh client instances (validates session management fix)."""
-    print('Testing fresh client instances (simulates initial import behavior):\n')
+    print('\n' + '=' * 60)
+    print('🤖 Test 1: Fresh Client Instances')
+    print('=' * 60)
 
     for i in range(3):
         print(f'  Creating client instance {i+1}...')
@@ -77,12 +79,12 @@ def test_fresh_client_instances(username, password):
             records = data.get('objUsageGenerationResultSetTwo', [])
             print(f'    [PASS] Fetched {len(records)} hourly records for {test_date}')
 
-            # Show first 3 hours of data (raw values from API)
+            # Show all hourly data (raw values from API)
             if records and i == 0:  # Only show details for first instance
-                print(f'\n    Sample hourly data (first 3 hours):')
+                print(f'\n    All hourly data:')
                 print(f'    {"Time":<12} {"Gallons":<15}')
                 print(f'    {"-" * 27}')
-                for record in records[:3]:
+                for record in records:
                     hourly_str = record.get("Hourly", "12:00 AM")
                     usage_value = record.get("UsageValue", 0)
                     print(f'    {hourly_str:<12} {usage_value:<15.2f}')
@@ -95,13 +97,15 @@ def test_fresh_client_instances(username, password):
         client.logout()
         print(f'    [PASS] Logout successful\n')
 
-    print('[PASS] All fresh client instances worked correctly')
+    print('\n[PASS] All fresh client instances worked correctly')
     return True
 
 
 def test_reused_session(username, password):
     """Test reusing a single session for multiple API calls."""
-    print('Testing reused session for multiple days:\n')
+    print('\n' + '=' * 60)
+    print('🤖 Test 2: Reused Session')
+    print('=' * 60)
 
     client = ACWDClient(username, password)
 
@@ -121,12 +125,12 @@ def test_reused_session(username, password):
             records = data.get('objUsageGenerationResultSetTwo', [])
             print(f'    [PASS] Retrieved {len(records)} hourly records')
 
-            # Show first 3 hours of data for first day only
+            # Show all hourly data for first day only
             if records and i == 0:
-                print(f'\n    Sample hourly data (first 3 hours):')
+                print(f'\n    All hourly data:')
                 print(f'    {"Time":<12} {"Gallons":<15}')
                 print(f'    {"-" * 27}')
-                for record in records[:3]:
+                for record in records:
                     hourly_str = record.get("Hourly", "12:00 AM")
                     usage_value = record.get("UsageValue", 0)
                     print(f'    {hourly_str:<12} {usage_value:<15.2f}')
@@ -143,7 +147,9 @@ def test_reused_session(username, password):
 
 def test_hourly_data_conversion(username, password):
     """Test and display how hourly data is converted for HA statistics."""
-    print('Testing hourly data conversion (API -> HA Statistics):\n')
+    print('\n' + '=' * 60)
+    print('🤖 Test 3: Hourly Data Conversion')
+    print('=' * 60)
 
     client = ACWDClient(username, password)
 
@@ -206,6 +212,155 @@ def test_hourly_data_conversion(username, password):
     return True
 
 
+def test_cumulative_sum_across_days(username, password):
+    """Test cumulative sum calculation across day boundaries.
+
+    This validates the fix for negative midnight values by:
+    1. Fetching yesterday's data and calculating final cumulative sum
+    2. Fetching today's data and starting from yesterday's final sum
+    3. Verifying the midnight hour doesn't show negative values
+    """
+    from datetime import timedelta
+
+    print('\n' + '=' * 60)
+    print('🤖 Test 4: Cumulative Sum Across Days')
+    print('=' * 60)
+
+    client = ACWDClient(username, password)
+
+    if not client.login():
+        print('[FAIL] Login failed')
+        return False
+
+    try:
+        yesterday = (datetime.now() - timedelta(days=1)).date()
+        today = datetime.now().date()
+
+        print(f'\n1. Fetching YESTERDAY ({yesterday}) data...')
+        yesterday_str = yesterday.strftime('%m/%d/%Y')
+        yesterday_data = client.get_usage_data('H', None, None, yesterday_str, 'H')
+
+        if not yesterday_data:
+            print('[WARN] No yesterday data available')
+            yesterday_final_sum = 0
+            yesterday_total = 0
+        else:
+            yesterday_records = yesterday_data.get('objUsageGenerationResultSetTwo', [])
+
+            # Calculate yesterday's cumulative sum
+            yesterday_cumulative = 0
+            yesterday_total = 0
+            for record in yesterday_records:
+                usage = record.get('UsageValue', 0)
+                yesterday_cumulative += usage
+                yesterday_total += usage
+
+            yesterday_final_sum = yesterday_cumulative
+            print(f'   Yesterday total: {yesterday_total:,.2f} gallons ({len(yesterday_records)} hours)')
+            print(f'   Yesterday final cumulative sum: {yesterday_final_sum:,.2f} gallons')
+
+        print(f'\n2. Fetching TODAY ({today}) data...')
+        today_str = today.strftime('%m/%d/%Y')
+        today_data = client.get_usage_data('H', None, None, today_str, 'H')
+
+        if not today_data:
+            print('[FAIL] No today data available')
+            return False
+
+        today_records = today_data.get('objUsageGenerationResultSetTwo', [])
+
+        print(f'\n3. Calculating today\'s cumulative sum starting from yesterday\'s final sum...')
+        print(f'   Baseline (yesterday final): {yesterday_final_sum:,.2f} gallons')
+        print(f'\n   Hour         Usage (gal)     Cumulative (gal)')
+        print('   ' + '-' * 45)
+
+        # Start today's cumulative sum from yesterday's final
+        cumulative_sum = yesterday_final_sum
+        today_total = 0
+        first_hour = None
+
+        for record in today_records:
+            hourly_str = record.get('Hourly', '12:00 AM')
+            usage = record.get('UsageValue', 0)
+            cumulative_sum += usage
+            today_total += usage
+
+            # Parse hour for display
+            try:
+                time_obj = datetime.strptime(hourly_str, '%I:%M %p')
+                hour = time_obj.hour
+                display_time = f'{hour:02d}:00'
+            except (ValueError, TypeError):
+                display_time = hourly_str
+
+            # Save first hour for validation
+            if first_hour is None:
+                first_hour = {
+                    'time': display_time,
+                    'usage': usage,
+                    'cumulative': cumulative_sum
+                }
+
+            # Only show first 5 and last 3 hours to keep output concise
+            if len([r for r in today_records if r.get('UsageValue', 0) > 0]) <= 8 or \
+               today_records.index(record) < 5 or \
+               today_records.index(record) >= len(today_records) - 3:
+                print(f'   {display_time:<12} {usage:>14.2f}     {cumulative_sum:>14.2f}')
+            elif today_records.index(record) == 5:
+                print('   ...')
+
+        print('   ' + '=' * 45)
+        print(f'\n4. Validation Results:')
+        print(f'   Yesterday total: {yesterday_total:,.2f} gallons')
+        print(f'   Today total so far: {today_total:,.2f} gallons ({len(today_records)} hours)')
+        print(f'   Today\'s first hour ({first_hour["time"]}):')
+        print(f'      Usage: {first_hour["usage"]:,.2f} gallons')
+        print(f'      Cumulative: {first_hour["cumulative"]:,.2f} gallons')
+
+        # Validation checks
+        print(f'\n5. Validation Checks:')
+
+        # Check 1: First hour cumulative should be positive
+        if first_hour['cumulative'] < 0:
+            print(f'   ❌ FAIL: First hour cumulative is NEGATIVE ({first_hour["cumulative"]:.2f})')
+            return False
+        else:
+            print(f'   ✅ PASS: First hour cumulative is positive ({first_hour["cumulative"]:,.2f})')
+
+        # Check 2: First hour cumulative should equal yesterday's final + first hour usage
+        expected_first_cumulative = yesterday_final_sum + first_hour['usage']
+        if abs(first_hour['cumulative'] - expected_first_cumulative) < 0.01:
+            print(f'   ✅ PASS: First hour cumulative matches expected')
+            print(f'      ({yesterday_final_sum:,.2f} + {first_hour["usage"]:.2f} = {expected_first_cumulative:,.2f})')
+        else:
+            print(f'   ❌ FAIL: First hour cumulative doesn\'t match')
+            print(f'      Expected: {expected_first_cumulative:,.2f}')
+            print(f'      Got: {first_hour["cumulative"]:.2f}')
+            return False
+
+        # Check 3: Final cumulative should equal yesterday + today
+        expected_final = yesterday_final_sum + today_total
+        if abs(cumulative_sum - expected_final) < 0.01:
+            print(f'   ✅ PASS: Final cumulative matches expected')
+            print(f'      ({yesterday_final_sum:,.2f} + {today_total:,.2f} = {expected_final:,.2f})')
+        else:
+            print(f'   ❌ FAIL: Final cumulative doesn\'t match')
+            print(f'      Expected: {expected_final:,.2f}')
+            print(f'      Got: {cumulative_sum:.2f}')
+            return False
+
+        print('\n[PASS] Cumulative sum across days validated successfully!')
+        return True
+
+    except Exception as e:
+        print(f'[FAIL] Test failed with error: {e}')
+        import traceback
+        traceback.print_exc()
+        return False
+    finally:
+        client.logout()
+
+
 if __name__ == '__main__':
     print('=' * 60)
     print('ACWD API Login Test Suite')
@@ -231,13 +386,16 @@ if __name__ == '__main__':
     # Test 3: Hourly data conversion (shows what gets inserted into HA)
     results.append(('Hourly Data Conversion', test_hourly_data_conversion(username, password)))
 
+    # Test 4: Cumulative sum across days (validates the fix for negative midnight values)
+    results.append(('Cumulative Sum Across Days', test_cumulative_sum_across_days(username, password)))
+
     # Summary
     print('\n' + '=' * 60)
     print('Test Summary:')
     print('=' * 60)
     for name, passed in results:
-        status = '[PASS]' if passed else '[FAIL]'
-        print(f'{name}: {status}')
+        status = '✅ [PASS]' if passed else '❌ [FAIL]'
+        print(f'{status}: {name}')
 
     all_passed = all(result for _, result in results)
     print('=' * 60)

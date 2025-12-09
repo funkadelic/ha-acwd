@@ -51,17 +51,38 @@ async def async_import_hourly_statistics(
         unit_class="volume",
     )
 
-    # Get the last imported statistics to determine the cumulative sum
+    # Get the last statistic from BEFORE the target date to get the correct baseline
+    # This ensures we start from yesterday's final sum, not from earlier today
+    target_date_start = dt_util.as_utc(date.replace(hour=0, minute=0, second=0, microsecond=0))
+
     last_stats = await get_instance(hass).async_add_executor_job(
         get_last_statistics, hass, 1, statistic_id, True, {"sum"}
     )
 
     # Start cumulative sum from last known value or 0
+    # If the last statistic is from the target date, we need to look further back
     last_sum = 0
     if statistic_id in last_stats:
         stats_list = last_stats[statistic_id]
         if stats_list:
-            last_sum = stats_list[0]["sum"]
+            last_stat_time = stats_list[0].get("start")
+            # Only use the last sum if it's from before the target date
+            # Otherwise, we'd be adding today's values on top of today's partial sum
+            if last_stat_time and last_stat_time < target_date_start:
+                last_sum = stats_list[0]["sum"]
+            else:
+                # Last statistic is from target date, need to get sum from day before
+                _LOGGER.debug(f"Last statistic is from target date {date.date()}, fetching baseline from previous day")
+                # Get more history to find the last stat before target date
+                last_stats_extended = await get_instance(hass).async_add_executor_job(
+                    get_last_statistics, hass, 48, statistic_id, True, {"sum"}  # Get up to 48 hours
+                )
+                if statistic_id in last_stats_extended:
+                    for stat in last_stats_extended[statistic_id]:
+                        if stat.get("start") < target_date_start:
+                            last_sum = stat["sum"]
+                            _LOGGER.debug(f"Found baseline sum {last_sum} from {stat.get('start')}")
+                            break
 
     # Convert hourly data to statistics
     statistics: list[StatisticData] = []

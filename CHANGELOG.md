@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.13] - 2025-12-09
+
+### Fixed
+
+- Fixed negative cumulative values at midnight by ensuring baseline starts from previous day's final sum
+- Added validation test to verify cumulative sum calculations across day boundaries
+
 ## [1.0.12] - 2025-12-09
 
 ### Fixed
