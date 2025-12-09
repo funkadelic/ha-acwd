@@ -4,7 +4,7 @@
 
 ### Prerequisites
 
-- Home Assistant 2023.1.0 or newer
+- Home Assistant 2023.1.0 or newer (tested through 2025.x)
 - HACS installed
 
 ### Steps
@@ -26,7 +26,7 @@
    - Go to Settings → Devices & Services
    - Click "+ Add Integration"
    - Search for "ACWD Water Usage"
-   - Enter your ACWD portal credentials:
+   - Enter your ACWD portal credentials (stored securely in Home Assistant's encrypted credential storage):
      - **Email**: Your ACWD portal email address
      - **Password**: Your ACWD portal password
    - Click "Submit"
@@ -52,26 +52,24 @@
 
 ## Energy Dashboard Configuration
 
-After installation, add the water sensor to your Energy Dashboard:
+After installation, add the hourly water usage statistic to your Energy Dashboard:
 
 1. Go to **Settings → Dashboards → Energy**
 2. Under "Water Consumption", click "Add Water Source"
 3. Select **"ACWD Water Hourly Usage - Meter XXXXXXXXX"** (where XXXXXXXXX is your actual AMI meter number)
 4. Click "Save"
 
-The sensor provides water consumption in gallons, compatible with the Energy Dashboard.
+## Available Entities
 
-## Available Sensors
+The integration creates the following entities:
 
-The integration creates the following sensors:
-
-| Sensor | Description | Unit | Energy Dashboard |
-|--------|-------------|------|------------------|
-| Current Cycle Usage | Water used in current billing cycle | Gallons | ✅ Yes |
-| Current Cycle Projected | Projected total for current cycle | Gallons | ❌ No |
-| Last Billing Cycle | Previous billing cycle usage | Gallons | ❌ No |
-| Average Usage | Historical average per cycle | Gallons | ❌ No |
-| Highest Usage Ever | Peak usage record | Gallons | ❌ No |
+| Entity | Description | Unit |
+|--------|-------------|------|
+| Current Cycle Usage | Water used in current billing cycle | Gallons |
+| Current Cycle Projected | Projected total for current billing cycle | Gallons |
+| Last Billing Cycle | Previous billing cycle usage | Gallons |
+| Average Usage | Historical average per billing cycle | Gallons |
+| Highest Usage Ever | Peak usage record | Gallons |
 
 ## Granular Hourly Data
 
@@ -83,7 +81,8 @@ The integration automatically imports hourly water usage data into Home Assistan
 2. **Ongoing Automatic Import**: Every hour, the integration automatically imports **today's partial hourly data** (whatever ACWD has available, typically with a 3-4 hour delay)
 3. **Energy Dashboard Integration**: The hourly data appears in the Energy Dashboard, allowing you to see water usage broken down by hour
 4. **Long-term Storage**: Data is stored in Home Assistant's statistics database, separate from regular sensor states
-5. **Smart Duplicate Handling**: Re-importing the same hour automatically replaces the old value - no duplicates
+5. **Smart Duplicate Handling**: Re-importing the same hour automatically replaces the old value - no duplicates created
+6. **Cumulative Sum Tracking**: The integration correctly maintains cumulative water usage totals across day boundaries, ensuring accurate historical tracking
 
 **Example:** At 2 PM, you'll typically see today's data up to ~11 AM. The integration fetches updates every hour as more data becomes available.
 
@@ -159,8 +158,8 @@ data:
 ### Login fails
 
 - Verify credentials at <https://portal.acwd.org/portal/>
-- Check for special characters in password (the integration handles these correctly)
 - Ensure your account is active
+- After several failed login attempts, the ACWD portal will temporarily lock your account. You'll need to wait a few hours before trying to log in again
 
 ### No data showing
 
