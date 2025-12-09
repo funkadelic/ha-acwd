@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.10] - 2025-12-07
+
+### Added
+
+- One-time initial import of yesterday's data on first setup
+
+### Changed
+
+- Changed automatic import to fetch today's partial data every hour instead of yesterday's complete data once per day
+
 ## [1.0.9] - 2025-12-07
 
 ### Changed
