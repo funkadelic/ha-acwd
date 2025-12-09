@@ -48,7 +48,6 @@ async def async_import_hourly_statistics(
         source=DOMAIN,
         statistic_id=statistic_id,
         unit_of_measurement=UnitOfVolume.GALLONS.value,
-        mean_type=None,
         unit_class="volume",
     )
 
@@ -131,7 +130,6 @@ async def async_import_quarter_hourly_statistics(
         source=DOMAIN,
         statistic_id=statistic_id,
         unit_of_measurement=UnitOfVolume.GALLONS.value,
-        mean_type=None,
         unit_class="volume",
     )
 
@@ -205,7 +203,6 @@ async def async_import_daily_statistics(
         source=DOMAIN,
         statistic_id=statistic_id,
         unit_of_measurement=UnitOfVolume.GALLONS.value,
-        mean_type=None,
         unit_class="volume",
     )
 

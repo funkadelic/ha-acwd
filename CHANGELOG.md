@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.12] - 2025-12-09
+
+### Fixed
+
+- Fixed statistics import database error by removing `mean_type=None` parameter (NOT NULL constraint)
+
 ## [1.0.11] - 2025-12-08
 
 ### Fixed
