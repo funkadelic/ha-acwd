@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.14] - 2025-12-09
+
+### Fixed
+
+- Fixed type comparison error when timestamp is returned as float instead of datetime object
+
 ## [1.0.13] - 2025-12-09
 
 ### Fixed

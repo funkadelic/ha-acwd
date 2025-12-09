@@ -66,6 +66,12 @@ async def async_import_hourly_statistics(
         stats_list = last_stats[statistic_id]
         if stats_list:
             last_stat_time = stats_list[0].get("start")
+
+            # Ensure last_stat_time is a datetime object (might be float/Unix timestamp)
+            if last_stat_time and not isinstance(last_stat_time, datetime):
+                from datetime import datetime as dt_class
+                last_stat_time = dt_class.fromtimestamp(last_stat_time, tz=dt_util.UTC)
+
             # Only use the last sum if it's from before the target date
             # Otherwise, we'd be adding today's values on top of today's partial sum
             if last_stat_time and last_stat_time < target_date_start:
@@ -79,9 +85,15 @@ async def async_import_hourly_statistics(
                 )
                 if statistic_id in last_stats_extended:
                     for stat in last_stats_extended[statistic_id]:
-                        if stat.get("start") < target_date_start:
+                        stat_time = stat.get("start")
+                        # Ensure it's a datetime object
+                        if stat_time and not isinstance(stat_time, datetime):
+                            from datetime import datetime as dt_class
+                            stat_time = dt_class.fromtimestamp(stat_time, tz=dt_util.UTC)
+
+                        if stat_time and stat_time < target_date_start:
                             last_sum = stat["sum"]
-                            _LOGGER.debug(f"Found baseline sum {last_sum} from {stat.get('start')}")
+                            _LOGGER.debug(f"Found baseline sum {last_sum} from {stat_time}")
                             break
 
     # Convert hourly data to statistics
