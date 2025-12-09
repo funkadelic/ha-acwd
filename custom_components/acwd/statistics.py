@@ -47,8 +47,9 @@ async def async_import_hourly_statistics(
         name=f"ACWD Water Hourly Usage - Meter {meter_number}",
         source=DOMAIN,
         statistic_id=statistic_id,
-        unit_of_measurement=UnitOfVolume.GALLONS,
+        unit_of_measurement=UnitOfVolume.GALLONS.value,
         mean_type=None,
+        unit_class="volume",
     )
 
     # Get the last imported statistics to determine the cumulative sum
@@ -129,8 +130,9 @@ async def async_import_quarter_hourly_statistics(
         name=f"ACWD Water 15-Min Usage - Meter {meter_number}",
         source=DOMAIN,
         statistic_id=statistic_id,
-        unit_of_measurement=UnitOfVolume.GALLONS,
+        unit_of_measurement=UnitOfVolume.GALLONS.value,
         mean_type=None,
+        unit_class="volume",
     )
 
     # Get the last imported statistics
@@ -202,8 +204,9 @@ async def async_import_daily_statistics(
         name=f"ACWD Water Daily Usage - Meter {meter_number}",
         source=DOMAIN,
         statistic_id=statistic_id,
-        unit_of_measurement=UnitOfVolume.GALLONS,
+        unit_of_measurement=UnitOfVolume.GALLONS.value,
         mean_type=None,
+        unit_class="volume",
     )
 
     # Get last statistics

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.11] - 2025-12-08
+
+### Fixed
+
+- Fixed statistics import error
+- Fixed initial import error
+
 ## [1.0.10] - 2025-12-07
 
 ### Added

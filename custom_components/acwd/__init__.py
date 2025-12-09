@@ -234,18 +234,24 @@ async def _async_import_initial_yesterday_data(
         yesterday = (datetime.now() - timedelta(days=1)).date()
         _LOGGER.info(f"Initial setup: Importing yesterday's data ({yesterday})")
 
+        # Create a fresh client instance to avoid session conflicts
+        from .acwd_api import ACWDClient
+        username = coordinator.entry.data.get(CONF_USERNAME)
+        password = coordinator.entry.data.get(CONF_PASSWORD)
+        fresh_client = ACWDClient(username, password)
+
         # Format date for API
         date_str = yesterday.strftime("%m/%d/%Y")
 
         # Login
-        logged_in = await hass.async_add_executor_job(coordinator.client.login)
+        logged_in = await hass.async_add_executor_job(fresh_client.login)
         if not logged_in:
             _LOGGER.warning("Initial import: Failed to login to ACWD portal")
             return
 
         # Fetch hourly data
         data = await hass.async_add_executor_job(
-            coordinator.client.get_usage_data,
+            fresh_client.get_usage_data,
             'H',  # mode
             None,  # date_from
             None,  # date_to
@@ -254,14 +260,14 @@ async def _async_import_initial_yesterday_data(
         )
 
         # Logout
-        await hass.async_add_executor_job(coordinator.client.logout)
+        await hass.async_add_executor_job(fresh_client.logout)
 
         if not data:
             _LOGGER.debug(f"Initial import: No data returned for {yesterday}")
             return
 
         # Get meter number
-        meter_number = coordinator.client.meter_number
+        meter_number = fresh_client.meter_number
         if not meter_number:
             _LOGGER.debug("Initial import: Meter number not available")
             return
