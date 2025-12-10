@@ -78,13 +78,14 @@ The integration automatically imports hourly water usage data into Home Assistan
 ### How It Works
 
 1. **First-Time Setup**: On initial installation, the integration automatically imports **yesterday's complete hourly data**. This provides immediate feedback that the integration is working.
-2. **Ongoing Automatic Import**: Every hour, the integration automatically imports **today's partial hourly data** (whatever ACWD has available, typically with a 3-4 hour delay)
-3. **Energy Dashboard Integration**: The hourly data appears in the Energy Dashboard, allowing you to see water usage broken down by hour
-4. **Long-term Storage**: Data is stored in Home Assistant's statistics database, separate from regular sensor states
-5. **Smart Duplicate Handling**: Re-importing the same hour automatically replaces the old value - no duplicates created
-6. **Cumulative Sum Tracking**: The integration correctly maintains cumulative water usage totals across day boundaries, ensuring accurate historical tracking
+2. **Hourly Updates**: Every hour, the integration automatically imports **today's partial hourly data** (whatever ACWD has available, typically with a 3-4 hour delay)
+3. **Early Morning Completion**: Between midnight and 6 AM, the integration also re-imports **yesterday's data** to capture the final hours (9 PM - 11 PM) that only become available overnight due to reporting delay
+4. **Energy Dashboard Integration**: The hourly data appears in the Energy Dashboard, allowing you to see water usage broken down by hour
+5. **Long-term Storage**: Data is stored in Home Assistant's statistics database, separate from regular sensor states
+6. **Smart Duplicate Handling**: Re-importing the same hour automatically replaces the old value - no duplicates created
+7. **Cumulative Sum Tracking**: The integration correctly maintains cumulative water usage totals across day boundaries, ensuring accurate historical tracking
 
-**Example:** At 2 PM, you'll typically see today's data up to ~11 AM. The integration fetches updates every hour as more data becomes available.
+**Example:** At 2 PM, you'll typically see today's data up to ~11 AM. By 6 AM the next morning, yesterday's complete 24-hour data will be available.
 
 ### Manual Data Import Services
 

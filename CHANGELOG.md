@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.15] - 2025-12-09
+
+### Fixed
+
+- Fixed missing last few hours of yesterday's data by automatically re-importing yesterday's complete data during early morning hours (midnight - 6 AM)
+- This addresses the edge case where yesterday's final hours (typically 9 PM - 11 PM) only become available after midnight due to ACWD's 3-4 hour reporting delay
+
 ## [1.0.14] - 2025-12-09
 
 ### Fixed

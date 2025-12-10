@@ -332,8 +332,12 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             if not data:
                 raise UpdateFailed("No data returned from ACWD portal")
 
-            # Automatically import yesterday's hourly data (once per day)
-            await self._import_yesterday_hourly_data()
+            # Automatically import today's hourly data
+            await self._import_today_hourly_data()
+
+            # Also import yesterday's data during early morning hours (0-6 AM)
+            # to catch the last few hours that become available overnight
+            await self._import_yesterday_complete_data()
 
             # Logout
             await self.hass.async_add_executor_job(self.client.logout)
@@ -343,7 +347,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
         except Exception as err:
             raise UpdateFailed(f"Error communicating with ACWD: {err}") from err
 
-    async def _import_yesterday_hourly_data(self):
+    async def _import_today_hourly_data(self):
         """Automatically import today's hourly data into statistics.
 
         Imports today's partial data every hour (accounting for variable ACWD delay).
@@ -411,3 +415,63 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
 
         except Exception as err:
             _LOGGER.warning(f"Failed to auto-import hourly data for {today}: {err}")
+
+    async def _import_yesterday_complete_data(self):
+        """Import yesterday's complete data during early morning hours (0-6 AM).
+
+        This catches yesterday's final hours (typically 9 PM - 11 PM) that only
+        become available after midnight due to ACWD's 3-4 hour reporting delay.
+
+        Only runs between midnight and 6 AM to avoid unnecessary API calls.
+        """
+        current_hour = datetime.now().hour
+
+        # Only run during early morning hours (0-6 AM)
+        if current_hour >= 6:
+            return
+
+        yesterday = (datetime.now() - timedelta(days=1)).date()
+
+        try:
+            _LOGGER.debug(f"Early morning check: Importing complete data for {yesterday}")
+
+            # Format date for API
+            date_str = yesterday.strftime("%m/%d/%Y")
+
+            # Fetch hourly data (already logged in)
+            data = await self.hass.async_add_executor_job(
+                self.client.get_usage_data,
+                'H',  # mode
+                None,  # date_from
+                None,  # date_to
+                date_str,  # str_date
+                'H'  # hourly_type (hourly, not quarter-hourly)
+            )
+
+            if not data:
+                _LOGGER.debug(f"No hourly data returned for {yesterday}")
+                return
+
+            # Get meter number from client
+            meter_number = self.client.meter_number
+            if not meter_number:
+                _LOGGER.debug("Meter number not available for hourly import")
+                return
+
+            # Extract hourly records
+            hourly_records = data.get("objUsageGenerationResultSetTwo", [])
+
+            if not hourly_records:
+                _LOGGER.debug(f"No hourly records available for {yesterday}")
+                return
+
+            # Import into statistics (duplicates are automatically handled)
+            date_dt = datetime.combine(yesterday, datetime.min.time())
+            await async_import_hourly_statistics(
+                self.hass, meter_number, hourly_records, date_dt
+            )
+
+            _LOGGER.info(f"Early morning import: Updated {len(hourly_records)} hourly records for {yesterday}")
+
+        except Exception as err:
+            _LOGGER.warning(f"Failed to import complete yesterday data for {yesterday}: {err}")
