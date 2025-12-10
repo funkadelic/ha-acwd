@@ -66,16 +66,20 @@ async def async_import_hourly_statistics(
         stats_list = last_stats[statistic_id]
         if stats_list:
             last_stat_time = stats_list[0].get("start")
+            last_stat_sum = stats_list[0].get("sum", 0)
 
             # Ensure last_stat_time is a datetime object (might be float/Unix timestamp)
             if last_stat_time and not isinstance(last_stat_time, datetime):
                 from datetime import datetime as dt_class
                 last_stat_time = dt_class.fromtimestamp(last_stat_time, tz=dt_util.UTC)
 
+            _LOGGER.debug(f"Last statistic: time={last_stat_time}, sum={last_stat_sum}, target_date_start={target_date_start}")
+
             # Only use the last sum if it's from before the target date
             # Otherwise, we'd be adding today's values on top of today's partial sum
             if last_stat_time and last_stat_time < target_date_start:
-                last_sum = stats_list[0]["sum"]
+                last_sum = last_stat_sum
+                _LOGGER.debug(f"Using last sum {last_sum} from {last_stat_time} as baseline")
             else:
                 # Last statistic is from target date, need to get sum from day before
                 _LOGGER.debug(f"Last statistic is from target date {date.date()}, fetching baseline from previous day")
@@ -86,13 +90,14 @@ async def async_import_hourly_statistics(
                 if statistic_id in last_stats_extended:
                     for stat in last_stats_extended[statistic_id]:
                         stat_time = stat.get("start")
+                        stat_sum = stat.get("sum", 0)
                         # Ensure it's a datetime object
                         if stat_time and not isinstance(stat_time, datetime):
                             from datetime import datetime as dt_class
                             stat_time = dt_class.fromtimestamp(stat_time, tz=dt_util.UTC)
 
                         if stat_time and stat_time < target_date_start:
-                            last_sum = stat["sum"]
+                            last_sum = stat_sum
                             _LOGGER.debug(f"Found baseline sum {last_sum} from {stat_time}")
                             break
 
