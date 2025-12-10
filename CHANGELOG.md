@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.16] - 2025-12-10
+
+### Fixed
+
+- Fixed negative water usage values caused by incorrect timezone handling in baseline calculation
+- Baseline now properly uses local timezone midnight (e.g., Dec 10 00:00 PST = Dec 10 08:00 UTC) to correctly identify yesterday's final hour
+
 ## [1.0.15] - 2025-12-09
 
 ### Fixed

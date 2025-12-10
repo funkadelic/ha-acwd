@@ -53,7 +53,21 @@ async def async_import_hourly_statistics(
 
     # Get the last statistic from BEFORE the target date to get the correct baseline
     # This ensures we start from yesterday's final sum, not from earlier today
-    target_date_start = dt_util.as_utc(date.replace(hour=0, minute=0, second=0, microsecond=0))
+    # Create midnight of target date in LOCAL timezone, then convert to UTC
+    # This handles the timezone properly (e.g., Dec 10 00:00 PST = Dec 10 08:00 UTC)
+    from homeassistant.util import dt as dt_util
+    import datetime as dt_module
+
+    # Get local timezone
+    local_tz = dt_util.get_default_time_zone()
+
+    # Create midnight of target date in local timezone
+    # ZoneInfo (Python 3.9+) uses replace() instead of localize()
+    target_date_midnight_local = dt_module.datetime.combine(date, dt_module.time.min)
+    target_date_midnight_local = target_date_midnight_local.replace(tzinfo=local_tz)
+
+    # Convert to UTC for comparison
+    target_date_start = dt_util.as_utc(target_date_midnight_local)
 
     last_stats = await get_instance(hass).async_add_executor_job(
         get_last_statistics, hass, 1, statistic_id, True, {"sum"}
@@ -88,13 +102,16 @@ async def async_import_hourly_statistics(
                     get_last_statistics, hass, 48, statistic_id, True, {"sum"}  # Get up to 48 hours
                 )
                 if statistic_id in last_stats_extended:
-                    for stat in last_stats_extended[statistic_id]:
+                    _LOGGER.debug(f"Searching {len(last_stats_extended[statistic_id])} historical stats for baseline")
+                    for i, stat in enumerate(last_stats_extended[statistic_id]):
                         stat_time = stat.get("start")
                         stat_sum = stat.get("sum", 0)
                         # Ensure it's a datetime object
                         if stat_time and not isinstance(stat_time, datetime):
                             from datetime import datetime as dt_class
                             stat_time = dt_class.fromtimestamp(stat_time, tz=dt_util.UTC)
+
+                        _LOGGER.debug(f"  Stat {i}: time={stat_time}, sum={stat_sum}, before_target={stat_time < target_date_start if stat_time else None}")
 
                         if stat_time and stat_time < target_date_start:
                             last_sum = stat_sum
