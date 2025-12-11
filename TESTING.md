@@ -62,11 +62,15 @@ python test_login.py
 
 ## What the Tests Do
 
-The test suite performs two tests:
+The test suite performs four comprehensive tests:
 
 1. **Fresh Client Instances** - Creates multiple independent client instances, each with their own login session. This validates the fix for CSRF token errors during initial history import.
 
 2. **Reused Session** - Tests fetching data from multiple days using a single session. This validates that the session management works correctly for the coordinator's continuous polling.
+
+3. **Hourly Data Conversion** - Shows the actual hourly water usage data as it would be imported into Home Assistant's statistics database. Displays usage by hour, cumulative totals, and daily summaries.
+
+4. **Cumulative Sum Across Days** - Validates that cumulative sums are correctly calculated across day boundaries, preventing negative values at midnight. This test ensures yesterday's final sum is properly used as the baseline for today's first hour.
 
 All tests must pass for the integration to work correctly.
 
@@ -77,8 +81,10 @@ All tests must pass for the integration to work correctly.
 ACWD API Login Test Suite
 ============================================================
 Using credentials from environment variables
-Testing fresh client instances (simulates initial import behavior):
 
+============================================================
+🧪 Test 1: Fresh Client Instances
+============================================================
   Creating client instance 1...
     [PASS] Login successful
     [PASS] Fetched 24 hourly records for 2025-12-03
@@ -95,8 +101,10 @@ Testing fresh client instances (simulates initial import behavior):
     [PASS] Logout successful
 
 [PASS] All fresh client instances worked correctly
-Testing reused session for multiple days:
 
+============================================================
+🧪 Test 2: Reused Session
+============================================================
 [PASS] Login successful
 
   Fetching data for 2025-12-03...
@@ -109,10 +117,62 @@ Testing reused session for multiple days:
 [PASS] Reused session test succeeded
 
 ============================================================
+🧪 Test 3: Hourly Data Conversion
+============================================================
+Fetching hourly data for: 2025-12-09
+
+Hourly Usage Breakdown (as stored in Home Assistant):
+  Hour         Gallons         Cumulative
+  ----------------------------------------
+  00:00        2.17            2.17
+  01:00        2.69            4.86
+  02:00        4.11            8.97
+  ...
+  23:00        3.82            172.34
+  ========================================
+
+  Daily Total: 172.34 gallons (24 hours)
+  Average per hour: 7.18 gallons
+
+  This is stored in HA as statistic: acwd:<meter_number>_hourly_usage
+
+[PASS] Hourly data conversion test succeeded
+
+============================================================
+🤖 Test 4: Cumulative Sum Across Days
+============================================================
+
+1. Fetching YESTERDAY (2025-12-09) data...
+   Yesterday total: 172.34 gallons (24 hours)
+   Yesterday final cumulative sum: 172.34 gallons
+
+2. Fetching TODAY (2025-12-10) data...
+
+3. Calculating today's cumulative sum starting from yesterday's final sum...
+   Baseline (yesterday final): 172.34 gallons
+
+   Hour         Usage (gal)     Cumulative (gal)
+   ---------------------------------------------
+   00:00        3.89            176.23
+   01:00        2.54            178.77
+   ...
+
+4. Validating cumulative sum calculations...
+   ✅ PASS: First hour cumulative is positive (176.23 gallons)
+   ✅ PASS: First hour matches yesterday final + first hour usage
+      (172.34 + 3.89 = 176.23)
+   ✅ PASS: Final cumulative matches expected
+      (172.34 + 46.81 = 219.15)
+
+[PASS] Cumulative sum across days validated successfully!
+
+============================================================
 Test Summary:
 ============================================================
-Fresh Client Instances: [PASS]
-Reused Session: [PASS]
+✅ [PASS]: Fresh Client Instances
+✅ [PASS]: Reused Session
+✅ [PASS]: Hourly Data Conversion
+✅ [PASS]: Cumulative Sum Across Days
 ============================================================
 ```
 

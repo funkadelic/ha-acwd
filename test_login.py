@@ -58,7 +58,7 @@ def get_credentials():
 def test_fresh_client_instances(username, password):
     """Test creating multiple fresh client instances (validates session management fix)."""
     print('\n' + '=' * 60)
-    print('🤖 Test 1: Fresh Client Instances')
+    print('🧪 Test 1: Fresh Client Instances')
     print('=' * 60)
 
     for i in range(3):
@@ -104,7 +104,7 @@ def test_fresh_client_instances(username, password):
 def test_reused_session(username, password):
     """Test reusing a single session for multiple API calls."""
     print('\n' + '=' * 60)
-    print('🤖 Test 2: Reused Session')
+    print('🧪 Test 2: Reused Session')
     print('=' * 60)
 
     client = ACWDClient(username, password)
@@ -148,7 +148,7 @@ def test_reused_session(username, password):
 def test_hourly_data_conversion(username, password):
     """Test and display how hourly data is converted for HA statistics."""
     print('\n' + '=' * 60)
-    print('🤖 Test 3: Hourly Data Conversion')
+    print('🧪 Test 3: Hourly Data Conversion')
     print('=' * 60)
 
     client = ACWDClient(username, password)
@@ -223,7 +223,7 @@ def test_cumulative_sum_across_days(username, password):
     from datetime import timedelta
 
     print('\n' + '=' * 60)
-    print('🤖 Test 4: Cumulative Sum Across Days')
+    print('🧪 Test 4: Cumulative Sum Across Days')
     print('=' * 60)
 
     client = ACWDClient(username, password)
