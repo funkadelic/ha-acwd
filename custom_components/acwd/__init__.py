@@ -425,17 +425,17 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.warning(f"Failed to auto-import hourly data for {today}: {err}")
 
     async def _import_yesterday_complete_data(self):
-        """Import yesterday's complete data during early morning hours (0-6 AM).
+        """Import yesterday's complete data during morning hours (0-12 PM).
 
         This catches yesterday's final hours (typically 9 PM - 11 PM) that only
         become available after midnight due to ACWD's 3-4 hour reporting delay.
 
-        Only runs between midnight and 6 AM to avoid unnecessary API calls.
+        Only runs between midnight and noon to avoid unnecessary API calls.
         """
         current_hour = datetime.now().hour
 
-        # Only run during early morning hours (0-6 AM)
-        if current_hour >= 6:
+        # Only run during morning hours (0-12 PM)
+        if current_hour >= 12:
             return
 
         yesterday = (datetime.now() - timedelta(days=1)).date()

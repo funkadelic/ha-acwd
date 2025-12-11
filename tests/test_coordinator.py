@@ -1,6 +1,6 @@
 """Tests for coordinator update logic in __init__.py.
 
-These tests prevent regressions of v1.0.15 (missing last hours due to early morning import timing).
+These tests validate morning import timing to catch yesterday's final hours.
 """
 import sys
 from datetime import datetime
@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 @pytest.mark.unit
 @pytest.mark.asyncio
 class TestEarlyMorningImport:
-    """Test early morning import logic to prevent v1.0.15 regression."""
+    """Test morning import logic (0-12 PM window)."""
 
     async def test_early_morning_import_at_midnight(
         self,
@@ -42,11 +42,11 @@ class TestEarlyMorningImport:
             mock_datetime.min = datetime.min
             mock_datetime.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
 
-            # Simulate the early morning import check
+            # Simulate the morning import check
             current_hour = mock_now.hour  # 0
 
-            # Verify it's within the 0-6 AM window
-            assert 0 <= current_hour < 6
+            # Verify it's within the 0-12 PM window
+            assert 0 <= current_hour < 12
             assert current_hour == 0
 
     async def test_early_morning_import_at_5am(
@@ -55,32 +55,29 @@ class TestEarlyMorningImport:
         meter_number,
         sample_hourly_data_dec_9,
     ):
-        """Verify import runs at hour=5 (boundary case)."""
+        """Verify import runs at hour=5."""
         mock_now = datetime(2025, 12, 10, 5, 45, 0)  # 5:45 AM
 
         current_hour = mock_now.hour
 
         # Verify it's still within the window
-        assert 0 <= current_hour < 6
+        assert 0 <= current_hour < 12
         assert current_hour == 5
 
-    async def test_early_morning_import_at_6am(
+    async def test_early_morning_import_at_11am(
         self,
         mock_hass,
         meter_number,
         sample_hourly_data_dec_9,
     ):
-        """Verify import DOES NOT run at hour=6.
-
-        This prevents v1.0.15 from causing unnecessary API calls outside the early morning window.
-        """
-        mock_now = datetime(2025, 12, 10, 6, 0, 0)  # 6:00 AM exactly
+        """Verify import runs at hour=11 (boundary case)."""
+        mock_now = datetime(2025, 12, 10, 11, 59, 0)  # 11:59 AM
 
         current_hour = mock_now.hour
 
-        # Verify it's outside the window
-        assert not (0 <= current_hour < 6)
-        assert current_hour == 6
+        # Verify it's still within the window
+        assert 0 <= current_hour < 12
+        assert current_hour == 11
 
     async def test_early_morning_import_at_noon(
         self,
@@ -88,14 +85,14 @@ class TestEarlyMorningImport:
         meter_number,
         sample_hourly_data_dec_9,
     ):
-        """Verify import DOES NOT run during day."""
+        """Verify import DOES NOT run at hour=12 (noon) or later."""
         mock_now = datetime(2025, 12, 10, 12, 0, 0)  # Noon
 
         current_hour = mock_now.hour
 
         # Verify it's outside the window
-        assert not (0 <= current_hour < 6)
-        assert current_hour >= 6
+        assert not (0 <= current_hour < 12)
+        assert current_hour >= 12
 
 
 @pytest.mark.unit
