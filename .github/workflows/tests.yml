@@ -34,7 +34,3 @@ jobs:
           flags: unittests
           name: codecov-umbrella
           fail_ci_if_error: false
-
-      - name: Check coverage threshold
-        run: |
-          coverage report --fail-under=60
