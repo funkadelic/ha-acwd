@@ -202,3 +202,87 @@ This indicates a problem with the ACWD portal login page structure. The integrat
 - Check your internet connection
 - The ACWD portal might be down or experiencing issues
 - Try again later
+
+---
+
+## Unit Tests (pytest)
+
+The integration includes unit tests to prevent regressions of critical bugs.
+
+### Running Unit Tests
+
+**Install test dependencies:**
+
+```bash
+pip install -r requirements-test.txt
+```
+
+**Run all tests:**
+
+```bash
+pytest
+```
+
+**Run with verbose output:**
+
+```bash
+pytest -v
+```
+
+**Run with coverage report:**
+
+```bash
+pytest --cov=custom_components.acwd --cov-report=term-missing
+```
+
+**Run specific test file:**
+
+```bash
+pytest tests/test_coordinator.py -v
+```
+
+### Test Coverage
+
+The unit test suite currently covers:
+
+**Coordinator Logic (8 tests)** - Validates early morning import timing and data handling
+
+- Early morning import timing (3 tests)
+  - Import runs during 0-6 AM window
+  - Import correctly skips outside this window
+- DateTime creation with timezones (2 tests)
+  - PST timezone handling
+  - EST timezone handling
+- Data availability edge cases (3 tests)
+  - Handles no data returned
+  - Handles empty record sets
+
+### Expected Output
+
+```bash
+$ pytest tests/test_coordinator.py -v
+========================== test session starts ==========================
+collected 8 items
+
+tests/test_coordinator.py::TestEarlyMorningImport::test_early_morning_import_at_midnight PASSED
+tests/test_coordinator.py::TestEarlyMorningImport::test_early_morning_import_at_5am PASSED
+tests/test_coordinator.py::TestEarlyMorningImport::test_early_morning_import_at_6am PASSED
+tests/test_coordinator.py::TestEarlyMorningImport::test_early_morning_import_at_noon PASSED
+tests/test_coordinator.py::TestDateTimeCreation::test_create_local_datetime_pst PASSED
+tests/test_coordinator.py::TestDateTimeCreation::test_create_local_datetime_est PASSED
+tests/test_coordinator.py::TestDataAvailability::test_handle_no_data_returned PASSED
+tests/test_coordinator.py::TestDataAvailability::test_handle_empty_records PASSED
+
+========================== 8 passed in 0.25s ==========================
+
+```
+
+### Continuous Integration
+
+Tests run automatically on GitHub Actions for every push and pull request:
+
+- **Python Version**: 3.12 (matches Home Assistant 2024.2+ requirements)
+- **Platform**: Ubuntu latest
+- **Coverage Reporting**: Codecov
+
+View test results at: `https://github.com/funkadelic/ha-acwd/actions`
