@@ -72,12 +72,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         date = call.data["date"]
         granularity = call.data["granularity"]
 
-        # Ensure date is at least 2 days ago (24-hour delay + buffer)
-        two_days_ago = (datetime.now() - timedelta(days=2)).date()
-        if date > two_days_ago:
+        # Ensure date is at least 1 day ago due to ACWD's reporting delay
+        one_day_ago = (datetime.now() - timedelta(days=1)).date()
+        if date > one_day_ago:
             _LOGGER.error(
-                f"Cannot import data for {date}. Date must be at least 2 days ago "
-                f"due to ACWD's 24-hour data delay."
+                f"Cannot import data for {date}. Date must be at least 1 day ago "
+                f"due to ACWD's reporting delay."
             )
             return
 

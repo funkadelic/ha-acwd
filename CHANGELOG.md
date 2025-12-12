@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.18] - 2025-12-11
+
+### Changed
+
+- Reduced manual import date constraint from 2 days to 1 day to align with ACWD's reporting delay
+- Users can now manually re-import yesterday's data to fix incomplete imports (e.g., on Dec 12, can import Dec 11)
+
+## [1.0.17] - 2025-12-11
+
+### Changed
+
+- Extended yesterday's data import window from 12-6 AM to 12 AM-12 PM (noon)
+- Provides 12 hourly attempts instead of 6 to catch yesterday's final hours (9-11 PM) due to ACWD's reporting delay which can span 6+ hours
+- Reduces likelihood of missing last few hours of yesterday's usage data
+
 ## [1.0.16] - 2025-12-10
 
 ### Fixed

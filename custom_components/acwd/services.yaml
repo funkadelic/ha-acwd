@@ -4,7 +4,7 @@ import_hourly_data:
   fields:
     date:
       name: Date
-      description: Date to import data for (YYYY-MM-DD). Must be at least 2 days ago due to 24-hour data delay.
+      description: Date to import data for (YYYY-MM-DD). Must be at least 1 day ago due to ACWD's reporting delay.
       required: true
       example: "2025-12-01"
       selector:
