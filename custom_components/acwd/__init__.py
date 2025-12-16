@@ -10,6 +10,7 @@ from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .acwd_api import ACWDClient
@@ -73,7 +74,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         granularity = call.data["granularity"]
 
         # Ensure date is at least 1 day ago due to ACWD's reporting delay
-        one_day_ago = (datetime.now() - timedelta(days=1)).date()
+        # Use Home Assistant's timezone-aware now() function
+        one_day_ago = (dt_util.now().date() - timedelta(days=1))
         if date > one_day_ago:
             _LOGGER.error(
                 f"Cannot import data for {date}. Date must be at least 1 day ago "
@@ -359,7 +361,8 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
         with the same timestamp, so importing multiple times is safe.
         """
         # Import today's data (partial, accounting for variable delay)
-        today = datetime.now().date()
+        # Use Home Assistant's timezone-aware now() function
+        today = dt_util.now().date()
 
         try:
             _LOGGER.debug(f"Checking for hourly data for {today}")
@@ -432,13 +435,15 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
 
         Only runs between midnight and noon to avoid unnecessary API calls.
         """
-        current_hour = datetime.now().hour
+        # Use Home Assistant's timezone-aware now() function
+        now = dt_util.now()
+        current_hour = now.hour
 
         # Only run during morning hours (0-12 PM)
         if current_hour >= 12:
             return
 
-        yesterday = (datetime.now() - timedelta(days=1)).date()
+        yesterday = (now.date() - timedelta(days=1))
 
         try:
             _LOGGER.debug(f"Early morning check: Importing complete data for {yesterday}")
