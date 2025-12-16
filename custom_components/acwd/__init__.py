@@ -297,6 +297,10 @@ async def _async_import_initial_yesterday_data(
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
+    # Unregister services to prevent memory leaks
+    hass.services.async_remove(DOMAIN, SERVICE_IMPORT_HOURLY)
+    hass.services.async_remove(DOMAIN, SERVICE_IMPORT_DAILY)
+    
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop(entry.entry_id)
 
