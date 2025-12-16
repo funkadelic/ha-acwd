@@ -34,43 +34,30 @@ SERVICE_IMPORT_DAILY = "import_daily_data"
 SERVICE_IMPORT_HOURLY_SCHEMA = vol.Schema({
     vol.Required("date"): cv.date,
     vol.Optional("granularity", default="hourly"): vol.In(["hourly", "quarter_hourly"]),
+    vol.Optional("entry_id"): str,  # Optional entry_id to target specific entry
 })
 
 SERVICE_IMPORT_DAILY_SCHEMA = vol.Schema({
     vol.Required("start_date"): cv.date,
     vol.Required("end_date"): cv.date,
+    vol.Optional("entry_id"): str,  # Optional entry_id to target specific entry
 })
 
-# Configuration option keys
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up ACWD Water Usage from a config entry."""
+
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """Set up the ACWD Water Usage integration domain services."""
     hass.data.setdefault(DOMAIN, {})
 
-    # Create ACWD client
-    client = ACWDClient(
-        entry.data[CONF_USERNAME],
-        entry.data[CONF_PASSWORD]
-    )
-
-    # Create update coordinator
-    coordinator = ACWDDataUpdateCoordinator(hass, client, entry)
-
-    # Fetch initial data
-    await coordinator.async_config_entry_first_refresh()
-
-    hass.data[DOMAIN][entry.entry_id] = coordinator
-
-    # Set up platforms
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
-    # Import yesterday's data on first setup to provide immediate feedback
-    await _async_import_initial_yesterday_data(hass, coordinator)
-
-    # Register services
     async def handle_import_hourly(call: ServiceCall) -> None:
         """Handle the import_hourly_data service call."""
         date = call.data["date"]
         granularity = call.data["granularity"]
+        entry_id = call.data.get("entry_id")
+
+        # Resolve the target entry
+        entry = await _resolve_entry(hass, entry_id)
+        if not entry:
+            return
 
         # Ensure date is at least 1 day ago due to ACWD's reporting delay
         one_day_ago = (datetime.now() - timedelta(days=1)).date()
@@ -147,6 +134,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         """Handle the import_daily_data service call."""
         start_date = call.data["start_date"]
         end_date = call.data["end_date"]
+        entry_id = call.data.get("entry_id")
+
+        # Resolve the target entry
+        entry = await _resolve_entry(hass, entry_id)
+        if not entry:
+            return
+
+        # Get coordinator to access account info
+        coordinator = hass.data[DOMAIN].get(entry.entry_id)
+        if not coordinator:
+            _LOGGER.error(f"Coordinator not found for entry {entry.entry_id}")
+            return
 
         account_number = coordinator.client.user_info.get("AccountNumber")
         if not account_number:
@@ -203,7 +202,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         finally:
             await hass.async_add_executor_job(service_client.logout)
 
-    # Register services
+    # Register domain-level services (registered once, not per-entry)
     hass.services.async_register(
         DOMAIN,
         SERVICE_IMPORT_HOURLY,
@@ -218,6 +217,82 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         schema=SERVICE_IMPORT_DAILY_SCHEMA,
     )
 
+    return True
+
+
+async def _resolve_entry(hass: HomeAssistant, entry_id: str | None) -> ConfigEntry | None:
+    """Resolve the target config entry for a service call.
+    
+    Args:
+        hass: Home Assistant instance
+        entry_id: Optional entry ID to target. If None, uses the first/only entry.
+        
+    Returns:
+        ConfigEntry if found and valid, None otherwise
+    """
+    if entry_id:
+        # Look up specific entry
+        entry = hass.config_entries.async_get_entry(entry_id)
+        if not entry:
+            _LOGGER.error(f"Entry {entry_id} not found")
+            return None
+        if entry.domain != DOMAIN:
+            _LOGGER.error(f"Entry {entry_id} is not an ACWD entry")
+            return None
+        if entry.entry_id not in hass.data.get(DOMAIN, {}):
+            _LOGGER.error(f"Entry {entry_id} is not loaded")
+            return None
+        return entry
+    
+    # No entry_id specified - use first/only entry
+    domain_data = hass.data.get(DOMAIN, {})
+    if not domain_data:
+        _LOGGER.error("No ACWD entries are configured")
+        return None
+    
+    if len(domain_data) > 1:
+        _LOGGER.error(
+            f"Multiple ACWD entries found ({len(domain_data)}). "
+            f"Please specify 'entry_id' in service call."
+        )
+        return None
+    
+    # Single entry - use it
+    entry_id = next(iter(domain_data))
+    entry = hass.config_entries.async_get_entry(entry_id)
+    if not entry:
+        _LOGGER.error(f"Entry {entry_id} not found in config entries")
+        return None
+    
+    return entry
+
+
+# Configuration option keys
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up ACWD Water Usage from a config entry."""
+    hass.data.setdefault(DOMAIN, {})
+
+    # Create ACWD client
+    client = ACWDClient(
+        entry.data[CONF_USERNAME],
+        entry.data[CONF_PASSWORD]
+    )
+
+    # Create update coordinator
+    coordinator = ACWDDataUpdateCoordinator(hass, client, entry)
+
+    # Fetch initial data
+    await coordinator.async_config_entry_first_refresh()
+
+    hass.data[DOMAIN][entry.entry_id] = coordinator
+
+    # Set up platforms
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # Import yesterday's data on first setup to provide immediate feedback
+    await _async_import_initial_yesterday_data(hass, coordinator)
+
+    # Services are registered at domain level in async_setup, not per-entry
     return True
 
 
@@ -297,10 +372,7 @@ async def _async_import_initial_yesterday_data(
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    # Unregister services to prevent memory leaks
-    hass.services.async_remove(DOMAIN, SERVICE_IMPORT_HOURLY)
-    hass.services.async_remove(DOMAIN, SERVICE_IMPORT_DAILY)
-    
+    # Services are registered at domain level and remain available for other entries
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop(entry.entry_id)
 
