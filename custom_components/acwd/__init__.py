@@ -8,6 +8,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -75,11 +76,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Ensure date is at least 1 day ago due to ACWD's reporting delay
         one_day_ago = (datetime.now() - timedelta(days=1)).date()
         if date > one_day_ago:
-            _LOGGER.error(
+            error_msg = (
                 f"Cannot import data for {date}. Date must be at least 1 day ago "
                 f"due to ACWD's reporting delay."
             )
-            return
+            _LOGGER.error(error_msg)
+            raise HomeAssistantError(error_msg)
 
         # Create a new client instance for the service call
         service_client = ACWDClient(
@@ -109,21 +111,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
 
             if not data:
-                _LOGGER.error(f"No data returned for {date}")
-                return
+                error_msg = f"No data returned for {date}"
+                _LOGGER.error(error_msg)
+                raise HomeAssistantError(error_msg)
 
             # Get meter number from client
             meter_number = service_client.meter_number
             if not meter_number:
-                _LOGGER.error("Meter number not available")
-                return
+                error_msg = "Meter number not available"
+                _LOGGER.error(error_msg)
+                raise HomeAssistantError(error_msg)
 
             # Extract hourly records
             hourly_records = data.get("objUsageGenerationResultSetTwo", [])
 
             if not hourly_records:
-                _LOGGER.warning(f"No hourly data available for {date}")
-                return
+                error_msg = f"No hourly data available for {date}"
+                _LOGGER.warning(error_msg)
+                raise HomeAssistantError(error_msg)
 
             # Import into statistics
             date_dt = datetime.combine(date, datetime.min.time())
@@ -138,20 +143,36 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
             _LOGGER.info(f"Successfully imported {granularity} data for {date}")
 
+        except HomeAssistantError:
+            # Re-raise HomeAssistantError as-is
+            raise
         except Exception as err:
-            _LOGGER.error(f"Error importing hourly data: {err}")
+            error_msg = f"Error importing hourly data: {err}"
+            _LOGGER.error(error_msg, exc_info=True)
+            raise HomeAssistantError(error_msg) from err
         finally:
-            await hass.async_add_executor_job(service_client.logout)
+            # Ensure session is cleaned up even if errors occur
+            try:
+                await hass.async_add_executor_job(service_client.logout)
+            except Exception as logout_err:
+                _LOGGER.warning(f"Error during logout cleanup: {logout_err}")
 
     async def handle_import_daily(call: ServiceCall) -> None:
         """Handle the import_daily_data service call."""
         start_date = call.data["start_date"]
         end_date = call.data["end_date"]
 
+        # Validate date range
+        if start_date > end_date:
+            error_msg = f"Start date ({start_date}) must be before end date ({end_date})"
+            _LOGGER.error(error_msg)
+            raise HomeAssistantError(error_msg)
+
         account_number = coordinator.client.user_info.get("AccountNumber")
         if not account_number:
-            _LOGGER.error("Account number not available")
-            return
+            error_msg = "Account number not available"
+            _LOGGER.error(error_msg)
+            raise HomeAssistantError(error_msg)
 
         # Create a new client instance for the service call
         service_client = ACWDClient(
@@ -163,8 +184,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             # Login with the new client
             logged_in = await hass.async_add_executor_job(service_client.login)
             if not logged_in:
-                _LOGGER.error("Failed to login to ACWD portal")
-                return
+                error_msg = "Failed to login to ACWD portal"
+                _LOGGER.error(error_msg)
+                raise HomeAssistantError(error_msg)
 
             # Format dates for API
             start_str = start_date.strftime("%m/%d/%Y")
@@ -179,15 +201,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
 
             if not data:
-                _LOGGER.error(f"No data returned for {start_date} to {end_date}")
-                return
+                error_msg = f"No data returned for {start_date} to {end_date}"
+                _LOGGER.error(error_msg)
+                raise HomeAssistantError(error_msg)
 
             # Extract daily records
             daily_records = data.get("objUsageGenerationResultSetTwo", [])
 
             if not daily_records:
-                _LOGGER.warning(f"No daily data available for date range")
-                return
+                error_msg = f"No daily data available for date range {start_date} to {end_date}"
+                _LOGGER.warning(error_msg)
+                raise HomeAssistantError(error_msg)
 
             # Import into statistics
             await async_import_daily_statistics(
