@@ -330,10 +330,10 @@ def test_cumulative_sum_across_days(username, password):
         # Check 2: First hour cumulative should equal yesterday's final + first hour usage
         expected_first_cumulative = yesterday_final_sum + first_hour['usage']
         if abs(first_hour['cumulative'] - expected_first_cumulative) < 0.01:
-            print(f'   ✅ PASS: First hour cumulative matches expected')
+            print('   ✅ PASS: First hour cumulative matches expected')
             print(f'      ({yesterday_final_sum:,.2f} + {first_hour["usage"]:.2f} = {expected_first_cumulative:,.2f})')
         else:
-            print(f'   ❌ FAIL: First hour cumulative doesn\'t match')
+            print('   ❌ FAIL: First hour cumulative doesn\'t match')
             print(f'      Expected: {expected_first_cumulative:,.2f}')
             print(f'      Got: {first_hour["cumulative"]:.2f}')
             return False
@@ -341,10 +341,10 @@ def test_cumulative_sum_across_days(username, password):
         # Check 3: Final cumulative should equal yesterday + today
         expected_final = yesterday_final_sum + today_total
         if abs(cumulative_sum - expected_final) < 0.01:
-            print(f'   ✅ PASS: Final cumulative matches expected')
+            print('   ✅ PASS: Final cumulative matches expected')
             print(f'      ({yesterday_final_sum:,.2f} + {today_total:,.2f} = {expected_final:,.2f})')
         else:
-            print(f'   ❌ FAIL: Final cumulative doesn\'t match')
+            print('   ❌ FAIL: Final cumulative doesn\'t match')
             print(f'      Expected: {expected_final:,.2f}')
             print(f'      Got: {cumulative_sum:.2f}')
             return False
