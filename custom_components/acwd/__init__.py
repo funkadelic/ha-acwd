@@ -268,7 +268,6 @@ async def _resolve_entry(hass: HomeAssistant, entry_id: str | None) -> ConfigEnt
     return entry
 
 
-# Configuration option keys
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up ACWD Water Usage from a config entry."""
     hass.data.setdefault(DOMAIN, {})
