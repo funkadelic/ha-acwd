@@ -36,14 +36,14 @@ def get_credentials():
     password = os.getenv('ACWD_PASSWORD')
 
     if username and password:
-        print(f'Using credentials from environment variables')
+        print('Using credentials from environment variables')
         return username, password
 
     # Try command-line arguments
     if len(sys.argv) >= 3:
         username = sys.argv[1]
         password = sys.argv[2]
-        print(f'Using credentials from command-line arguments')
+        print('Using credentials from command-line arguments')
         return username, password
 
     # Prompt user
@@ -69,7 +69,7 @@ def test_fresh_client_instances(username, password):
             print(f'    [FAIL] Login failed on instance {i+1}')
             return False
 
-        print(f'    [PASS] Login successful')
+        print('    [PASS] Login successful')
 
         # Fetch data to verify session works
         test_date = (datetime.now() - timedelta(days=2)).date()
@@ -81,21 +81,21 @@ def test_fresh_client_instances(username, password):
 
             # Show all hourly data (raw values from API)
             if records and i == 0:  # Only show details for first instance
-                print(f'\n    All hourly data:')
-                print(f'    {"Time":<12} {"Gallons":<15}')
-                print(f'    {"-" * 27}')
+                print('\n    All hourly data:')
+                print('    Time         Gallons        ')
+                print('    ---------------------------')
                 for record in records:
                     hourly_str = record.get("Hourly", "12:00 AM")
                     usage_value = record.get("UsageValue", 0)
                     print(f'    {hourly_str:<12} {usage_value:<15.2f}')
                 print()
         else:
-            print(f'    [FAIL] Could not fetch data')
+            print('    [FAIL] Could not fetch data')
             client.logout()
             return False
 
         client.logout()
-        print(f'    [PASS] Logout successful\n')
+        print('    [PASS] Logout successful\n')
 
     print('\n[PASS] All fresh client instances worked correctly')
     return True
@@ -127,16 +127,16 @@ def test_reused_session(username, password):
 
             # Show all hourly data for first day only
             if records and i == 0:
-                print(f'\n    All hourly data:')
-                print(f'    {"Time":<12} {"Gallons":<15}')
-                print(f'    {"-" * 27}')
+                print('\n    All hourly data:')
+                print('    Time         Gallons        ')
+                print('    ---------------------------')
                 for record in records:
                     hourly_str = record.get("Hourly", "12:00 AM")
                     usage_value = record.get("UsageValue", 0)
                     print(f'    {hourly_str:<12} {usage_value:<15.2f}')
                 print()
         else:
-            print(f'    [FAIL] No data returned')
+            print('    [FAIL] No data returned')
             client.logout()
             return False
 
@@ -176,9 +176,9 @@ def test_hourly_data_conversion(username, password):
         return False
 
     print(f'  [PASS] Retrieved {len(hourly_data)} hourly records\n')
-    print('  ' + '=' * 40)
-    print(f'  {"Hour":<12} {"Gallons":<15} {"Cumulative":<15}')
-    print('  ' + '-' * 40)
+    print('  ========================================')
+    print('  Hour         Gallons         Cumulative     ')
+    print('  ----------------------------------------')
 
     # Calculate cumulative sum
     cumulative_sum = 0.0
@@ -202,10 +202,10 @@ def test_hourly_data_conversion(username, password):
     # Calculate daily total
     daily_total = sum(r.get("UsageValue", 0) for r in hourly_data)
 
-    print('  ' + '=' * 40)
+    print('  ========================================')
     print(f'\n  Daily Total: {daily_total:,.2f} gallons ({len(hourly_data)} hours)')
     print(f'  Average per hour: {daily_total / len(hourly_data):,.2f} gallons')
-    print(f'\n  This is stored in HA as statistic: acwd:<meter_number>_hourly_usage')
+    print('\n  This is stored in HA as statistic: acwd:<meter_number>_hourly_usage')
 
     client.logout()
     print('\n[PASS] Hourly data conversion test succeeded')
@@ -269,10 +269,10 @@ def test_cumulative_sum_across_days(username, password):
 
         today_records = today_data.get('objUsageGenerationResultSetTwo', [])
 
-        print(f'\n3. Calculating today\'s cumulative sum starting from yesterday\'s final sum...')
+        print('\n3. Calculating today\'s cumulative sum starting from yesterday\'s final sum...')
         print(f'   Baseline (yesterday final): {yesterday_final_sum:,.2f} gallons')
-        print(f'\n   Hour         Usage (gal)     Cumulative (gal)')
-        print('   ' + '-' * 45)
+        print('\n   Hour         Usage (gal)     Cumulative (gal)')
+        print('   ---------------------------------------------')
 
         # Start today's cumulative sum from yesterday's final
         cumulative_sum = yesterday_final_sum
@@ -309,8 +309,8 @@ def test_cumulative_sum_across_days(username, password):
             elif today_records.index(record) == 5:
                 print('   ...')
 
-        print('   ' + '=' * 45)
-        print(f'\n4. Validation Results:')
+        print('   =============================================')
+        print('\n4. Validation Results:')
         print(f'   Yesterday total: {yesterday_total:,.2f} gallons')
         print(f'   Today total so far: {today_total:,.2f} gallons ({len(today_records)} hours)')
         print(f'   Today\'s first hour ({first_hour["time"]}):')
@@ -318,7 +318,7 @@ def test_cumulative_sum_across_days(username, password):
         print(f'      Cumulative: {first_hour["cumulative"]:,.2f} gallons')
 
         # Validation checks
-        print(f'\n5. Validation Checks:')
+        print('\n5. Validation Checks:')
 
         # Check 1: First hour cumulative should be positive
         if first_hour['cumulative'] < 0:

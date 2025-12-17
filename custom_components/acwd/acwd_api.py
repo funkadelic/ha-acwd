@@ -253,7 +253,7 @@ class ACWDClient:
                 fresh_csrf = csrf_input.get('value', '')
                 if fresh_csrf:
                     self.csrf_token = fresh_csrf
-                    logger.info(f"Got fresh CSRF token from usage page")
+                    logger.info("Got fresh CSRF token from usage page")
 
         usage_url = f"{self.base_url}Usages.aspx/LoadWaterUsage"
 
@@ -358,7 +358,7 @@ class ACWDClient:
             result = response.json()
             if 'd' in result:
                 usage_data = json.loads(result['d'])
-                logger.info(f"Retrieved usage data successfully")
+                logger.info("Retrieved usage data successfully")
                 return usage_data
             else:
                 logger.error("Unexpected response format")

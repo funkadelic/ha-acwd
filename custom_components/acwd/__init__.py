@@ -83,7 +83,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if date > one_day_ago:
             _LOGGER.error(
                 f"Cannot import data for {date}. Date must be at least 1 day ago "
-                f"due to ACWD's reporting delay."
+                "due to ACWD's reporting delay."
             )
             return
 
@@ -192,7 +192,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             daily_records = data.get("objUsageGenerationResultSetTwo", [])
 
             if not daily_records:
-                _LOGGER.warning(f"No daily data available for date range")
+                _LOGGER.warning("No daily data available for date range")
                 return
 
             # Import into statistics
