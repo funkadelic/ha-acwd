@@ -30,6 +30,12 @@ UPDATE_INTERVAL = timedelta(hours=1)
 SERVICE_IMPORT_HOURLY = "import_hourly_data"
 SERVICE_IMPORT_DAILY = "import_daily_data"
 
+# Error messages
+ERROR_LOGIN_FAILED = "Failed to login to ACWD portal"
+
+# Date format for ACWD API
+DATE_FORMAT_ACWD = "%m/%d/%Y"
+
 # Service schemas
 SERVICE_IMPORT_HOURLY_SCHEMA = vol.Schema({
     vol.Required("date"): cv.date,
@@ -91,11 +97,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             # Login with the new client
             logged_in = await hass.async_add_executor_job(service_client.login)
             if not logged_in:
-                _LOGGER.error("Failed to login to ACWD portal")
+                _LOGGER.error(ERROR_LOGIN_FAILED)
                 return
 
             # Format date for API
-            date_str = date.strftime("%m/%d/%Y")
+            date_str = date.strftime(DATE_FORMAT_ACWD)
 
             # Fetch hourly data
             hourly_type = 'Q' if granularity == "quarter_hourly" else 'H'
@@ -163,12 +169,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             # Login with the new client
             logged_in = await hass.async_add_executor_job(service_client.login)
             if not logged_in:
-                _LOGGER.error("Failed to login to ACWD portal")
+                _LOGGER.error(ERROR_LOGIN_FAILED)
                 return
 
             # Format dates for API
-            start_str = start_date.strftime("%m/%d/%Y")
-            end_str = end_date.strftime("%m/%d/%Y")
+            start_str = start_date.strftime(DATE_FORMAT_ACWD)
+            end_str = end_date.strftime(DATE_FORMAT_ACWD)
 
             # Fetch daily data
             data = await hass.async_add_executor_job(
@@ -241,12 +247,12 @@ async def _async_import_initial_yesterday_data(
         fresh_client = ACWDClient(username, password)
 
         # Format date for API
-        date_str = yesterday.strftime("%m/%d/%Y")
+        date_str = yesterday.strftime(DATE_FORMAT_ACWD)
 
         # Login
         logged_in = await hass.async_add_executor_job(fresh_client.login)
         if not logged_in:
-            _LOGGER.warning("Initial import: Failed to login to ACWD portal")
+            _LOGGER.warning(f"Initial import: {ERROR_LOGIN_FAILED}")
             return
 
         # Fetch hourly data
@@ -326,7 +332,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             logged_in = await self.hass.async_add_executor_job(self.client.login)
 
             if not logged_in:
-                raise UpdateFailed("Failed to login to ACWD portal")
+                raise UpdateFailed(ERROR_LOGIN_FAILED)
 
             # Get billing cycle data (mode='B' for complete summary data)
             data = await self.hass.async_add_executor_job(
@@ -365,7 +371,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.debug(f"Checking for hourly data for {today}")
 
             # Format date for API
-            date_str = today.strftime("%m/%d/%Y")
+            date_str = today.strftime(DATE_FORMAT_ACWD)
 
             # Fetch hourly data (already logged in)
             data = await self.hass.async_add_executor_job(
@@ -444,7 +450,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.debug(f"Early morning check: Importing complete data for {yesterday}")
 
             # Format date for API
-            date_str = yesterday.strftime("%m/%d/%Y")
+            date_str = yesterday.strftime(DATE_FORMAT_ACWD)
 
             # Fetch hourly data (already logged in)
             data = await self.hass.async_add_executor_job(

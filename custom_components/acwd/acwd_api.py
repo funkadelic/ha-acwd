@@ -13,6 +13,22 @@ logger = logging.getLogger(__name__)
 # User agent string for HTTP requests
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
 
+# HTTP header constants
+CONTENT_TYPE_JSON = 'application/json; charset=UTF-8'
+HEADER_X_REQUESTED_WITH = 'X-Requested-With'
+HEADER_REFERER = 'Referer'
+HEADER_CONTENT_TYPE = 'Content-Type'
+VALUE_XML_HTTP_REQUEST = 'XMLHttpRequest'
+
+# API response keys
+KEY_D = 'd'
+KEY_STATUS = 'STATUS'
+KEY_MESSAGE = 'Message'
+
+# Parser constants
+PARSER_HTML = 'html.parser'
+FIELD_CSRF_TOKEN = 'hdnCSRFToken'
+
 
 class ACWDClient:
     """Scraper for ACWD water usage data"""
@@ -50,14 +66,14 @@ class ACWDClient:
         if response.status_code != 200:
             raise Exception(f"Failed to load login page: {response.status_code}")
 
-        soup = BeautifulSoup(response.text, 'html.parser')
+        soup = BeautifulSoup(response.text, PARSER_HTML)
 
         # Step 2: Extract hidden fields (CSRF token, etc.)
         hidden_fields = self._get_hidden_fields(soup)
         logger.info(f"Extracted {len(hidden_fields)} hidden fields")
 
         # Get the CSRF token
-        csrf_token = hidden_fields.get('hdnCSRFToken', '')
+        csrf_token = hidden_fields.get(FIELD_CSRF_TOKEN, '')
         if not csrf_token:
             logger.error("No CSRF token found!")
             return False
@@ -74,9 +90,9 @@ class ACWDClient:
             update_state_url,
             json={},
             headers={
-                'Content-Type': 'application/json; charset=UTF-8',
+                'Content-Type': CONTENT_TYPE_JSON,
                 'Referer': self.base_url,
-                'X-Requested-With': 'XMLHttpRequest',
+                HEADER_X_REQUESTED_WITH: VALUE_XML_HTTP_REQUEST,
                 'User-Agent': USER_AGENT,
                 'CSRFToken': csrf_token
             }
@@ -104,9 +120,9 @@ class ACWDClient:
             validate_login_url,
             json=login_payload,
             headers={
-                'Content-Type': 'application/json; charset=UTF-8',
+                'Content-Type': CONTENT_TYPE_JSON,
                 'Referer': self.base_url,
-                'X-Requested-With': 'XMLHttpRequest',
+                HEADER_X_REQUESTED_WITH: VALUE_XML_HTTP_REQUEST,
                 'User-Agent': USER_AGENT,
                 'CSRFToken': csrf_token
             }
@@ -231,8 +247,8 @@ class ACWDClient:
         page_response = self.session.get(usage_page_url)
 
         if page_response.status_code == 200:
-            soup = BeautifulSoup(page_response.text, 'html.parser')
-            csrf_input = soup.find('input', {'id': 'hdnCSRFToken'})
+            soup = BeautifulSoup(page_response.text, PARSER_HTML)
+            csrf_input = soup.find('input', {'id': FIELD_CSRF_TOKEN})
             if csrf_input:
                 fresh_csrf = csrf_input.get('value', '')
                 if fresh_csrf:
@@ -255,8 +271,8 @@ class ACWDClient:
         # Set up headers for API requests
         import json
         headers = {
-            'Content-Type': 'application/json; charset=UTF-8',
-            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': CONTENT_TYPE_JSON,
+            HEADER_X_REQUESTED_WITH: VALUE_XML_HTTP_REQUEST,
             'Referer': f"{self.base_url}usages.aspx?type=WU",
             'isajax': '1'
         }
