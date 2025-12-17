@@ -128,7 +128,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 return
 
             # Import into statistics
+            local_tz = dt_util.get_default_time_zone()
             date_dt = datetime.combine(date, datetime.min.time())
+            date_dt = date_dt.replace(tzinfo=local_tz)
+
             if granularity == "quarter_hourly":
                 await async_import_quarter_hourly_statistics(
                     hass, meter_number, hourly_records, date_dt
@@ -233,7 +236,7 @@ async def _async_import_initial_yesterday_data(
     It gives users immediate data to see in the Energy Dashboard.
     """
     try:
-        yesterday = (datetime.now() - timedelta(days=1)).date()
+        yesterday = (dt_util.now() - timedelta(days=1)).date()
         _LOGGER.info(f"Initial setup: Importing yesterday's data ({yesterday})")
 
         # Create a fresh client instance to avoid session conflicts
