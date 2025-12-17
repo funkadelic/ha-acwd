@@ -18,5 +18,35 @@
     "abort": {
       "already_configured": "Account is already configured"
     }
+  },
+  "services": {
+    "import_hourly_data": {
+      "name": "Import hourly water usage data",
+      "description": "Import hourly water usage data for a specific date into long-term statistics for the Energy Dashboard.",
+      "fields": {
+        "date": {
+          "name": "Date",
+          "description": "Date to import data for (YYYY-MM-DD). Must be at least 1 day ago due to ACWD's reporting delay."
+        },
+        "granularity": {
+          "name": "Granularity",
+          "description": "Data granularity to import"
+        }
+      }
+    },
+    "import_daily_data": {
+      "name": "Import daily water usage data",
+      "description": "Import daily water usage data for a date range into long-term statistics.",
+      "fields": {
+        "start_date": {
+          "name": "Start date",
+          "description": "Start date for import (YYYY-MM-DD) — must be at least 1 day prior to today due to ACWD reporting delay"
+        },
+        "end_date": {
+          "name": "End date",
+          "description": "End date for import (YYYY-MM-DD) — must be at least 1 day prior to today due to ACWD reporting delay"
+        }
+      }
+    }
   }
 }
