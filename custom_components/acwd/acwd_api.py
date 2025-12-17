@@ -3,15 +3,25 @@ ACWD Water Usage Scraper
 Logs into the ACWD portal and retrieves water usage data
 """
 
+import json
+import logging
+import time
+from contextlib import contextmanager
+from typing import Any, Callable, Optional
+
 import requests
 from bs4 import BeautifulSoup
-import logging
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # User agent string for HTTP requests
-USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
+# Updated to a more maintainable format that can be easily updated
+# Using a modern Chrome user agent that's less likely to be blocked
+USER_AGENT = (
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+    'AppleWebKit/537.36 (KHTML, like Gecko) '
+    'Chrome/143.0.0.0 Safari/537.36'
+)
 
 
 class ACWDClient:
@@ -40,15 +50,32 @@ class ACWDClient:
 
         return hidden_fields
 
-    def login(self):
-        """Login to the ACWD portal"""
+    def login(self) -> bool:
+        """Login to the ACWD portal.
+        
+        Returns:
+            True if login successful, False otherwise
+        """
         logger.info("Fetching login page...")
 
         # Step 1: Get the login page to establish session and extract tokens
-        response = self.session.get(self.base_url)
+        # Use retry logic for network requests
+        try:
+            response = self._retry_request(
+                self.session.get,
+                self.base_url,
+                max_retries=3,
+                retry_delay=2.0,
+                timeout=30,
+                headers={'User-Agent': USER_AGENT}
+            )
+        except Exception as e:
+            logger.error(f"Failed to load login page after retries: {e}")
+            return False
 
         if response.status_code != 200:
-            raise Exception(f"Failed to load login page: {response.status_code}")
+            logger.error(f"Failed to load login page: {response.status_code}")
+            return False
 
         soup = BeautifulSoup(response.text, 'html.parser')
 
@@ -70,20 +97,24 @@ class ACWDClient:
         logger.info("Calling updateState endpoint...")
         update_state_url = f"{self.base_url}default.aspx/updateState"
 
-        update_state_response = self.session.post(
-            update_state_url,
-            json={},
-            headers={
-                'Content-Type': 'application/json; charset=UTF-8',
-                'Referer': self.base_url,
-                'X-Requested-With': 'XMLHttpRequest',
-                'User-Agent': USER_AGENT,
-                'CSRFToken': csrf_token
-            }
-        )
-
-        if update_state_response.status_code != 200:
-            logger.warning(f"updateState returned {update_state_response.status_code}")
+        try:
+            update_state_response = self._retry_request(
+                self.session.post,
+                update_state_url,
+                max_retries=2,
+                retry_delay=1.0,
+                json={},
+                timeout=30,
+                headers={
+                    'Content-Type': 'application/json; charset=UTF-8',
+                    'Referer': self.base_url,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'User-Agent': USER_AGENT,
+                    'CSRFToken': csrf_token
+                }
+            )
+        except Exception as e:
+            logger.warning(f"updateState failed (non-critical): {e}")
 
         # Step 4: Call validateLogin endpoint (actual login validation)
         logger.info("Calling validateLogin endpoint...")
@@ -100,17 +131,25 @@ class ACWDClient:
             'isEdgeBrowser': False
         }
 
-        validate_response = self.session.post(
-            validate_login_url,
-            json=login_payload,
-            headers={
-                'Content-Type': 'application/json; charset=UTF-8',
-                'Referer': self.base_url,
-                'X-Requested-With': 'XMLHttpRequest',
-                'User-Agent': USER_AGENT,
-                'CSRFToken': csrf_token
-            }
-        )
+        try:
+            validate_response = self._retry_request(
+                self.session.post,
+                validate_login_url,
+                max_retries=3,
+                retry_delay=2.0,
+                json=login_payload,
+                timeout=30,
+                headers={
+                    'Content-Type': 'application/json; charset=UTF-8',
+                    'Referer': self.base_url,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'User-Agent': USER_AGENT,
+                    'CSRFToken': csrf_token
+                }
+            )
+        except Exception as e:
+            logger.error(f"validateLogin failed after retries: {e}")
+            return False
 
         if validate_response.status_code != 200:
             logger.error(f"validateLogin failed with status code: {validate_response.status_code}")
@@ -127,7 +166,6 @@ class ACWDClient:
                 return False
 
             # Parse the inner JSON (it's a JSON string inside 'd')
-            import json
             login_data = json.loads(result['d'])
             logger.debug("Login response parsed successfully")
 
@@ -228,16 +266,26 @@ class ACWDClient:
 
         # First, navigate to the usage page to get a fresh CSRF token
         usage_page_url = f"{self.base_url}usages.aspx?type=WU"
-        page_response = self.session.get(usage_page_url)
-
-        if page_response.status_code == 200:
-            soup = BeautifulSoup(page_response.text, 'html.parser')
-            csrf_input = soup.find('input', {'id': 'hdnCSRFToken'})
-            if csrf_input:
-                fresh_csrf = csrf_input.get('value', '')
-                if fresh_csrf:
-                    self.csrf_token = fresh_csrf
-                    logger.info(f"Got fresh CSRF token from usage page")
+        try:
+            page_response = self._retry_request(
+                self.session.get,
+                usage_page_url,
+                max_retries=2,
+                retry_delay=1.0,
+                timeout=30,
+                headers={'User-Agent': USER_AGENT}
+            )
+            
+            if page_response.status_code == 200:
+                soup = BeautifulSoup(page_response.text, 'html.parser')
+                csrf_input = soup.find('input', {'id': 'hdnCSRFToken'})
+                if csrf_input:
+                    fresh_csrf = csrf_input.get('value', '')
+                    if fresh_csrf:
+                        self.csrf_token = fresh_csrf
+                        logger.debug("Got fresh CSRF token from usage page")
+        except Exception as e:
+            logger.warning(f"Failed to get fresh CSRF token (using existing): {e}")
 
         usage_url = f"{self.base_url}Usages.aspx/LoadWaterUsage"
 
@@ -253,7 +301,6 @@ class ACWDClient:
                 formatted_date = str_date  # Fallback to original if parsing fails
 
         # Set up headers for API requests
-        import json
         headers = {
             'Content-Type': 'application/json; charset=UTF-8',
             'X-Requested-With': 'XMLHttpRequest',
@@ -276,9 +323,13 @@ class ACWDClient:
             bind_payload = {"MeterType": "W"}  # W for water
 
             try:
-                bind_response = self.session.post(
+                bind_response = self._retry_request(
+                    self.session.post,
                     bind_meter_url,
+                    max_retries=2,
+                    retry_delay=1.0,
                     json=bind_payload,
+                    timeout=30,
                     headers=headers
                 )
 
@@ -328,11 +379,19 @@ class ACWDClient:
             'isNoDashboard': True
         }
 
-        response = self.session.post(
-            usage_url,
-            json=payload,
-            headers=headers
-        )
+        try:
+            response = self._retry_request(
+                self.session.post,
+                usage_url,
+                max_retries=3,
+                retry_delay=2.0,
+                json=payload,
+                timeout=30,
+                headers=headers
+            )
+        except Exception as e:
+            logger.error(f"Failed to fetch usage data after retries: {e}")
+            return None
 
         if response.status_code != 200:
             logger.error(f"Failed to fetch usage data: {response.status_code}")
