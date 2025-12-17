@@ -283,7 +283,6 @@ async def _async_import_initial_yesterday_data(
 
         # Import into statistics
         # Create datetime in local timezone for proper timestamp handling
-        from homeassistant.util import dt as dt_util
         local_tz = dt_util.get_default_time_zone()
         date_dt = datetime.combine(yesterday, datetime.min.time())
         date_dt = date_dt.replace(tzinfo=local_tz)
@@ -414,7 +413,6 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
 
             # Import into statistics (duplicates are automatically handled)
             # Create datetime in local timezone for proper timestamp handling
-            from homeassistant.util import dt as dt_util
             local_tz = dt_util.get_default_time_zone()
             date_dt = datetime.combine(today, datetime.min.time())
             date_dt = date_dt.replace(tzinfo=local_tz)
@@ -480,7 +478,6 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
 
             # Import into statistics (duplicates are automatically handled)
             # Create datetime in local timezone for proper timestamp handling
-            from homeassistant.util import dt as dt_util
             local_tz = dt_util.get_default_time_zone()
             date_dt = datetime.combine(yesterday, datetime.min.time())
             date_dt = date_dt.replace(tzinfo=local_tz)
