@@ -40,11 +40,11 @@
       "fields": {
         "start_date": {
           "name": "Start date",
-          "description": "Start date for import (YYYY-MM-DD)"
+          "description": "Start date for import (YYYY-MM-DD) — must be at least 1 day prior to today due to ACWD reporting delay"
         },
         "end_date": {
           "name": "End date",
-          "description": "End date for import (YYYY-MM-DD)"
+          "description": "End date for import (YYYY-MM-DD) — must be at least 1 day prior to today due to ACWD reporting delay"
         }
       }
     }
