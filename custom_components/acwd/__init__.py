@@ -10,6 +10,7 @@ from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .acwd_api import ACWDClient
@@ -35,6 +36,9 @@ ERROR_LOGIN_FAILED = "Failed to login to ACWD portal"
 
 # Date format for ACWD API
 DATE_FORMAT_ACWD = "%m/%d/%Y"
+
+# Time constants for morning import window
+MORNING_IMPORT_END_HOUR = 12  # Only import yesterday's data before noon
 
 # Service schemas
 SERVICE_IMPORT_HOURLY_SCHEMA = vol.Schema({
@@ -153,6 +157,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         """Handle the import_daily_data service call."""
         start_date = call.data["start_date"]
         end_date = call.data["end_date"]
+
+        # Validate date range
+        if start_date > end_date:
+            _LOGGER.error(
+                f"Invalid date range: start_date ({start_date}) must be <= end_date ({end_date})"
+            )
+            return
 
         account_number = coordinator.client.user_info.get("AccountNumber")
         if not account_number:
@@ -287,7 +298,6 @@ async def _async_import_initial_yesterday_data(
 
         # Import into statistics
         # Create datetime in local timezone for proper timestamp handling
-        from homeassistant.util import dt as dt_util
         local_tz = dt_util.get_default_time_zone()
         date_dt = datetime.combine(yesterday, datetime.min.time())
         date_dt = date_dt.replace(tzinfo=local_tz)
@@ -325,8 +335,12 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             update_interval=UPDATE_INTERVAL,
         )
 
-    async def _async_update_data(self):
-        """Fetch data from ACWD."""
+    async def _async_update_data(self) -> dict:
+        """Fetch data from ACWD.
+        
+        Returns:
+            dict: Usage data from ACWD portal
+        """
         try:
             # Login and fetch data
             logged_in = await self.hass.async_add_executor_job(self.client.login)
@@ -357,7 +371,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
         except Exception as err:
             raise UpdateFailed(f"Error communicating with ACWD: {err}") from err
 
-    async def _import_today_hourly_data(self):
+    async def _import_today_hourly_data(self) -> None:
         """Automatically import today's hourly data into statistics.
 
         Imports today's partial data every hour (accounting for variable ACWD delay).
@@ -417,7 +431,6 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
 
             # Import into statistics (duplicates are automatically handled)
             # Create datetime in local timezone for proper timestamp handling
-            from homeassistant.util import dt as dt_util
             local_tz = dt_util.get_default_time_zone()
             date_dt = datetime.combine(today, datetime.min.time())
             date_dt = date_dt.replace(tzinfo=local_tz)
@@ -430,7 +443,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
         except Exception as err:
             _LOGGER.warning(f"Failed to auto-import hourly data for {today}: {err}")
 
-    async def _import_yesterday_complete_data(self):
+    async def _import_yesterday_complete_data(self) -> None:
         """Import yesterday's complete data during morning hours (0-12 PM).
 
         This catches yesterday's final hours (typically 9 PM - 11 PM) that only
@@ -441,7 +454,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
         current_hour = datetime.now().hour
 
         # Only run during morning hours (0-12 PM)
-        if current_hour >= 12:
+        if current_hour >= MORNING_IMPORT_END_HOUR:
             return
 
         yesterday = (datetime.now() - timedelta(days=1)).date()
@@ -481,7 +494,6 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
 
             # Import into statistics (duplicates are automatically handled)
             # Create datetime in local timezone for proper timestamp handling
-            from homeassistant.util import dt as dt_util
             local_tz = dt_util.get_default_time_zone()
             date_dt = datetime.combine(yesterday, datetime.min.time())
             date_dt = date_dt.replace(tzinfo=local_tz)
