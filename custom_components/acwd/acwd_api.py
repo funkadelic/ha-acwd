@@ -7,8 +7,7 @@ import requests
 from bs4 import BeautifulSoup
 import logging
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 # User agent string for HTTP requests
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
@@ -44,7 +43,14 @@ class ACWDClient:
         self._water_meter_number = None
 
     def _get_hidden_fields(self, soup):
-        """Extract all hidden form fields from the login page"""
+        """Extract all hidden form fields from the login page.
+        
+        Args:
+            soup: BeautifulSoup object containing the login page HTML
+            
+        Returns:
+            dict: Dictionary mapping field names to their values
+        """
         hidden_fields = {}
 
         # Get all hidden input fields
@@ -58,7 +64,7 @@ class ACWDClient:
 
     def login(self):
         """Login to the ACWD portal"""
-        logger.info("Fetching login page...")
+        _LOGGER.info("Fetching login page...")
 
         # Step 1: Get the login page to establish session and extract tokens
         response = self.session.get(self.base_url)
@@ -70,20 +76,20 @@ class ACWDClient:
 
         # Step 2: Extract hidden fields (CSRF token, etc.)
         hidden_fields = self._get_hidden_fields(soup)
-        logger.info(f"Extracted {len(hidden_fields)} hidden fields")
+        _LOGGER.info(f"Extracted {len(hidden_fields)} hidden fields")
 
         # Get the CSRF token
         csrf_token = hidden_fields.get(FIELD_CSRF_TOKEN, '')
         if not csrf_token:
-            logger.error("No CSRF token found!")
+            _LOGGER.error("No CSRF token found!")
             return False
 
         # Store CSRF token for future requests
         self.csrf_token = csrf_token
-        logger.debug("CSRF token obtained")
+        _LOGGER.debug("CSRF token obtained")
 
         # Step 3: Call updateState endpoint
-        logger.info("Calling updateState endpoint...")
+        _LOGGER.info("Calling updateState endpoint...")
         update_state_url = f"{self.base_url}default.aspx/updateState"
 
         update_state_response = self.session.post(
@@ -99,10 +105,10 @@ class ACWDClient:
         )
 
         if update_state_response.status_code != 200:
-            logger.warning(f"updateState returned {update_state_response.status_code}")
+            _LOGGER.warning(f"updateState returned {update_state_response.status_code}")
 
         # Step 4: Call validateLogin endpoint (actual login validation)
-        logger.info("Calling validateLogin endpoint...")
+        _LOGGER.info("Calling validateLogin endpoint...")
         validate_login_url = f"{self.base_url}default.aspx/validateLogin"
 
         login_payload = {
@@ -129,33 +135,33 @@ class ACWDClient:
         )
 
         if validate_response.status_code != 200:
-            logger.error(f"validateLogin failed with status code: {validate_response.status_code}")
+            _LOGGER.error(f"validateLogin failed with status code: {validate_response.status_code}")
             return False
 
         # Step 5: Check the response from validateLogin
         try:
             result = validate_response.json()
-            logger.debug("validateLogin response received")
+            _LOGGER.debug("validateLogin response received")
 
             # ASP.NET WebMethods wrap response in 'd' property
             if 'd' not in result:
-                logger.error("Unexpected response format - missing 'd' property")
+                _LOGGER.error("Unexpected response format - missing 'd' property")
                 return False
 
             # Parse the inner JSON (it's a JSON string inside 'd')
             import json
             login_data = json.loads(result['d'])
-            logger.debug("Login response parsed successfully")
+            _LOGGER.debug("Login response parsed successfully")
 
             # Check for special cases
             if result['d'] == "Migrated User Found":
-                logger.error("Account requires migration")
+                _LOGGER.error("Account requires migration")
                 return False
 
             # Handle error response format (dtResponse)
             if isinstance(login_data, dict) and 'dtResponse' in login_data:
                 error_info = login_data['dtResponse'][0]
-                logger.error(f"Login failed: {error_info.get('Message', 'Unknown error')}")
+                _LOGGER.error(f"Login failed: {error_info.get('Message', 'Unknown error')}")
                 return False
 
             # Handle success response format (array with STATUS)
@@ -166,14 +172,14 @@ class ACWDClient:
                 if 'STATUS' in main_table:
                     status = str(main_table['STATUS'])  # Convert to string for comparison
                     if status == '0':
-                        logger.error(f"Login failed: {main_table.get('Message', 'Unknown error')}")
+                        _LOGGER.error(f"Login failed: {main_table.get('Message', 'Unknown error')}")
                         return False
                     elif status == '1':
-                        logger.info("Login successful!")
+                        _LOGGER.info("Login successful!")
 
                         # Store user info
                         self.user_info = main_table
-                        logger.debug("User information stored")
+                        _LOGGER.debug("User information stored")
 
                         # Determine which dashboard to use
                         dashboard_option = main_table.get('DashboardOption', '1')
@@ -185,31 +191,31 @@ class ACWDClient:
                             dashboard_url = f"{self.base_url}Dashboard.aspx"
 
                         # Navigate to the appropriate dashboard
-                        logger.info(f"Navigating to {dashboard_url}...")
+                        _LOGGER.info(f"Navigating to {dashboard_url}...")
                         dashboard_response = self.session.get(dashboard_url)
 
                         if dashboard_response.status_code == 200:
-                            logger.info("Successfully accessed Dashboard!")
+                            _LOGGER.info("Successfully accessed Dashboard!")
                             self.logged_in = True
                             return True
                         else:
-                            logger.warning(f"Dashboard returned {dashboard_response.status_code}")
+                            _LOGGER.warning(f"Dashboard returned {dashboard_response.status_code}")
                             self.logged_in = True  # Still logged in even if dashboard fails
                             return True
                 else:
-                    logger.error(f"Unexpected response structure: {main_table}")
+                    _LOGGER.error(f"Unexpected response structure: {main_table}")
                     return False
             else:
-                logger.error(f"Unexpected login response: {login_data}")
+                _LOGGER.error(f"Unexpected login response: {login_data}")
                 return False
 
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse login response JSON: {e}")
-            logger.error(f"Response: {result.get('d', '')[:200]}")
+            _LOGGER.error(f"Failed to parse login response JSON: {e}")
+            _LOGGER.error(f"Response: {result.get('d', '')[:200]}")
             return False
         except Exception as e:
-            logger.error(f"Error processing validateLogin response: {e}")
-            logger.error(f"Response text: {validate_response.text[:200]}")
+            _LOGGER.error(f"Error processing validateLogin response: {e}")
+            _LOGGER.error(f"Response text: {validate_response.text[:200]}")
             return False
 
     def get_usage_data(self, mode='B', date_from=None, date_to=None, str_date=None, hourly_type='H'):
@@ -240,7 +246,7 @@ class ACWDClient:
         if not self.logged_in:
             raise Exception("Not logged in. Call login() first.")
 
-        logger.info(f"Fetching usage data (mode={mode}, hourly_type={hourly_type})...")
+        _LOGGER.info(f"Fetching usage data (mode={mode}, hourly_type={hourly_type})...")
 
         # First, navigate to the usage page to get a fresh CSRF token
         usage_page_url = f"{self.base_url}usages.aspx?type=WU"
@@ -253,7 +259,7 @@ class ACWDClient:
                 fresh_csrf = csrf_input.get('value', '')
                 if fresh_csrf:
                     self.csrf_token = fresh_csrf
-                    logger.info("Got fresh CSRF token from usage page")
+                    _LOGGER.info("Got fresh CSRF token from usage page")
 
         usage_url = f"{self.base_url}Usages.aspx/LoadWaterUsage"
 
@@ -309,7 +315,7 @@ class ACWDClient:
                         for meter in meter_details:
                             if meter.get('IsAMI') and meter.get('MeterType') == 'W':
                                 ami_meter = meter.get('MeterNumber', '')
-                                logger.info(f"Found AMI water meter: {ami_meter}")
+                                _LOGGER.info(f"Found AMI water meter: {ami_meter}")
                                 break
 
                         if ami_meter:
@@ -318,12 +324,12 @@ class ACWDClient:
                             # No AMI meter found, try first water meter or empty
                             if meter_details:
                                 self._water_meter_number = meter_details[0].get('MeterNumber', '')
-                                logger.info(f"No AMI meter found, using first meter: {self._water_meter_number}")
+                                _LOGGER.info(f"No AMI meter found, using first meter: {self._water_meter_number}")
                             else:
                                 self._water_meter_number = ''
-                                logger.warning("No water meters found, using empty meter number")
+                                _LOGGER.warning("No water meters found, using empty meter number")
             except Exception as e:
-                logger.error(f"Error fetching meter list: {e}")
+                _LOGGER.error(f"Error fetching meter list: {e}")
                 self._water_meter_number = ''
 
         # Use cached meter number
@@ -351,26 +357,26 @@ class ACWDClient:
         )
 
         if response.status_code != 200:
-            logger.error(f"Failed to fetch usage data: {response.status_code}")
+            _LOGGER.error(f"Failed to fetch usage data: {response.status_code}")
             return None
 
         try:
             result = response.json()
             if 'd' in result:
                 usage_data = json.loads(result['d'])
-                logger.info("Retrieved usage data successfully")
+                _LOGGER.info("Retrieved usage data successfully")
                 return usage_data
             else:
-                logger.error("Unexpected response format")
+                _LOGGER.error("Unexpected response format")
                 return None
         except Exception as e:
-            logger.error(f"Error parsing usage data: {e}")
+            _LOGGER.error(f"Error parsing usage data: {e}")
             return None
 
     def logout(self):
         """Logout from the portal"""
         if self.logged_in:
-            logger.info("Logging out...")
+            _LOGGER.info("Logging out...")
             # TODO: Find and implement logout URL if needed
             self.session.close()
             self.logged_in = False
