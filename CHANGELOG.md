@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.19] - 2026-02-03
+
+### Fixed
+
+- Added `mean_type=StatisticMeanType.NONE` to StatisticMetaData for Home Assistant 2026.11 compatibility (fixes deprecation warning)
+
+### Improved
+
+- Added service descriptions for better discoverability in Home Assistant UI
+
 ## [1.0.18] - 2025-12-11
 
 ### Changed
