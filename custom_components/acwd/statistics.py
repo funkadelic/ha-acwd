@@ -10,6 +10,7 @@ from homeassistant.components.recorder.statistics import (
     async_add_external_statistics,
     get_last_statistics,
     StatisticData,
+    StatisticMeanType,
     StatisticMetaData,
 )
 from homeassistant.const import UnitOfVolume
@@ -44,6 +45,7 @@ async def async_import_hourly_statistics(
     metadata = StatisticMetaData(
         has_mean=False,
         has_sum=True,
+        mean_type=StatisticMeanType.NONE,
         name=f"ACWD Water Hourly Usage - Meter {meter_number}",
         source=DOMAIN,
         statistic_id=statistic_id,
@@ -181,6 +183,7 @@ async def async_import_quarter_hourly_statistics(
     metadata = StatisticMetaData(
         has_mean=False,
         has_sum=True,
+        mean_type=StatisticMeanType.NONE,
         name=f"ACWD Water 15-Min Usage - Meter {meter_number}",
         source=DOMAIN,
         statistic_id=statistic_id,
@@ -254,6 +257,7 @@ async def async_import_daily_statistics(
     metadata = StatisticMetaData(
         has_mean=False,
         has_sum=True,
+        mean_type=StatisticMeanType.NONE,
         name=f"ACWD Water Daily Usage - Meter {meter_number}",
         source=DOMAIN,
         statistic_id=statistic_id,

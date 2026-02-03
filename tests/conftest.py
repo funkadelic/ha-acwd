@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 # Export mock classes for use in test files
-__all__ = ["StatisticData", "StatisticMetaData", "UnitOfVolume", "dt_util"]
+__all__ = ["StatisticData", "StatisticMetaData", "StatisticMeanType", "UnitOfVolume", "dt_util"]
 
 
 # Mock Home Assistant classes and utilities
@@ -33,6 +33,12 @@ class StatisticMetaData:
     statistic_id: str
     unit_of_measurement: str | None
     unit_class: str | None = None
+    mean_type: str | None = None
+
+
+class StatisticMeanType:
+    """Mock StatisticMeanType enum from Home Assistant recorder."""
+    NONE = "none"
 
 
 class _GallonsUnit:
@@ -236,6 +242,7 @@ def _setup_homeassistant_mocks():
     recorder_mock = ModuleType("recorder")
     recorder_mock.StatisticData = StatisticData
     recorder_mock.StatisticMetaData = StatisticMetaData
+    recorder_mock.StatisticMeanType = StatisticMeanType
     recorder_mock.get_instance = Mock()
     recorder_mock.get_last_statistics = Mock()
     recorder_mock.async_add_external_statistics = AsyncMock()
@@ -245,6 +252,7 @@ def _setup_homeassistant_mocks():
     recorder_statistics_mock = ModuleType("statistics")
     recorder_statistics_mock.StatisticData = StatisticData
     recorder_statistics_mock.StatisticMetaData = StatisticMetaData
+    recorder_statistics_mock.StatisticMeanType = StatisticMeanType
     recorder_statistics_mock.get_last_statistics = Mock()
     recorder_statistics_mock.async_add_external_statistics = AsyncMock()
     recorder_statistics_mock.statistics_during_period = Mock()
