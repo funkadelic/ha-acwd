@@ -83,7 +83,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         granularity = call.data["granularity"]
 
         # Ensure date is at least 1 day ago due to ACWD's reporting delay
-        one_day_ago = (datetime.now() - timedelta(days=1)).date()
+        # Use Home Assistant's timezone-aware now() function
+        one_day_ago = (dt_util.now().date() - timedelta(days=1))
         if date > one_day_ago:
             _LOGGER.error(
                 f"Cannot import data for {date}. Date must be at least 1 day ago "
@@ -136,7 +137,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 return
 
             # Import into statistics
+            local_tz = dt_util.get_default_time_zone()
             date_dt = datetime.combine(date, datetime.min.time())
+            date_dt = date_dt.replace(tzinfo=local_tz)
+
             if granularity == "quarter_hourly":
                 await async_import_quarter_hourly_statistics(
                     hass, meter_number, hourly_records, date_dt
@@ -248,7 +252,7 @@ async def _async_import_initial_yesterday_data(
     It gives users immediate data to see in the Energy Dashboard.
     """
     try:
-        yesterday = (datetime.now() - timedelta(days=1)).date()
+        yesterday = (dt_util.now() - timedelta(days=1)).date()
         _LOGGER.info(f"Initial setup: Importing yesterday's data ({yesterday})")
 
         # Create a fresh client instance to avoid session conflicts
@@ -379,7 +383,8 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
         with the same timestamp, so importing multiple times is safe.
         """
         # Import today's data (partial, accounting for variable delay)
-        today = datetime.now().date()
+        # Use Home Assistant's timezone-aware now() function
+        today = dt_util.now().date()
 
         try:
             _LOGGER.debug(f"Checking for hourly data for {today}")
@@ -451,13 +456,15 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
 
         Only runs between midnight and noon to avoid unnecessary API calls.
         """
-        current_hour = datetime.now().hour
+        # Use Home Assistant's timezone-aware now() function
+        now = dt_util.now()
+        current_hour = now.hour
 
         # Only run during morning hours (0-12 PM)
         if current_hour >= MORNING_IMPORT_END_HOUR:
             return
 
-        yesterday = (datetime.now() - timedelta(days=1)).date()
+        yesterday = (now.date() - timedelta(days=1))
 
         try:
             _LOGGER.debug(f"Early morning check: Importing complete data for {yesterday}")
