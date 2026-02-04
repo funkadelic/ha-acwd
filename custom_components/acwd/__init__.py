@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .acwd_api import ACWDClient
@@ -30,6 +31,15 @@ UPDATE_INTERVAL = timedelta(hours=1)
 # Service names
 SERVICE_IMPORT_HOURLY = "import_hourly_data"
 SERVICE_IMPORT_DAILY = "import_daily_data"
+
+# Error messages
+ERROR_LOGIN_FAILED = "Failed to login to ACWD portal"
+
+# Date format for ACWD API
+DATE_FORMAT_ACWD = "%m/%d/%Y"
+
+# Time constants for morning import window
+MORNING_IMPORT_END_HOUR = 12  # Only import yesterday's data before noon
 
 # Service schemas
 SERVICE_IMPORT_HOURLY_SCHEMA = vol.Schema({
@@ -78,7 +88,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if date > one_day_ago:
             error_msg = (
                 f"Cannot import data for {date}. Date must be at least 1 day ago "
-                f"due to ACWD's reporting delay."
+                "due to ACWD's reporting delay."
             )
             _LOGGER.error(error_msg)
             raise HomeAssistantError(error_msg)
@@ -93,11 +103,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             # Login with the new client
             logged_in = await hass.async_add_executor_job(service_client.login)
             if not logged_in:
-                _LOGGER.error("Failed to login to ACWD portal")
+                _LOGGER.error(ERROR_LOGIN_FAILED)
                 return
 
             # Format date for API
-            date_str = date.strftime("%m/%d/%Y")
+            date_str = date.strftime(DATE_FORMAT_ACWD)
 
             # Fetch hourly data
             hourly_type = 'Q' if granularity == "quarter_hourly" else 'H'
@@ -164,7 +174,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         # Validate date range
         if start_date > end_date:
-            error_msg = f"Start date ({start_date}) must be before end date ({end_date})"
+            error_msg = f"Invalid date range: start_date ({start_date}) must be <= end_date ({end_date})"
             _LOGGER.error(error_msg)
             raise HomeAssistantError(error_msg)
 
@@ -184,13 +194,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             # Login with the new client
             logged_in = await hass.async_add_executor_job(service_client.login)
             if not logged_in:
-                error_msg = "Failed to login to ACWD portal"
+                error_msg = ERROR_LOGIN_FAILED
                 _LOGGER.error(error_msg)
                 raise HomeAssistantError(error_msg)
 
             # Format dates for API
-            start_str = start_date.strftime("%m/%d/%Y")
-            end_str = end_date.strftime("%m/%d/%Y")
+            start_str = start_date.strftime(DATE_FORMAT_ACWD)
+            end_str = end_date.strftime(DATE_FORMAT_ACWD)
 
             # Fetch daily data
             data = await hass.async_add_executor_job(
@@ -265,12 +275,12 @@ async def _async_import_initial_yesterday_data(
         fresh_client = ACWDClient(username, password)
 
         # Format date for API
-        date_str = yesterday.strftime("%m/%d/%Y")
+        date_str = yesterday.strftime(DATE_FORMAT_ACWD)
 
         # Login
         logged_in = await hass.async_add_executor_job(fresh_client.login)
         if not logged_in:
-            _LOGGER.warning("Initial import: Failed to login to ACWD portal")
+            _LOGGER.warning(f"Initial import: {ERROR_LOGIN_FAILED}")
             return
 
         # Fetch hourly data
@@ -305,7 +315,6 @@ async def _async_import_initial_yesterday_data(
 
         # Import into statistics
         # Create datetime in local timezone for proper timestamp handling
-        from homeassistant.util import dt as dt_util
         local_tz = dt_util.get_default_time_zone()
         date_dt = datetime.combine(yesterday, datetime.min.time())
         date_dt = date_dt.replace(tzinfo=local_tz)
@@ -343,14 +352,18 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             update_interval=UPDATE_INTERVAL,
         )
 
-    async def _async_update_data(self):
-        """Fetch data from ACWD."""
+    async def _async_update_data(self) -> dict:
+        """Fetch data from ACWD.
+        
+        Returns:
+            dict: Usage data from ACWD portal
+        """
         try:
             # Login and fetch data
             logged_in = await self.hass.async_add_executor_job(self.client.login)
 
             if not logged_in:
-                raise UpdateFailed("Failed to login to ACWD portal")
+                raise UpdateFailed(ERROR_LOGIN_FAILED)
 
             # Get billing cycle data (mode='B' for complete summary data)
             data = await self.hass.async_add_executor_job(
@@ -375,7 +388,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
         except Exception as err:
             raise UpdateFailed(f"Error communicating with ACWD: {err}") from err
 
-    async def _import_today_hourly_data(self):
+    async def _import_today_hourly_data(self) -> None:
         """Automatically import today's hourly data into statistics.
 
         Imports today's partial data every hour (accounting for variable ACWD delay).
@@ -389,7 +402,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.debug(f"Checking for hourly data for {today}")
 
             # Format date for API
-            date_str = today.strftime("%m/%d/%Y")
+            date_str = today.strftime(DATE_FORMAT_ACWD)
 
             # Fetch hourly data (already logged in)
             data = await self.hass.async_add_executor_job(
@@ -435,7 +448,6 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
 
             # Import into statistics (duplicates are automatically handled)
             # Create datetime in local timezone for proper timestamp handling
-            from homeassistant.util import dt as dt_util
             local_tz = dt_util.get_default_time_zone()
             date_dt = datetime.combine(today, datetime.min.time())
             date_dt = date_dt.replace(tzinfo=local_tz)
@@ -448,7 +460,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
         except Exception as err:
             _LOGGER.warning(f"Failed to auto-import hourly data for {today}: {err}")
 
-    async def _import_yesterday_complete_data(self):
+    async def _import_yesterday_complete_data(self) -> None:
         """Import yesterday's complete data during morning hours (0-12 PM).
 
         This catches yesterday's final hours (typically 9 PM - 11 PM) that only
@@ -459,7 +471,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
         current_hour = datetime.now().hour
 
         # Only run during morning hours (0-12 PM)
-        if current_hour >= 12:
+        if current_hour >= MORNING_IMPORT_END_HOUR:
             return
 
         yesterday = (datetime.now() - timedelta(days=1)).date()
@@ -468,7 +480,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.debug(f"Early morning check: Importing complete data for {yesterday}")
 
             # Format date for API
-            date_str = yesterday.strftime("%m/%d/%Y")
+            date_str = yesterday.strftime(DATE_FORMAT_ACWD)
 
             # Fetch hourly data (already logged in)
             data = await self.hass.async_add_executor_job(
@@ -499,7 +511,6 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
 
             # Import into statistics (duplicates are automatically handled)
             # Create datetime in local timezone for proper timestamp handling
-            from homeassistant.util import dt as dt_util
             local_tz = dt_util.get_default_time_zone()
             date_dt = datetime.combine(yesterday, datetime.min.time())
             date_dt = date_dt.replace(tzinfo=local_tz)
