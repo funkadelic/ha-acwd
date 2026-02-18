@@ -7,6 +7,8 @@ import requests
 from bs4 import BeautifulSoup
 import logging
 
+from .const import DATE_FORMAT_SLASH_MDY, DATE_FORMAT_LONG
+
 _LOGGER = logging.getLogger(__name__)
 
 # User agent string for HTTP requests
@@ -268,9 +270,9 @@ class ACWDClient:
         if str_date:
             try:
                 from datetime import datetime
-                date_obj = datetime.strptime(str_date, '%m/%d/%Y')
+                date_obj = datetime.strptime(str_date, DATE_FORMAT_SLASH_MDY)
                 # Format as "December 4, 2025" (no leading zero on day)
-                formatted_date = date_obj.strftime('%B %d, %Y').replace(' 0', ' ')
+                formatted_date = date_obj.strftime(DATE_FORMAT_LONG).replace(' 0', ' ')
             except:
                 formatted_date = str_date  # Fallback to original if parsing fails
 

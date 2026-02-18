@@ -17,7 +17,8 @@ from homeassistant.const import UnitOfVolume
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN
+from .const import DOMAIN, DATE_FORMAT_LONG, TIME_FORMAT_12HR
+from .helpers import local_midnight
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,18 +56,8 @@ async def async_import_hourly_statistics(
 
     # Get the last statistic from BEFORE the target date to get the correct baseline
     # This ensures we start from yesterday's final sum, not from earlier today
-    # Create midnight of target date in LOCAL timezone, then convert to UTC
-    # This handles the timezone properly (e.g., Dec 10 00:00 PST = Dec 10 08:00 UTC)
-    from homeassistant.util import dt as dt_util
-    import datetime as dt_module
-
-    # Get local timezone
-    local_tz = dt_util.get_default_time_zone()
-
-    # Create midnight of target date in local timezone
-    # ZoneInfo (Python 3.9+) uses replace() instead of localize()
-    target_date_midnight_local = dt_module.datetime.combine(date, dt_module.time.min)
-    target_date_midnight_local = target_date_midnight_local.replace(tzinfo=local_tz)
+    # .date() since date param is datetime; timezone-aware to prevent UTC baseline bugs
+    target_date_midnight_local = local_midnight(date.date())
 
     # Convert to UTC for comparison
     target_date_start = dt_util.as_utc(target_date_midnight_local)
@@ -131,7 +122,7 @@ async def async_import_hourly_statistics(
 
         # Parse hour from "HH:MM AM/PM" format
         try:
-            time_obj = datetime.strptime(hourly_str, "%I:%M %p")
+            time_obj = datetime.strptime(hourly_str, TIME_FORMAT_12HR)
             hour = time_obj.hour
         except (ValueError, TypeError):
             _LOGGER.warning(f"Could not parse hourly time: {hourly_str}")
@@ -290,7 +281,7 @@ async def async_import_daily_statistics(
 
         # Parse the date string
         try:
-            date_obj = datetime.strptime(date_str, "%B %d, %Y")
+            date_obj = datetime.strptime(date_str, DATE_FORMAT_LONG)
         except (ValueError, TypeError):
             _LOGGER.warning(f"Could not parse date: {date_str}")
             continue
