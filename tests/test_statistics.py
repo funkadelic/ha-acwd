@@ -26,12 +26,26 @@ from homeassistant.util import dt as dt_util
 import importlib.util
 from unittest.mock import MagicMock
 
-# Create a mock const module for the integration
+# Create mock modules for the integration
 _const_module = MagicMock()
 _const_module.DOMAIN = "acwd"
+_const_module.DATE_FORMAT_LONG = "%B %d, %Y"
+_const_module.TIME_FORMAT_12HR = "%I:%M %p"
+
+# Create a mock helpers module with local_midnight
+_helpers_module = MagicMock()
+from homeassistant.util import dt as _dt_util
+
+def _local_midnight(d):
+    local_tz = _dt_util.get_default_time_zone()
+    return datetime.combine(d, datetime.min.time()).replace(tzinfo=local_tz)
+
+_helpers_module.local_midnight = _local_midnight
+
 sys.modules["custom_components"] = MagicMock()
 sys.modules["custom_components.acwd"] = MagicMock()
 sys.modules["custom_components.acwd.const"] = _const_module
+sys.modules["custom_components.acwd.helpers"] = _helpers_module
 
 _stats_spec = importlib.util.spec_from_file_location(
     "custom_components.acwd.statistics",
