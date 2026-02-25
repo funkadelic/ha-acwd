@@ -273,8 +273,9 @@ class ACWDClient:
                 date_obj = datetime.strptime(str_date, DATE_FORMAT_SLASH_MDY)
                 # Format as "December 4, 2025" (no leading zero on day)
                 formatted_date = date_obj.strftime(DATE_FORMAT_LONG).replace(' 0', ' ')
-            except:
-                formatted_date = str_date  # Fallback to original if parsing fails
+            except (ValueError, TypeError):
+                _LOGGER.error("Failed to parse date '%s', using original value", str_date)
+                formatted_date = str_date
 
         # Set up headers for API requests
         import json

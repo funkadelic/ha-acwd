@@ -289,9 +289,8 @@ async def async_import_daily_statistics(
         # Add to cumulative sum
         cumulative_sum += usage_gallons
 
-        # Create timestamp (start of day)
-        timestamp = date_obj.replace(hour=0, minute=0, second=0, microsecond=0)
-        timestamp_utc = dt_util.as_utc(timestamp)
+        # Create timestamp (start of day in local timezone, converted to UTC)
+        timestamp_utc = dt_util.as_utc(local_midnight(date_obj.date()))
 
         statistics.append(
             StatisticData(
