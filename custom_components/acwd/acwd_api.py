@@ -274,7 +274,7 @@ class ACWDClient:
                 # Format as "December 4, 2025" (no leading zero on day)
                 formatted_date = date_obj.strftime(DATE_FORMAT_LONG).replace(' 0', ' ')
             except (ValueError, TypeError):
-                _LOGGER.error("Failed to parse date '%s', using original value", str_date)
+                _LOGGER.exception("Failed to parse date '%s', using original value", str_date)
                 formatted_date = str_date
 
         # Set up headers for API requests
