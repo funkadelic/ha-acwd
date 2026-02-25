@@ -19,11 +19,34 @@ import os
 from datetime import datetime, timedelta
 from getpass import getpass
 
-# Add the custom_components directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'custom_components', 'acwd'))
+# Import the API client without triggering the full HA integration package.
+# acwd_api uses relative imports (from .const import ...), so we set up the
+# acwd package minimally: register it as a package with just const loaded,
+# then import acwd_api as a submodule.
+import types
+import importlib.util
 
-# Import only the API client (not the HA integration)
-from acwd_api import ACWDClient
+_acwd_dir = os.path.join(os.path.dirname(__file__), 'custom_components', 'acwd')
+
+# Create a minimal 'acwd' package (skips __init__.py which needs homeassistant)
+_acwd_pkg = types.ModuleType('acwd')
+_acwd_pkg.__path__ = [_acwd_dir]
+_acwd_pkg.__package__ = 'acwd'
+sys.modules['acwd'] = _acwd_pkg
+
+# Load acwd.const so relative imports from acwd_api resolve
+_const_spec = importlib.util.spec_from_file_location('acwd.const', os.path.join(_acwd_dir, 'const.py'))
+_const_mod = importlib.util.module_from_spec(_const_spec)
+sys.modules['acwd.const'] = _const_mod
+_const_spec.loader.exec_module(_const_mod)
+
+# Load acwd.acwd_api
+_api_spec = importlib.util.spec_from_file_location('acwd.acwd_api', os.path.join(_acwd_dir, 'acwd_api.py'))
+_api_mod = importlib.util.module_from_spec(_api_spec)
+sys.modules['acwd.acwd_api'] = _api_mod
+_api_spec.loader.exec_module(_api_mod)
+
+ACWDClient = _api_mod.ACWDClient
 
 # Conversion constant
 HCF_TO_GALLONS = 748

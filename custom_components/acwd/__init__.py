@@ -10,10 +10,9 @@ from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-from homeassistant.util import dt as dt_util
-
-from .const import DOMAIN
+from .const import DOMAIN, DATE_FORMAT_SLASH_MDY
 from .acwd_api import ACWDClient
+from .helpers import local_midnight
 from .statistics import (
     async_import_hourly_statistics,
     async_import_quarter_hourly_statistics,
@@ -33,9 +32,6 @@ SERVICE_IMPORT_DAILY = "import_daily_data"
 
 # Error messages
 ERROR_LOGIN_FAILED = "Failed to login to ACWD portal"
-
-# Date format for ACWD API
-DATE_FORMAT_ACWD = "%m/%d/%Y"
 
 # Time constants for morning import window
 MORNING_IMPORT_END_HOUR = 12  # Only import yesterday's data before noon
@@ -105,7 +101,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 return
 
             # Format date for API
-            date_str = date.strftime(DATE_FORMAT_ACWD)
+            date_str = date.strftime(DATE_FORMAT_SLASH_MDY)
 
             # Fetch hourly data
             hourly_type = 'Q' if granularity == "quarter_hourly" else 'H'
@@ -136,7 +132,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 return
 
             # Import into statistics
-            date_dt = datetime.combine(date, datetime.min.time())
+            date_dt = local_midnight(date)  # timezone-aware to prevent UTC baseline bugs
             if granularity == "quarter_hourly":
                 await async_import_quarter_hourly_statistics(
                     hass, meter_number, hourly_records, date_dt
@@ -184,8 +180,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 return
 
             # Format dates for API
-            start_str = start_date.strftime(DATE_FORMAT_ACWD)
-            end_str = end_date.strftime(DATE_FORMAT_ACWD)
+            start_str = start_date.strftime(DATE_FORMAT_SLASH_MDY)
+            end_str = end_date.strftime(DATE_FORMAT_SLASH_MDY)
 
             # Fetch daily data
             data = await hass.async_add_executor_job(
@@ -258,7 +254,7 @@ async def _async_import_initial_yesterday_data(
         fresh_client = ACWDClient(username, password)
 
         # Format date for API
-        date_str = yesterday.strftime(DATE_FORMAT_ACWD)
+        date_str = yesterday.strftime(DATE_FORMAT_SLASH_MDY)
 
         # Login
         logged_in = await hass.async_add_executor_job(fresh_client.login)
@@ -297,10 +293,7 @@ async def _async_import_initial_yesterday_data(
             return
 
         # Import into statistics
-        # Create datetime in local timezone for proper timestamp handling
-        local_tz = dt_util.get_default_time_zone()
-        date_dt = datetime.combine(yesterday, datetime.min.time())
-        date_dt = date_dt.replace(tzinfo=local_tz)
+        date_dt = local_midnight(yesterday)  # timezone-aware to prevent UTC baseline bugs
         await async_import_hourly_statistics(
             hass, meter_number, hourly_records, date_dt
         )
@@ -385,7 +378,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.debug(f"Checking for hourly data for {today}")
 
             # Format date for API
-            date_str = today.strftime(DATE_FORMAT_ACWD)
+            date_str = today.strftime(DATE_FORMAT_SLASH_MDY)
 
             # Fetch hourly data (already logged in)
             data = await self.hass.async_add_executor_job(
@@ -430,10 +423,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.debug(f"No non-zero usage found for {today}")
 
             # Import into statistics (duplicates are automatically handled)
-            # Create datetime in local timezone for proper timestamp handling
-            local_tz = dt_util.get_default_time_zone()
-            date_dt = datetime.combine(today, datetime.min.time())
-            date_dt = date_dt.replace(tzinfo=local_tz)
+            date_dt = local_midnight(today)  # timezone-aware to prevent UTC baseline bugs
             await async_import_hourly_statistics(
                 self.hass, meter_number, hourly_records, date_dt
             )
@@ -463,7 +453,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.debug(f"Early morning check: Importing complete data for {yesterday}")
 
             # Format date for API
-            date_str = yesterday.strftime(DATE_FORMAT_ACWD)
+            date_str = yesterday.strftime(DATE_FORMAT_SLASH_MDY)
 
             # Fetch hourly data (already logged in)
             data = await self.hass.async_add_executor_job(
@@ -493,10 +483,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
                 return
 
             # Import into statistics (duplicates are automatically handled)
-            # Create datetime in local timezone for proper timestamp handling
-            local_tz = dt_util.get_default_time_zone()
-            date_dt = datetime.combine(yesterday, datetime.min.time())
-            date_dt = date_dt.replace(tzinfo=local_tz)
+            date_dt = local_midnight(yesterday)  # timezone-aware to prevent UTC baseline bugs
             await async_import_hourly_statistics(
                 self.hass, meter_number, hourly_records, date_dt
             )
