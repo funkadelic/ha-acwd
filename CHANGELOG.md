@@ -220,7 +220,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.0.12]: https://github.com/funkadelic/ha-acwd/compare/v1.0.11...v1.0.12
 [1.0.11]: https://github.com/funkadelic/ha-acwd/compare/v1.0.10...v1.0.11
 [1.0.10]: https://github.com/funkadelic/ha-acwd/compare/v1.0.9...v1.0.10
-[1.0.9]: https://github.com/funkadelic/ha-acwd/compare/v1.0.7...v1.0.9
+[1.0.9]: https://github.com/funkadelic/ha-acwd/compare/55a4955...v1.0.9
+[1.0.8]: https://github.com/funkadelic/ha-acwd/compare/v1.0.7...55a4955
 [1.0.7]: https://github.com/funkadelic/ha-acwd/compare/v1.0.6...v1.0.7
 [1.0.6]: https://github.com/funkadelic/ha-acwd/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/funkadelic/ha-acwd/compare/v1.0.4...v1.0.5
