@@ -58,25 +58,18 @@ jobs:
           DOCS=""
           TESTING=""
 
+          # strip_prefix removes "type(scope): " or "type: " prefix from a commit message
+          strip_prefix() { echo "$1" | sed 's/^[a-z]*\(([^)]*)\)\?:\s*//' ; }
+
           while IFS= read -r msg; do
             [ -z "$msg" ] && continue
             case "$msg" in
-              fix:*|fix\(*) clean="${msg#fix}"; clean="${clean#(*)}"; clean="${clean#: }"; clean="${clean#:}"; clean="$(echo "$clean" | sed 's/^ *//')"
-                FIXED="${FIXED}- ${clean}\n" ;;
-              feat:*|feat\(*) clean="${msg#feat}"; clean="${clean#(*)}"; clean="${clean#: }"; clean="${clean#:}"; clean="$(echo "$clean" | sed 's/^ *//')"
-                ADDED="${ADDED}- ${clean}\n" ;;
-              docs:*|docs\(*) clean="${msg#docs}"; clean="${clean#(*)}"; clean="${clean#: }"; clean="${clean#:}"; clean="$(echo "$clean" | sed 's/^ *//')"
-                DOCS="${DOCS}- ${clean}\n" ;;
-              test:*|test\(*) clean="${msg#test}"; clean="${clean#(*)}"; clean="${clean#: }"; clean="${clean#:}"; clean="$(echo "$clean" | sed 's/^ *//')"
-                TESTING="${TESTING}- ${clean}\n" ;;
-              *) # refactor:, chore:, style:, perf:, ci:, build:, or no prefix
-                clean="$msg"
-                for prefix in refactor chore style perf ci build; do
-                  case "$clean" in
-                    ${prefix}:*|${prefix}\(*) clean="${clean#$prefix}"; clean="${clean#(*)}"; clean="${clean#: }"; clean="${clean#:}"; clean="$(echo "$clean" | sed 's/^ *//')" ;;
-                  esac
-                done
-                CHANGED="${CHANGED}- ${clean}\n" ;;
+              fix:*|fix\(*)   FIXED="${FIXED}- $(strip_prefix "$msg")\n" ;;
+              feat:*|feat\(*) ADDED="${ADDED}- $(strip_prefix "$msg")\n" ;;
+              docs:*|docs\(*) DOCS="${DOCS}- $(strip_prefix "$msg")\n" ;;
+              test:*|test\(*) TESTING="${TESTING}- $(strip_prefix "$msg")\n" ;;
+              *)  # refactor:, chore:, style:, perf:, ci:, build:, or no prefix
+                CHANGED="${CHANGED}- $(strip_prefix "$msg")\n" ;;
             esac
           done <<< "$COMMITS"
 
