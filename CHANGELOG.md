@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.21] - 2026-02-26
+
+### Fixed
+
+- requirements-test.txt to reduce vulnerabilities (#17)
+
+### Changed
+
+- auto-generate changelog from commit messages (#16)
 ## [1.0.20] - 2026-02-26
 
 ## [1.0.19] - 2026-02-03
@@ -208,7 +217,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Five water usage sensors (current cycle, projected, last billing, average, highest)
 - 15-minute interval support via manual service
 
-[Unreleased]: https://github.com/funkadelic/ha-acwd/compare/v1.0.20...HEAD
+[Unreleased]: https://github.com/funkadelic/ha-acwd/compare/v1.0.21...HEAD
+[1.0.21]: https://github.com/funkadelic/ha-acwd/compare/v1.0.20...v1.0.21
 [1.0.20]: https://github.com/funkadelic/ha-acwd/compare/v1.0.19...v1.0.20
 [1.0.19]: https://github.com/funkadelic/ha-acwd/compare/v1.0.18...v1.0.19
 [1.0.18]: https://github.com/funkadelic/ha-acwd/compare/v1.0.17...v1.0.18
