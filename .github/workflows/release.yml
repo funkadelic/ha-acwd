@@ -35,15 +35,76 @@ jobs:
         run: |
           sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" custom_components/acwd/manifest.json
 
-      - name: Move Unreleased to version in CHANGELOG
+      - name: Auto-generate changelog from commits
         env:
           VERSION: ${{ inputs.version }}
         run: |
           DATE=$(date +%Y-%m-%d)
-          sed -i "s/## \[Unreleased\]/## [Unreleased]\n\n## [$VERSION] - $DATE/" CHANGELOG.md
+
+          # Find the previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD 2>/dev/null || echo "")
+
+          # Collect commit messages, excluding version bump commits
+          if [ -n "$PREV_TAG" ]; then
+            COMMITS=$(git log "$PREV_TAG"..HEAD --pretty=format:"%s" | grep -v "^chore: bump version" || true)
+          else
+            COMMITS=$(git log --pretty=format:"%s" | grep -v "^chore: bump version" || true)
+          fi
+
+          # Categorize commits into Keep a Changelog sections
+          FIXED=""
+          ADDED=""
+          CHANGED=""
+          DOCS=""
+          TESTING=""
+
+          while IFS= read -r msg; do
+            [ -z "$msg" ] && continue
+            case "$msg" in
+              fix:*|fix\(*) clean="${msg#fix}"; clean="${clean#(*)}"; clean="${clean#: }"; clean="${clean#:}"; clean="$(echo "$clean" | sed 's/^ *//')"
+                FIXED="${FIXED}- ${clean}\n" ;;
+              feat:*|feat\(*) clean="${msg#feat}"; clean="${clean#(*)}"; clean="${clean#: }"; clean="${clean#:}"; clean="$(echo "$clean" | sed 's/^ *//')"
+                ADDED="${ADDED}- ${clean}\n" ;;
+              docs:*|docs\(*) clean="${msg#docs}"; clean="${clean#(*)}"; clean="${clean#: }"; clean="${clean#:}"; clean="$(echo "$clean" | sed 's/^ *//')"
+                DOCS="${DOCS}- ${clean}\n" ;;
+              test:*|test\(*) clean="${msg#test}"; clean="${clean#(*)}"; clean="${clean#: }"; clean="${clean#:}"; clean="$(echo "$clean" | sed 's/^ *//')"
+                TESTING="${TESTING}- ${clean}\n" ;;
+              *) # refactor:, chore:, style:, perf:, ci:, build:, or no prefix
+                clean="$msg"
+                for prefix in refactor chore style perf ci build; do
+                  case "$clean" in
+                    ${prefix}:*|${prefix}\(*) clean="${clean#$prefix}"; clean="${clean#(*)}"; clean="${clean#: }"; clean="${clean#:}"; clean="$(echo "$clean" | sed 's/^ *//')" ;;
+                  esac
+                done
+                CHANGED="${CHANGED}- ${clean}\n" ;;
+            esac
+          done <<< "$COMMITS"
+
+          # Build the changelog entry
+          ENTRY=""
+          [ -n "$ADDED" ]   && ENTRY="${ENTRY}\n### Added\n\n${ADDED}"
+          [ -n "$FIXED" ]   && ENTRY="${ENTRY}\n### Fixed\n\n${FIXED}"
+          [ -n "$CHANGED" ] && ENTRY="${ENTRY}\n### Changed\n\n${CHANGED}"
+          [ -n "$DOCS" ]    && ENTRY="${ENTRY}\n### Documentation\n\n${DOCS}"
+          [ -n "$TESTING" ] && ENTRY="${ENTRY}\n### Testing\n\n${TESTING}"
+
+          # Insert after ## [Unreleased] — replace it with Unreleased + new version entry
+          {
+            sed -n '1,/^## \[Unreleased\]/p' CHANGELOG.md
+            echo ""
+            printf "%b" "$ENTRY"
+            echo "## [$VERSION] - $DATE"
+            sed -n '/^## \[Unreleased\]/,$ { /^## \[Unreleased\]/d; p }' CHANGELOG.md
+          } > CHANGELOG.tmp && mv CHANGELOG.tmp CHANGELOG.md
 
           # Update comparison links at bottom
-          sed -i "s|\[Unreleased\]:.*|[Unreleased]: https://github.com/funkadelic/ha-acwd/compare/v$VERSION...HEAD\n[$VERSION]: https://github.com/funkadelic/ha-acwd/releases/tag/v$VERSION|" CHANGELOG.md
+          REPO="https://github.com/funkadelic/ha-acwd"
+          if [ -n "$PREV_TAG" ]; then
+            COMPARE_LINK="[$VERSION]: ${REPO}/compare/${PREV_TAG}...v${VERSION}"
+          else
+            COMPARE_LINK="[$VERSION]: ${REPO}/releases/tag/v${VERSION}"
+          fi
+          sed -i "s|\[Unreleased\]:.*|[Unreleased]: ${REPO}/compare/v${VERSION}...HEAD\n${COMPARE_LINK}|" CHANGELOG.md
 
       - name: Commit version bump
         env:
@@ -55,15 +116,18 @@ jobs:
           git commit -m "chore: bump version to $VERSION"
           git push
 
-      - name: Create GitHub Release
-        uses: actions/create-release@v1
+      - name: Create and push tag
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ inputs.version }}
-        with:
-          tag_name: v${{ env.VERSION }}
-          release_name: v${{ env.VERSION }}
-          body: |
-            See [CHANGELOG.md](https://github.com/funkadelic/ha-acwd/blob/v${{ env.VERSION }}/CHANGELOG.md) for details.
-          draft: false
-          prerelease: false
+        run: |
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
+
+      - name: Create GitHub Release
+        env:
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v$VERSION" \
+            --title "v$VERSION" \
+            --notes "See [CHANGELOG.md](https://github.com/funkadelic/ha-acwd/blob/v${VERSION}/CHANGELOG.md) for details."
