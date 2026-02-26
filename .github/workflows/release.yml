@@ -81,13 +81,15 @@ jobs:
           [ -n "$DOCS" ]    && ENTRY="${ENTRY}\n### Documentation\n\n${DOCS}"
           [ -n "$TESTING" ] && ENTRY="${ENTRY}\n### Testing\n\n${TESTING}"
 
-          # Insert after ## [Unreleased] — replace it with Unreleased + new version entry
+          # Rewrite CHANGELOG: keep Unreleased header (empty), insert new version + content,
+          # then skip the old Unreleased body and append from the next version onward
           {
             sed -n '1,/^## \[Unreleased\]/p' CHANGELOG.md
             echo ""
-            printf "%b" "$ENTRY"
             echo "## [$VERSION] - $DATE"
-            sed -n '/^## \[Unreleased\]/,$ { /^## \[Unreleased\]/d; p }' CHANGELOG.md
+            printf "%b" "$ENTRY"
+            # Print from the next version heading (after Unreleased) to end of file
+            sed -n '/^## \[Unreleased\]/,$ p' CHANGELOG.md | sed -n '/^## \[/{/\[Unreleased\]/!{p; :a; n; p; ba}}'
           } > CHANGELOG.tmp && mv CHANGELOG.tmp CHANGELOG.md
 
           # Update comparison links at bottom
