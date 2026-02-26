@@ -98,7 +98,7 @@ jobs:
           } > CHANGELOG.tmp && mv CHANGELOG.tmp CHANGELOG.md
 
           # Update comparison links at bottom
-          REPO="https://github.com/funkadelic/ha-acwd"
+          REPO="https://github.com/${GITHUB_REPOSITORY}"
           if [ -n "$PREV_TAG" ]; then
             COMPARE_LINK="[$VERSION]: ${REPO}/compare/${PREV_TAG}...v${VERSION}"
           else
@@ -130,4 +130,4 @@ jobs:
         run: |
           gh release create "v$VERSION" \
             --title "v$VERSION" \
-            --notes "See [CHANGELOG.md](https://github.com/funkadelic/ha-acwd/blob/v${VERSION}/CHANGELOG.md) for details."
+            --notes "See [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/v${VERSION}/CHANGELOG.md) for details."
