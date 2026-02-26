@@ -35,15 +35,71 @@ jobs:
         run: |
           sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" custom_components/acwd/manifest.json
 
-      - name: Move Unreleased to version in CHANGELOG
+      - name: Auto-generate changelog from commits
         env:
           VERSION: ${{ inputs.version }}
         run: |
           DATE=$(date +%Y-%m-%d)
-          sed -i "s/## \[Unreleased\]/## [Unreleased]\n\n## [$VERSION] - $DATE/" CHANGELOG.md
+
+          # Find the previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD 2>/dev/null || echo "")
+
+          # Collect commit messages, excluding version bump commits
+          if [ -n "$PREV_TAG" ]; then
+            COMMITS=$(git log "$PREV_TAG"..HEAD --pretty=format:"%s" | grep -v "^chore: bump version" || true)
+          else
+            COMMITS=$(git log --pretty=format:"%s" | grep -v "^chore: bump version" || true)
+          fi
+
+          # Categorize commits into Keep a Changelog sections
+          FIXED=""
+          ADDED=""
+          CHANGED=""
+          DOCS=""
+          TESTING=""
+
+          # strip_prefix removes "type(scope): " or "type: " prefix from a commit message
+          strip_prefix() { echo "$1" | sed 's/^[a-z]*\(([^)]*)\)\?:\s*//' ; }
+
+          while IFS= read -r msg; do
+            [ -z "$msg" ] && continue
+            case "$msg" in
+              fix:*|fix\(*)   FIXED="${FIXED}- $(strip_prefix "$msg")\n" ;;
+              feat:*|feat\(*) ADDED="${ADDED}- $(strip_prefix "$msg")\n" ;;
+              docs:*|docs\(*) DOCS="${DOCS}- $(strip_prefix "$msg")\n" ;;
+              test:*|test\(*) TESTING="${TESTING}- $(strip_prefix "$msg")\n" ;;
+              *)  # refactor:, chore:, style:, perf:, ci:, build:, or no prefix
+                CHANGED="${CHANGED}- $(strip_prefix "$msg")\n" ;;
+            esac
+          done <<< "$COMMITS"
+
+          # Build the changelog entry
+          ENTRY=""
+          [ -n "$ADDED" ]   && ENTRY="${ENTRY}\n### Added\n\n${ADDED}"
+          [ -n "$FIXED" ]   && ENTRY="${ENTRY}\n### Fixed\n\n${FIXED}"
+          [ -n "$CHANGED" ] && ENTRY="${ENTRY}\n### Changed\n\n${CHANGED}"
+          [ -n "$DOCS" ]    && ENTRY="${ENTRY}\n### Documentation\n\n${DOCS}"
+          [ -n "$TESTING" ] && ENTRY="${ENTRY}\n### Testing\n\n${TESTING}"
+
+          # Rewrite CHANGELOG: keep Unreleased header (empty), insert new version + content,
+          # then skip the old Unreleased body and append from the next version onward
+          {
+            sed -n '1,/^## \[Unreleased\]/p' CHANGELOG.md
+            echo ""
+            echo "## [$VERSION] - $DATE"
+            printf "%b" "$ENTRY"
+            # Print from the next version heading (after Unreleased) to end of file
+            sed -n '/^## \[Unreleased\]/,$ p' CHANGELOG.md | sed -n '/^## \[/{/\[Unreleased\]/!{p; :a; n; p; ba}}'
+          } > CHANGELOG.tmp && mv CHANGELOG.tmp CHANGELOG.md
 
           # Update comparison links at bottom
-          sed -i "s|\[Unreleased\]:.*|[Unreleased]: https://github.com/funkadelic/ha-acwd/compare/v$VERSION...HEAD\n[$VERSION]: https://github.com/funkadelic/ha-acwd/releases/tag/v$VERSION|" CHANGELOG.md
+          REPO="https://github.com/${GITHUB_REPOSITORY}"
+          if [ -n "$PREV_TAG" ]; then
+            COMPARE_LINK="[$VERSION]: ${REPO}/compare/${PREV_TAG}...v${VERSION}"
+          else
+            COMPARE_LINK="[$VERSION]: ${REPO}/releases/tag/v${VERSION}"
+          fi
+          sed -i "s|\[Unreleased\]:.*|[Unreleased]: ${REPO}/compare/v${VERSION}...HEAD\n${COMPARE_LINK}|" CHANGELOG.md
 
       - name: Commit version bump
         env:
@@ -55,15 +111,20 @@ jobs:
           git commit -m "chore: bump version to $VERSION"
           git push
 
-      - name: Create GitHub Release
-        uses: actions/create-release@v1
+      - name: Create and push tag
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ inputs.version }}
-        with:
-          tag_name: v${{ env.VERSION }}
-          release_name: v${{ env.VERSION }}
-          body: |
-            See [CHANGELOG.md](https://github.com/funkadelic/ha-acwd/blob/v${{ env.VERSION }}/CHANGELOG.md) for details.
-          draft: false
-          prerelease: false
+        run: |
+          git tag -f "v$VERSION"
+          git push --force origin "v$VERSION"
+
+      - name: Create GitHub Release
+        env:
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Delete existing release if re-running, then create fresh
+          gh release delete "v$VERSION" --yes 2>/dev/null || true
+          gh release create "v$VERSION" \
+            --title "v$VERSION" \
+            --notes "See [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/v${VERSION}/CHANGELOG.md) for details."
