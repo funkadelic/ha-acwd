@@ -115,14 +115,16 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          git tag "v$VERSION"
-          git push origin "v$VERSION"
+          git tag -f "v$VERSION"
+          git push --force origin "v$VERSION"
 
       - name: Create GitHub Release
         env:
           VERSION: ${{ inputs.version }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Delete existing release if re-running, then create fresh
+          gh release delete "v$VERSION" --yes 2>/dev/null || true
           gh release create "v$VERSION" \
             --title "v$VERSION" \
             --notes "See [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/v${VERSION}/CHANGELOG.md) for details."
