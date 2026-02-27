@@ -63,10 +63,10 @@ def _make_mock_coordinator(entry):
 class TestServiceRegistration:
     """Tests for SRVC-01: services registered in async_setup at domain level."""
 
-    def test_async_setup_registers_services(self):
+    async def test_async_setup_registers_services(self):
         """async_setup registers both services exactly once each."""
         hass = _make_mock_hass()
-        async_setup(hass)
+        await async_setup(hass, {})
 
         assert hass.services.async_register.call_count == 2
         calls = hass.services.async_register.call_args_list
@@ -74,19 +74,19 @@ class TestServiceRegistration:
         assert (DOMAIN, SERVICE_IMPORT_HOURLY) in registered
         assert (DOMAIN, SERVICE_IMPORT_DAILY) in registered
 
-    def test_async_setup_idempotent(self):
+    async def test_async_setup_idempotent(self):
         """async_setup skips registration if services already exist."""
         hass = _make_mock_hass()
         hass.services.has_service = Mock(return_value=True)
 
-        async_setup(hass)
+        await async_setup(hass, {})
 
         hass.services.async_register.assert_not_called()
 
-    def test_async_setup_returns_true(self):
+    async def test_async_setup_returns_true(self):
         """async_setup returns True on success."""
         hass = _make_mock_hass()
-        result = async_setup(hass)
+        result = await async_setup(hass, {})
         assert result is True
 
     async def test_async_setup_entry_does_not_register_services(self):

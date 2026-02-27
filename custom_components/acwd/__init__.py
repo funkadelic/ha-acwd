@@ -53,7 +53,7 @@ SERVICE_IMPORT_DAILY_SCHEMA = vol.Schema({
 })
 
 
-def async_setup(hass: HomeAssistant) -> bool:
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the ACWD integration at domain level."""
     if not hass.services.has_service(DOMAIN, SERVICE_IMPORT_HOURLY):
         hass.services.async_register(
