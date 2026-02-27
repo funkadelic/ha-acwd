@@ -200,10 +200,6 @@ async def handle_import_daily(call: ServiceCall) -> None:
     username = coordinator.entry.data[CONF_USERNAME]
     password = coordinator.entry.data[CONF_PASSWORD]
 
-    account_number = coordinator.client.user_info.get("AccountNumber")
-    if not account_number:
-        raise HomeAssistantError("Account number not available")
-
     # Create a new client instance for the service call (prevents session conflicts)
     service_client = ACWDClient(username, password)
 
@@ -212,6 +208,10 @@ async def handle_import_daily(call: ServiceCall) -> None:
         logged_in = await hass.async_add_executor_job(service_client.login)
         if not logged_in:
             raise HomeAssistantError(ERROR_LOGIN_FAILED)
+
+        account_number = service_client.user_info.get("AccountNumber")
+        if not account_number:
+            raise HomeAssistantError("Account number not available")
 
         # Format dates for API
         start_str = start_date.strftime(DATE_FORMAT_SLASH_MDY)
