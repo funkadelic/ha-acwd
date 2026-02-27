@@ -194,13 +194,25 @@ class TestServiceValidation:
         call.hass = hass
         call.data = {"date": past_date, "granularity": "hourly"}
 
-        # The handler may raise other errors due to mocking — just ensure no ServiceValidationError.
-        try:
-            await handle_import_hourly(call)
-        except ServiceValidationError:
-            pytest.fail("ServiceValidationError raised for a valid past date")
-        except Exception:
-            pass  # Other errors from mocked internals are acceptable
+        with (
+            patch("custom_components.acwd.ACWDClient") as mock_client_cls,
+            patch("custom_components.acwd.async_import_hourly_statistics", new_callable=AsyncMock),
+        ):
+            mock_client = MagicMock()
+            mock_client.login.return_value = True
+            mock_client.get_usage_data.return_value = {
+                "objUsageGenerationResultSetTwo": [
+                    {"Hourly": "12:00 AM", "UsageValue": 1.0},
+                ]
+            }
+            mock_client.meter_number = "230057301"
+            mock_client.logout.return_value = None
+            mock_client_cls.return_value = mock_client
+
+            try:
+                await handle_import_hourly(call)
+            except ServiceValidationError:
+                pytest.fail("ServiceValidationError raised for a valid past date")
 
     async def test_no_config_raises_error(self):
         """When hass.data has no DOMAIN entry, handler raises HomeAssistantError."""
@@ -216,3 +228,57 @@ class TestServiceValidation:
 
         with pytest.raises(HomeAssistantError):
             await handle_import_hourly(call)
+
+    async def test_daily_invalid_range_raises_validation_error(self):
+        """start_date > end_date raises ServiceValidationError."""
+        from homeassistant.exceptions import ServiceValidationError
+
+        hass = _make_mock_hass()
+        entry = _make_mock_entry()
+        coordinator = _make_mock_coordinator(hass, entry)
+        hass.data[DOMAIN] = {entry.entry_id: coordinator}
+
+        call = MagicMock()
+        call.hass = hass
+        call.data = {
+            "start_date": datetime.date(2025, 12, 10),
+            "end_date": datetime.date(2025, 12, 5),
+        }
+
+        with pytest.raises(ServiceValidationError):
+            await handle_import_daily(call)
+
+    async def test_daily_valid_range_no_validation_error(self):
+        """A valid past date range does not raise ServiceValidationError."""
+        from homeassistant.exceptions import ServiceValidationError
+
+        hass = _make_mock_hass()
+        entry = _make_mock_entry()
+        coordinator = _make_mock_coordinator(hass, entry)
+        hass.data[DOMAIN] = {entry.entry_id: coordinator}
+
+        call = MagicMock()
+        call.hass = hass
+        call.data = {
+            "start_date": datetime.date(2025, 12, 1),
+            "end_date": datetime.date(2025, 12, 5),
+        }
+
+        with (
+            patch("custom_components.acwd.ACWDClient") as mock_client_cls,
+            patch("custom_components.acwd.async_import_daily_statistics", new_callable=AsyncMock),
+        ):
+            mock_client = MagicMock()
+            mock_client.login.return_value = True
+            mock_client.get_usage_data.return_value = {
+                "objUsageGenerationResultSetTwo": [
+                    {"Date": "12/01/2025", "UsageValue": 50.0},
+                ]
+            }
+            mock_client.logout.return_value = None
+            mock_client_cls.return_value = mock_client
+
+            try:
+                await handle_import_daily(call)
+            except ServiceValidationError:
+                pytest.fail("ServiceValidationError raised for a valid date range")

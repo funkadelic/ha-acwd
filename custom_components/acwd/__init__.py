@@ -12,6 +12,7 @@ from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 from .const import DOMAIN, DATE_FORMAT_SLASH_MDY
 from .acwd_api import ACWDClient
 from .helpers import local_midnight
@@ -42,11 +43,13 @@ MORNING_IMPORT_END_HOUR = 12  # Only import yesterday's data before noon
 SERVICE_IMPORT_HOURLY_SCHEMA = vol.Schema({
     vol.Required("date"): cv.date,
     vol.Optional("granularity", default="hourly"): vol.In(["hourly", "quarter_hourly"]),
+    vol.Optional("entry_id"): str,
 })
 
 SERVICE_IMPORT_DAILY_SCHEMA = vol.Schema({
     vol.Required("start_date"): cv.date,
     vol.Required("end_date"): cv.date,
+    vol.Optional("entry_id"): str,
 })
 
 
@@ -59,6 +62,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             handle_import_hourly,
             schema=SERVICE_IMPORT_HOURLY_SCHEMA,
         )
+    if not hass.services.has_service(DOMAIN, SERVICE_IMPORT_DAILY):
         hass.services.async_register(
             DOMAIN,
             SERVICE_IMPORT_DAILY,
@@ -68,6 +72,28 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     return True
 
 
+def _get_coordinator(domain_data: dict, entry_id: str | None):
+    """Look up a coordinator from domain_data, with optional entry_id disambiguation."""
+    if not domain_data:
+        raise HomeAssistantError("ACWD integration has no active configuration entries")
+
+    if entry_id is not None:
+        if entry_id not in domain_data:
+            available = ", ".join(domain_data.keys())
+            raise ServiceValidationError(
+                f"Unknown entry_id '{entry_id}'. Available entries: {available}"
+            )
+        return domain_data[entry_id]
+
+    if len(domain_data) == 1:
+        return next(iter(domain_data.values()))
+
+    available = ", ".join(domain_data.keys())
+    raise ServiceValidationError(
+        f"Multiple ACWD entries configured. Specify entry_id. Available: {available}"
+    )
+
+
 async def handle_import_hourly(call: ServiceCall) -> None:
     """Handle the import_hourly_data service call."""
     hass = call.hass
@@ -75,7 +101,7 @@ async def handle_import_hourly(call: ServiceCall) -> None:
     granularity = call.data["granularity"]
 
     # Validate: reject today and future dates (ACWD data has a reporting delay)
-    today = datetime.now().date()
+    today = dt_util.now().date()
     if date >= today:
         _LOGGER.debug("Service call rejected: date %s is today or future", date)
         raise ServiceValidationError(
@@ -85,10 +111,8 @@ async def handle_import_hourly(call: ServiceCall) -> None:
 
     # Look up coordinator from hass.data[DOMAIN]
     domain_data = hass.data.get(DOMAIN, {})
-    if not domain_data:
-        raise HomeAssistantError("ACWD integration has no active configuration entries")
-
-    coordinator = next(iter(domain_data.values()))
+    entry_id = call.data.get("entry_id")
+    coordinator = _get_coordinator(domain_data, entry_id)
 
     # Get credentials from coordinator's config entry
     username = coordinator.entry.data[CONF_USERNAME]
@@ -101,8 +125,7 @@ async def handle_import_hourly(call: ServiceCall) -> None:
         # Login with the new client
         logged_in = await hass.async_add_executor_job(service_client.login)
         if not logged_in:
-            _LOGGER.error(ERROR_LOGIN_FAILED)
-            return
+            raise HomeAssistantError(ERROR_LOGIN_FAILED)
 
         # Format date for API
         date_str = date.strftime(DATE_FORMAT_SLASH_MDY)
@@ -119,21 +142,18 @@ async def handle_import_hourly(call: ServiceCall) -> None:
         )
 
         if not data:
-            _LOGGER.error(f"No data returned for {date}")
-            return
+            raise HomeAssistantError(f"No data returned for {date}")
 
         # Get meter number from client
         meter_number = service_client.meter_number
         if not meter_number:
-            _LOGGER.error("Meter number not available")
-            return
+            raise HomeAssistantError("Meter number not available")
 
         # Extract hourly records
         hourly_records = data.get("objUsageGenerationResultSetTwo", [])
 
         if not hourly_records:
-            _LOGGER.warning(f"No hourly data available for {date}")
-            return
+            raise HomeAssistantError(f"No hourly data available for {date}")
 
         # Import into statistics
         date_dt = local_midnight(date)  # timezone-aware to prevent UTC baseline bugs
@@ -151,7 +171,7 @@ async def handle_import_hourly(call: ServiceCall) -> None:
     except (ServiceValidationError, HomeAssistantError):
         raise
     except Exception as err:
-        _LOGGER.error(f"Error importing hourly data: {err}")
+        raise HomeAssistantError(f"Error importing hourly data: {err}") from err
     finally:
         await hass.async_add_executor_job(service_client.logout)
 
@@ -170,10 +190,8 @@ async def handle_import_daily(call: ServiceCall) -> None:
 
     # Look up coordinator from hass.data[DOMAIN]
     domain_data = hass.data.get(DOMAIN, {})
-    if not domain_data:
-        raise HomeAssistantError("ACWD integration has no active configuration entries")
-
-    coordinator = next(iter(domain_data.values()))
+    entry_id = call.data.get("entry_id")
+    coordinator = _get_coordinator(domain_data, entry_id)
 
     # Get credentials from coordinator's config entry
     username = coordinator.entry.data[CONF_USERNAME]
@@ -181,8 +199,7 @@ async def handle_import_daily(call: ServiceCall) -> None:
 
     account_number = coordinator.client.user_info.get("AccountNumber")
     if not account_number:
-        _LOGGER.error("Account number not available")
-        return
+        raise HomeAssistantError("Account number not available")
 
     # Create a new client instance for the service call (prevents session conflicts)
     service_client = ACWDClient(username, password)
@@ -191,8 +208,7 @@ async def handle_import_daily(call: ServiceCall) -> None:
         # Login with the new client
         logged_in = await hass.async_add_executor_job(service_client.login)
         if not logged_in:
-            _LOGGER.error(ERROR_LOGIN_FAILED)
-            return
+            raise HomeAssistantError(ERROR_LOGIN_FAILED)
 
         # Format dates for API
         start_str = start_date.strftime(DATE_FORMAT_SLASH_MDY)
@@ -207,15 +223,13 @@ async def handle_import_daily(call: ServiceCall) -> None:
         )
 
         if not data:
-            _LOGGER.error(f"No data returned for {start_date} to {end_date}")
-            return
+            raise HomeAssistantError(f"No data returned for {start_date} to {end_date}")
 
         # Extract daily records
         daily_records = data.get("objUsageGenerationResultSetTwo", [])
 
         if not daily_records:
-            _LOGGER.warning("No daily data available for date range")
-            return
+            raise HomeAssistantError("No daily data available for date range")
 
         # Import into statistics
         await async_import_daily_statistics(
@@ -229,7 +243,7 @@ async def handle_import_daily(call: ServiceCall) -> None:
     except (ServiceValidationError, HomeAssistantError):
         raise
     except Exception as err:
-        _LOGGER.error(f"Error importing daily data: {err}")
+        raise HomeAssistantError(f"Error importing daily data: {err}") from err
     finally:
         await hass.async_add_executor_job(service_client.logout)
 
@@ -271,7 +285,7 @@ async def _async_import_initial_yesterday_data(
     It gives users immediate data to see in the Energy Dashboard.
     """
     try:
-        yesterday = (datetime.now() - timedelta(days=1)).date()
+        yesterday = (dt_util.now() - timedelta(days=1)).date()
         _LOGGER.info(f"Initial setup: Importing yesterday's data ({yesterday})")
 
         # Create a fresh client instance to avoid session conflicts
@@ -409,7 +423,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
         with the same timestamp, so importing multiple times is safe.
         """
         # Import today's data (partial, accounting for variable delay)
-        today = datetime.now().date()
+        today = dt_util.now().date()
 
         try:
             _LOGGER.debug(f"Checking for hourly data for {today}")
@@ -478,13 +492,13 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
 
         Only runs between midnight and noon to avoid unnecessary API calls.
         """
-        current_hour = datetime.now().hour
+        current_hour = dt_util.now().hour
 
         # Only run during morning hours (0-12 PM)
         if current_hour >= MORNING_IMPORT_END_HOUR:
             return
 
-        yesterday = (datetime.now() - timedelta(days=1)).date()
+        yesterday = (dt_util.now() - timedelta(days=1)).date()
 
         try:
             _LOGGER.debug(f"Early morning check: Importing complete data for {yesterday}")

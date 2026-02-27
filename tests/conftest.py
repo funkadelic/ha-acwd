@@ -56,6 +56,12 @@ class dt_util:
     UTC = timezone.utc
 
     @staticmethod
+    def now() -> datetime:
+        """Return current time in HA's configured timezone."""
+        tz = dt_util.get_default_time_zone()
+        return datetime.now(tz)
+
+    @staticmethod
     def get_default_time_zone():
         """Return default timezone (PST by default for tests)."""
         return ZoneInfo("America/Los_Angeles")
