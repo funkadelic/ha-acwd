@@ -173,7 +173,10 @@ async def handle_import_hourly(call: ServiceCall) -> None:
     except Exception as err:
         raise HomeAssistantError(f"Error importing hourly data: {err}") from err
     finally:
-        await hass.async_add_executor_job(service_client.logout)
+        try:
+            await hass.async_add_executor_job(service_client.logout)
+        except Exception as logout_err:
+            _LOGGER.debug("Logout failed after hourly import: %s", logout_err)
 
 
 async def handle_import_daily(call: ServiceCall) -> None:
@@ -245,7 +248,10 @@ async def handle_import_daily(call: ServiceCall) -> None:
     except Exception as err:
         raise HomeAssistantError(f"Error importing daily data: {err}") from err
     finally:
-        await hass.async_add_executor_job(service_client.logout)
+        try:
+            await hass.async_add_executor_job(service_client.logout)
+        except Exception as logout_err:
+            _LOGGER.debug("Logout failed after daily import: %s", logout_err)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

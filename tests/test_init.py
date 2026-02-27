@@ -66,7 +66,7 @@ class TestServiceRegistration:
     async def test_async_setup_registers_services(self):
         """async_setup registers both services exactly once each."""
         hass = _make_mock_hass()
-        result = await async_setup(hass, {})
+        await async_setup(hass, {})
 
         assert hass.services.async_register.call_count == 2
         calls = hass.services.async_register.call_args_list
