@@ -53,7 +53,7 @@ SERVICE_IMPORT_DAILY_SCHEMA = vol.Schema({
 })
 
 
-async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+def async_setup(hass: HomeAssistant) -> bool:
     """Set up the ACWD integration at domain level."""
     if not hass.services.has_service(DOMAIN, SERVICE_IMPORT_HOURLY):
         hass.services.async_register(
@@ -354,7 +354,7 @@ async def _async_import_initial_yesterday_data(
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
-        hass.data[DOMAIN].pop(entry.entry_id)
+        hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
 
         # Check if this was the last loaded entry
         other_loaded_entries = [

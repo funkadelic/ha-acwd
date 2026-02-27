@@ -47,7 +47,7 @@ def _make_mock_entry(entry_id="test_entry_id"):
     return entry
 
 
-def _make_mock_coordinator(hass, entry):
+def _make_mock_coordinator(entry):
     """Return a MagicMock coordinator."""
     coordinator = MagicMock()
     coordinator.entry = entry
@@ -66,7 +66,7 @@ class TestServiceRegistration:
     async def test_async_setup_registers_services(self):
         """async_setup registers both services exactly once each."""
         hass = _make_mock_hass()
-        await async_setup(hass, {})
+        async_setup(hass)
 
         assert hass.services.async_register.call_count == 2
         calls = hass.services.async_register.call_args_list
@@ -79,14 +79,14 @@ class TestServiceRegistration:
         hass = _make_mock_hass()
         hass.services.has_service = Mock(return_value=True)
 
-        await async_setup(hass, {})
+        async_setup(hass)
 
         hass.services.async_register.assert_not_called()
 
     async def test_async_setup_returns_true(self):
         """async_setup returns True on success."""
         hass = _make_mock_hass()
-        result = await async_setup(hass, {})
+        result = async_setup(hass)
         assert result is True
 
     async def test_async_setup_entry_does_not_register_services(self):
@@ -121,7 +121,7 @@ class TestServiceUnregistration:
         """When the last entry is removed, both services are unregistered."""
         hass = _make_mock_hass()
         entry = _make_mock_entry("entry_a")
-        coordinator = _make_mock_coordinator(hass, entry)
+        coordinator = _make_mock_coordinator(entry)
 
         hass.data[DOMAIN] = {entry.entry_id: coordinator}
         # No remaining loaded entries after this one is removed.
@@ -141,8 +141,8 @@ class TestServiceUnregistration:
         entry_a = _make_mock_entry("entry_a")
         entry_b = _make_mock_entry("entry_b")
 
-        coordinator_a = _make_mock_coordinator(hass, entry_a)
-        coordinator_b = _make_mock_coordinator(hass, entry_b)
+        coordinator_a = _make_mock_coordinator(entry_a)
+        coordinator_b = _make_mock_coordinator(entry_b)
 
         hass.data[DOMAIN] = {
             entry_a.entry_id: coordinator_a,
@@ -169,7 +169,7 @@ class TestServiceValidation:
 
         hass = _make_mock_hass()
         entry = _make_mock_entry()
-        coordinator = _make_mock_coordinator(hass, entry)
+        coordinator = _make_mock_coordinator(entry)
         hass.data[DOMAIN] = {entry.entry_id: coordinator}
 
         future_date = datetime.date.today()  # today counts as future per CONTEXT.md
@@ -186,7 +186,7 @@ class TestServiceValidation:
 
         hass = _make_mock_hass()
         entry = _make_mock_entry()
-        coordinator = _make_mock_coordinator(hass, entry)
+        coordinator = _make_mock_coordinator(entry)
         hass.data[DOMAIN] = {entry.entry_id: coordinator}
 
         past_date = datetime.date.today() - datetime.timedelta(days=2)
@@ -235,7 +235,7 @@ class TestServiceValidation:
 
         hass = _make_mock_hass()
         entry = _make_mock_entry()
-        coordinator = _make_mock_coordinator(hass, entry)
+        coordinator = _make_mock_coordinator(entry)
         hass.data[DOMAIN] = {entry.entry_id: coordinator}
 
         call = MagicMock()
@@ -254,7 +254,7 @@ class TestServiceValidation:
 
         hass = _make_mock_hass()
         entry = _make_mock_entry()
-        coordinator = _make_mock_coordinator(hass, entry)
+        coordinator = _make_mock_coordinator(entry)
         hass.data[DOMAIN] = {entry.entry_id: coordinator}
 
         call = MagicMock()
