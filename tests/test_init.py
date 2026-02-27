@@ -1,9 +1,7 @@
-"""Tests for ACWD __init__.py service lifecycle — contract for Phase 2 Plan 02.
+"""Tests for ACWD __init__.py service lifecycle.
 
-These tests define the target contract. Tests in TestServiceRegistration and
-TestServiceValidation will SKIP until Plan 02 implements async_setup and top-level
-handler functions. TestServiceUnregistration tests cover async_unload_entry which
-already exists.
+Validates the domain-level service registration contract (SRVC-01, SRVC-02, QUAL-03)
+implemented in Phase 2 Plan 02.
 """
 import datetime
 import pytest
@@ -11,18 +9,12 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from tests.conftest import dt_util
 
-# Import functions that will be added in Plan 02 — skip if not yet implemented.
-try:
-    from custom_components.acwd import async_setup, handle_import_hourly, handle_import_daily
-except ImportError:
-    async_setup = None
-    handle_import_hourly = None
-    handle_import_daily = None
-
-# These already exist in current __init__.py.
 from custom_components.acwd import (
+    async_setup,
     async_setup_entry,
     async_unload_entry,
+    handle_import_hourly,
+    handle_import_daily,
     DOMAIN,
     SERVICE_IMPORT_HOURLY,
     SERVICE_IMPORT_DAILY,
@@ -41,6 +33,7 @@ def _make_mock_hass():
     hass.services.async_remove = Mock()
     hass.data = {}
     hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
+    hass.config_entries.async_forward_entry_setups = AsyncMock()
     hass.config_entries.async_loaded_entries = Mock(return_value=[])
     hass.async_add_executor_job = AsyncMock(side_effect=lambda func, *args: func(*args))
     return hass
@@ -67,7 +60,6 @@ def _make_mock_coordinator(hass, entry):
 # SRVC-01: Domain-level service registration
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skipif(async_setup is None, reason="async_setup not yet implemented (Plan 02)")
 class TestServiceRegistration:
     """Tests for SRVC-01: services registered in async_setup at domain level."""
 
@@ -168,10 +160,6 @@ class TestServiceUnregistration:
 # QUAL-03: ServiceValidationError on invalid inputs
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skipif(
-    handle_import_hourly is None,
-    reason="handle_import_hourly not yet implemented as top-level function (Plan 02)",
-)
 class TestServiceValidation:
     """Tests for QUAL-03: ServiceValidationError raised for invalid service call inputs."""
 

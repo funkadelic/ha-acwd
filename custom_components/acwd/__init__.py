@@ -8,7 +8,9 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from .const import DOMAIN, DATE_FORMAT_SLASH_MDY
 from .acwd_api import ACWDClient
@@ -47,7 +49,191 @@ SERVICE_IMPORT_DAILY_SCHEMA = vol.Schema({
     vol.Required("end_date"): cv.date,
 })
 
-# Configuration option keys
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Set up the ACWD integration at domain level."""
+    if not hass.services.has_service(DOMAIN, SERVICE_IMPORT_HOURLY):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_IMPORT_HOURLY,
+            handle_import_hourly,
+            schema=SERVICE_IMPORT_HOURLY_SCHEMA,
+        )
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_IMPORT_DAILY,
+            handle_import_daily,
+            schema=SERVICE_IMPORT_DAILY_SCHEMA,
+        )
+    return True
+
+
+async def handle_import_hourly(call: ServiceCall) -> None:
+    """Handle the import_hourly_data service call."""
+    hass = call.hass
+    date = call.data["date"]
+    granularity = call.data["granularity"]
+
+    # Validate: reject today and future dates (ACWD data has a reporting delay)
+    today = datetime.now().date()
+    if date >= today:
+        _LOGGER.debug("Service call rejected: date %s is today or future", date)
+        raise ServiceValidationError(
+            "Date cannot be in the future. ACWD data has a reporting delay — "
+            "use a date at least 1 day in the past."
+        )
+
+    # Look up coordinator from hass.data[DOMAIN]
+    domain_data = hass.data.get(DOMAIN, {})
+    if not domain_data:
+        raise HomeAssistantError("ACWD integration has no active configuration entries")
+
+    coordinator = next(iter(domain_data.values()))
+
+    # Get credentials from coordinator's config entry
+    username = coordinator.entry.data[CONF_USERNAME]
+    password = coordinator.entry.data[CONF_PASSWORD]
+
+    # Create a new client instance for the service call (prevents session conflicts)
+    service_client = ACWDClient(username, password)
+
+    try:
+        # Login with the new client
+        logged_in = await hass.async_add_executor_job(service_client.login)
+        if not logged_in:
+            _LOGGER.error(ERROR_LOGIN_FAILED)
+            return
+
+        # Format date for API
+        date_str = date.strftime(DATE_FORMAT_SLASH_MDY)
+
+        # Fetch hourly data
+        hourly_type = 'Q' if granularity == "quarter_hourly" else 'H'
+        data = await hass.async_add_executor_job(
+            service_client.get_usage_data,
+            'H',  # mode
+            None,  # date_from
+            None,  # date_to
+            date_str,  # str_date
+            hourly_type  # hourly_type
+        )
+
+        if not data:
+            _LOGGER.error(f"No data returned for {date}")
+            return
+
+        # Get meter number from client
+        meter_number = service_client.meter_number
+        if not meter_number:
+            _LOGGER.error("Meter number not available")
+            return
+
+        # Extract hourly records
+        hourly_records = data.get("objUsageGenerationResultSetTwo", [])
+
+        if not hourly_records:
+            _LOGGER.warning(f"No hourly data available for {date}")
+            return
+
+        # Import into statistics
+        date_dt = local_midnight(date)  # timezone-aware to prevent UTC baseline bugs
+        if granularity == "quarter_hourly":
+            await async_import_quarter_hourly_statistics(
+                hass, meter_number, hourly_records, date_dt
+            )
+        else:
+            await async_import_hourly_statistics(
+                hass, meter_number, hourly_records, date_dt
+            )
+
+        _LOGGER.info(f"Successfully imported {granularity} data for {date}")
+
+    except (ServiceValidationError, HomeAssistantError):
+        raise
+    except Exception as err:
+        _LOGGER.error(f"Error importing hourly data: {err}")
+    finally:
+        await hass.async_add_executor_job(service_client.logout)
+
+
+async def handle_import_daily(call: ServiceCall) -> None:
+    """Handle the import_daily_data service call."""
+    hass = call.hass
+    start_date = call.data["start_date"]
+    end_date = call.data["end_date"]
+
+    # Validate date range
+    if start_date > end_date:
+        raise ServiceValidationError(
+            f"Invalid date range: start date ({start_date}) must be before or equal to end date ({end_date})"
+        )
+
+    # Look up coordinator from hass.data[DOMAIN]
+    domain_data = hass.data.get(DOMAIN, {})
+    if not domain_data:
+        raise HomeAssistantError("ACWD integration has no active configuration entries")
+
+    coordinator = next(iter(domain_data.values()))
+
+    # Get credentials from coordinator's config entry
+    username = coordinator.entry.data[CONF_USERNAME]
+    password = coordinator.entry.data[CONF_PASSWORD]
+
+    account_number = coordinator.client.user_info.get("AccountNumber")
+    if not account_number:
+        _LOGGER.error("Account number not available")
+        return
+
+    # Create a new client instance for the service call (prevents session conflicts)
+    service_client = ACWDClient(username, password)
+
+    try:
+        # Login with the new client
+        logged_in = await hass.async_add_executor_job(service_client.login)
+        if not logged_in:
+            _LOGGER.error(ERROR_LOGIN_FAILED)
+            return
+
+        # Format dates for API
+        start_str = start_date.strftime(DATE_FORMAT_SLASH_MDY)
+        end_str = end_date.strftime(DATE_FORMAT_SLASH_MDY)
+
+        # Fetch daily data
+        data = await hass.async_add_executor_job(
+            service_client.get_usage_data,
+            'D',  # mode
+            start_str,  # date_from
+            end_str,  # date_to
+        )
+
+        if not data:
+            _LOGGER.error(f"No data returned for {start_date} to {end_date}")
+            return
+
+        # Extract daily records
+        daily_records = data.get("objUsageGenerationResultSetTwo", [])
+
+        if not daily_records:
+            _LOGGER.warning("No daily data available for date range")
+            return
+
+        # Import into statistics
+        await async_import_daily_statistics(
+            hass, str(account_number), daily_records
+        )
+
+        _LOGGER.info(
+            f"Successfully imported daily data from {start_date} to {end_date}"
+        )
+
+    except (ServiceValidationError, HomeAssistantError):
+        raise
+    except Exception as err:
+        _LOGGER.error(f"Error importing daily data: {err}")
+    finally:
+        await hass.async_add_executor_job(service_client.logout)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up ACWD Water Usage from a config entry."""
     hass.data.setdefault(DOMAIN, {})
@@ -71,165 +257,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Import yesterday's data on first setup to provide immediate feedback
     await _async_import_initial_yesterday_data(hass, coordinator)
-
-    # Register services
-    async def handle_import_hourly(call: ServiceCall) -> None:
-        """Handle the import_hourly_data service call."""
-        date = call.data["date"]
-        granularity = call.data["granularity"]
-
-        # Ensure date is at least 1 day ago due to ACWD's reporting delay
-        one_day_ago = (datetime.now() - timedelta(days=1)).date()
-        if date > one_day_ago:
-            _LOGGER.error(
-                f"Cannot import data for {date}. Date must be at least 1 day ago "
-                "due to ACWD's reporting delay."
-            )
-            return
-
-        # Create a new client instance for the service call
-        service_client = ACWDClient(
-            entry.data[CONF_USERNAME],
-            entry.data[CONF_PASSWORD]
-        )
-
-        try:
-            # Login with the new client
-            logged_in = await hass.async_add_executor_job(service_client.login)
-            if not logged_in:
-                _LOGGER.error(ERROR_LOGIN_FAILED)
-                return
-
-            # Format date for API
-            date_str = date.strftime(DATE_FORMAT_SLASH_MDY)
-
-            # Fetch hourly data
-            hourly_type = 'Q' if granularity == "quarter_hourly" else 'H'
-            data = await hass.async_add_executor_job(
-                service_client.get_usage_data,
-                'H',  # mode
-                None,  # date_from
-                None,  # date_to
-                date_str,  # str_date
-                hourly_type  # hourly_type
-            )
-
-            if not data:
-                _LOGGER.error(f"No data returned for {date}")
-                return
-
-            # Get meter number from client
-            meter_number = service_client.meter_number
-            if not meter_number:
-                _LOGGER.error("Meter number not available")
-                return
-
-            # Extract hourly records
-            hourly_records = data.get("objUsageGenerationResultSetTwo", [])
-
-            if not hourly_records:
-                _LOGGER.warning(f"No hourly data available for {date}")
-                return
-
-            # Import into statistics
-            date_dt = local_midnight(date)  # timezone-aware to prevent UTC baseline bugs
-            if granularity == "quarter_hourly":
-                await async_import_quarter_hourly_statistics(
-                    hass, meter_number, hourly_records, date_dt
-                )
-            else:
-                await async_import_hourly_statistics(
-                    hass, meter_number, hourly_records, date_dt
-                )
-
-            _LOGGER.info(f"Successfully imported {granularity} data for {date}")
-
-        except Exception as err:
-            _LOGGER.error(f"Error importing hourly data: {err}")
-        finally:
-            await hass.async_add_executor_job(service_client.logout)
-
-    async def handle_import_daily(call: ServiceCall) -> None:
-        """Handle the import_daily_data service call."""
-        start_date = call.data["start_date"]
-        end_date = call.data["end_date"]
-
-        # Validate date range
-        if start_date > end_date:
-            _LOGGER.error(
-                f"Invalid date range: start_date ({start_date}) must be <= end_date ({end_date})"
-            )
-            return
-
-        account_number = coordinator.client.user_info.get("AccountNumber")
-        if not account_number:
-            _LOGGER.error("Account number not available")
-            return
-
-        # Create a new client instance for the service call
-        service_client = ACWDClient(
-            entry.data[CONF_USERNAME],
-            entry.data[CONF_PASSWORD]
-        )
-
-        try:
-            # Login with the new client
-            logged_in = await hass.async_add_executor_job(service_client.login)
-            if not logged_in:
-                _LOGGER.error(ERROR_LOGIN_FAILED)
-                return
-
-            # Format dates for API
-            start_str = start_date.strftime(DATE_FORMAT_SLASH_MDY)
-            end_str = end_date.strftime(DATE_FORMAT_SLASH_MDY)
-
-            # Fetch daily data
-            data = await hass.async_add_executor_job(
-                service_client.get_usage_data,
-                'D',  # mode
-                start_str,  # date_from
-                end_str,  # date_to
-            )
-
-            if not data:
-                _LOGGER.error(f"No data returned for {start_date} to {end_date}")
-                return
-
-            # Extract daily records
-            daily_records = data.get("objUsageGenerationResultSetTwo", [])
-
-            if not daily_records:
-                _LOGGER.warning("No daily data available for date range")
-                return
-
-            # Import into statistics
-            await async_import_daily_statistics(
-                hass, str(account_number), daily_records
-            )
-
-            _LOGGER.info(
-                f"Successfully imported daily data from {start_date} to {end_date}"
-            )
-
-        except Exception as err:
-            _LOGGER.error(f"Error importing daily data: {err}")
-        finally:
-            await hass.async_add_executor_job(service_client.logout)
-
-    # Register services
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_IMPORT_HOURLY,
-        handle_import_hourly,
-        schema=SERVICE_IMPORT_HOURLY_SCHEMA,
-    )
-
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_IMPORT_DAILY,
-        handle_import_daily,
-        schema=SERVICE_IMPORT_DAILY_SCHEMA,
-    )
 
     return True
 
@@ -309,6 +336,16 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop(entry.entry_id)
 
+        # Check if this was the last loaded entry
+        other_loaded_entries = [
+            _entry
+            for _entry in hass.config_entries.async_loaded_entries(DOMAIN)
+            if _entry.entry_id != entry.entry_id
+        ]
+        if not other_loaded_entries:
+            hass.services.async_remove(DOMAIN, SERVICE_IMPORT_HOURLY)
+            hass.services.async_remove(DOMAIN, SERVICE_IMPORT_DAILY)
+
     return unload_ok
 
 
@@ -330,7 +367,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self) -> dict:
         """Fetch data from ACWD.
-        
+
         Returns:
             dict: Usage data from ACWD portal
         """

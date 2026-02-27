@@ -29,11 +29,20 @@ import importlib.util
 import types
 from homeassistant.util import dt as _dt_util
 
-_custom_components = types.ModuleType("custom_components")
-_custom_components.__path__ = []
+# Only create a bare custom_components package if it isn't already present.
+# Overwriting an existing real module would corrupt sys.modules for downstream tests.
+if "custom_components" not in sys.modules:
+    _custom_components = types.ModuleType("custom_components")
+    _custom_components.__path__ = []
+    sys.modules["custom_components"] = _custom_components
 
-_acwd_package = types.ModuleType("custom_components.acwd")
-_acwd_package.__path__ = []
+# Only create a bare acwd package if one isn't already loaded. The bare module is
+# only needed so that statistics.py's relative imports can resolve .const and .helpers.
+# If the real __init__.py is already cached, preserve it — just update the sub-modules.
+if "custom_components.acwd" not in sys.modules:
+    _acwd_package = types.ModuleType("custom_components.acwd")
+    _acwd_package.__path__ = []
+    sys.modules["custom_components.acwd"] = _acwd_package
 
 _const_module = types.ModuleType("custom_components.acwd.const")
 _const_module.DOMAIN = "acwd"
@@ -48,8 +57,6 @@ def _local_midnight(d):
 
 _helpers_module.local_midnight = _local_midnight
 
-sys.modules["custom_components"] = _custom_components
-sys.modules["custom_components.acwd"] = _acwd_package
 sys.modules["custom_components.acwd.const"] = _const_module
 sys.modules["custom_components.acwd.helpers"] = _helpers_module
 
