@@ -56,6 +56,12 @@ class dt_util:
     UTC = timezone.utc
 
     @staticmethod
+    def now() -> datetime:
+        """Return current time in HA's configured timezone."""
+        tz = dt_util.get_default_time_zone()
+        return datetime.now(tz)
+
+    @staticmethod
     def get_default_time_zone():
         """Return default timezone (PST by default for tests)."""
         return ZoneInfo("America/Los_Angeles")
@@ -279,6 +285,30 @@ def _setup_homeassistant_mocks():
     update_coordinator_mock.UpdateFailed = Exception
     helpers_mock.update_coordinator = update_coordinator_mock
 
+    # Create exceptions module with real exception classes (must be raisable/catchable)
+    exceptions_mock = ModuleType("exceptions")
+
+    class ServiceValidationError(Exception):
+        pass
+
+    class HomeAssistantError(Exception):
+        pass
+
+    exceptions_mock.ServiceValidationError = ServiceValidationError
+    exceptions_mock.HomeAssistantError = HomeAssistantError
+
+    # Create config_validation mock (cv.date is a passthrough for tests)
+    config_validation_mock = ModuleType("config_validation")
+    config_validation_mock.date = lambda v: v
+
+    # Create helpers.typing mock
+    helpers_typing_mock = ModuleType("typing")
+    helpers_typing_mock.ConfigType = dict
+
+    # Attach new mocks to helpers
+    helpers_mock.config_validation = config_validation_mock
+    helpers_mock.typing = helpers_typing_mock
+
     # Create core module
     core_mock = ModuleType("core")
     core_mock.HomeAssistant = MagicMock
@@ -296,6 +326,7 @@ def _setup_homeassistant_mocks():
     ha_mock.helpers = helpers_mock
     ha_mock.core = core_mock
     ha_mock.config_entries = config_entries_mock
+    ha_mock.exceptions = exceptions_mock
 
     # Install all mocks in sys.modules
     sys.modules["homeassistant"] = ha_mock
@@ -306,8 +337,11 @@ def _setup_homeassistant_mocks():
     sys.modules["homeassistant.util"] = util_mock
     sys.modules["homeassistant.helpers"] = helpers_mock
     sys.modules["homeassistant.helpers.update_coordinator"] = update_coordinator_mock
+    sys.modules["homeassistant.helpers.config_validation"] = config_validation_mock
+    sys.modules["homeassistant.helpers.typing"] = helpers_typing_mock
     sys.modules["homeassistant.core"] = core_mock
     sys.modules["homeassistant.config_entries"] = config_entries_mock
+    sys.modules["homeassistant.exceptions"] = exceptions_mock
 
 
 # Set up mocks before pytest collects tests
