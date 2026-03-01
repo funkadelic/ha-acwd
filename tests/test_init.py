@@ -3,6 +3,7 @@
 Validates the domain-level service registration contract (SRVC-01, SRVC-02, QUAL-03)
 implemented in Phase 2 Plan 02.
 """
+
 import datetime
 import pytest
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
@@ -25,6 +26,7 @@ from custom_components.acwd import (
 # ---------------------------------------------------------------------------
 # Test helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_mock_hass():
     """Return a MagicMock hass suitable for service lifecycle tests."""
@@ -60,6 +62,7 @@ def _make_mock_coordinator(entry):
 # ---------------------------------------------------------------------------
 # SRVC-01: Domain-level service registration
 # ---------------------------------------------------------------------------
+
 
 class TestServiceRegistration:
     """Tests for SRVC-01: services registered in async_setup at domain level."""
@@ -115,6 +118,7 @@ class TestServiceRegistration:
 # SRVC-02: Service unregistration on last entry removal
 # ---------------------------------------------------------------------------
 
+
 class TestServiceUnregistration:
     """Tests for SRVC-02: services removed when last config entry is unloaded."""
 
@@ -161,6 +165,7 @@ class TestServiceUnregistration:
 # QUAL-03: ServiceValidationError on invalid inputs
 # ---------------------------------------------------------------------------
 
+
 class TestServiceValidation:
     """Tests for QUAL-03: ServiceValidationError raised for invalid service call inputs."""
 
@@ -195,7 +200,10 @@ class TestServiceValidation:
 
         with (
             patch("custom_components.acwd.ACWDClient") as mock_client_cls,
-            patch("custom_components.acwd.async_import_hourly_statistics", new_callable=AsyncMock),
+            patch(
+                "custom_components.acwd.async_import_hourly_statistics",
+                new_callable=AsyncMock,
+            ),
         ):
             mock_client = MagicMock()
             mock_client.login.return_value = True
@@ -262,7 +270,10 @@ class TestServiceValidation:
 
         with (
             patch("custom_components.acwd.ACWDClient") as mock_client_cls,
-            patch("custom_components.acwd.async_import_daily_statistics", new_callable=AsyncMock),
+            patch(
+                "custom_components.acwd.async_import_daily_statistics",
+                new_callable=AsyncMock,
+            ),
         ):
             mock_client = MagicMock()
             mock_client.login.return_value = True
@@ -283,6 +294,7 @@ class TestServiceValidation:
 # ---------------------------------------------------------------------------
 # _get_coordinator: entry_id disambiguation logic
 # ---------------------------------------------------------------------------
+
 
 class TestGetCoordinator:
     """Tests for _get_coordinator entry_id lookup and multi-entry disambiguation."""
@@ -332,6 +344,7 @@ class TestGetCoordinator:
 # ---------------------------------------------------------------------------
 # handle_import_hourly: error paths
 # ---------------------------------------------------------------------------
+
 
 class TestHandleImportHourlyErrors:
     """Tests for handle_import_hourly error paths beyond validation."""
@@ -397,7 +410,11 @@ class TestHandleImportHourlyErrors:
         with patch("custom_components.acwd.ACWDClient") as mock_client_cls:
             mock_client = MagicMock()
             mock_client.login.return_value = True
-            mock_client.get_usage_data.return_value = {"objUsageGenerationResultSetTwo": [{"Hourly": "12:00 AM", "UsageValue": 1.0}]}
+            mock_client.get_usage_data.return_value = {
+                "objUsageGenerationResultSetTwo": [
+                    {"Hourly": "12:00 AM", "UsageValue": 1.0}
+                ]
+            }
             mock_client.meter_number = None
             mock_client.logout.return_value = None
             mock_client_cls.return_value = mock_client
@@ -421,7 +438,9 @@ class TestHandleImportHourlyErrors:
         with patch("custom_components.acwd.ACWDClient") as mock_client_cls:
             mock_client = MagicMock()
             mock_client.login.return_value = True
-            mock_client.get_usage_data.return_value = {"objUsageGenerationResultSetTwo": []}
+            mock_client.get_usage_data.return_value = {
+                "objUsageGenerationResultSetTwo": []
+            }
             mock_client.meter_number = "230057301"
             mock_client.logout.return_value = None
             mock_client_cls.return_value = mock_client
@@ -433,6 +452,7 @@ class TestHandleImportHourlyErrors:
 # ---------------------------------------------------------------------------
 # handle_import_daily: error paths
 # ---------------------------------------------------------------------------
+
 
 class TestHandleImportDailyErrors:
     """Tests for handle_import_daily error paths beyond validation."""
@@ -509,7 +529,9 @@ class TestHandleImportDailyErrors:
             mock_client.logout.return_value = None
             mock_client_cls.return_value = mock_client
 
-            with pytest.raises(HomeAssistantError, match="Account number not available"):
+            with pytest.raises(
+                HomeAssistantError, match="Account number not available"
+            ):
                 await handle_import_daily(call)
 
     async def test_no_daily_records_raises_error(self):
@@ -531,7 +553,9 @@ class TestHandleImportDailyErrors:
             mock_client = MagicMock()
             mock_client.login.return_value = True
             mock_client.user_info = {"AccountNumber": "12345"}
-            mock_client.get_usage_data.return_value = {"objUsageGenerationResultSetTwo": []}
+            mock_client.get_usage_data.return_value = {
+                "objUsageGenerationResultSetTwo": []
+            }
             mock_client.logout.return_value = None
             mock_client_cls.return_value = mock_client
 
