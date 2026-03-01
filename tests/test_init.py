@@ -14,6 +14,7 @@ from custom_components.acwd import (
     async_unload_entry,
     handle_import_hourly,
     handle_import_daily,
+    _get_coordinator,
     DOMAIN,
     SERVICE_IMPORT_HOURLY,
     SERVICE_IMPORT_DAILY,
@@ -281,3 +282,245 @@ class TestServiceValidation:
                 await handle_import_daily(call)
             except ServiceValidationError:
                 pytest.fail("ServiceValidationError raised for a valid date range")
+
+
+# ---------------------------------------------------------------------------
+# _get_coordinator: entry_id disambiguation logic
+# ---------------------------------------------------------------------------
+
+class TestGetCoordinator:
+    """Tests for _get_coordinator entry_id lookup and multi-entry disambiguation."""
+
+    def test_entry_id_found(self):
+        """Returns coordinator when entry_id matches a known entry."""
+        entry = _make_mock_entry("entry_a")
+        coordinator = _make_mock_coordinator(entry)
+        domain_data = {"entry_a": coordinator}
+
+        result = _get_coordinator(domain_data, "entry_a")
+        assert result is coordinator
+
+    def test_entry_id_not_found(self):
+        """Raises ServiceValidationError when entry_id doesn't match any entry."""
+        from homeassistant.exceptions import ServiceValidationError
+
+        entry = _make_mock_entry("entry_a")
+        coordinator = _make_mock_coordinator(entry)
+        domain_data = {"entry_a": coordinator}
+
+        with pytest.raises(ServiceValidationError, match="Unknown entry_id"):
+            _get_coordinator(domain_data, "nonexistent")
+
+    def test_single_entry_no_entry_id(self):
+        """Returns the only coordinator when no entry_id given and one entry exists."""
+        entry = _make_mock_entry("entry_a")
+        coordinator = _make_mock_coordinator(entry)
+        domain_data = {"entry_a": coordinator}
+
+        result = _get_coordinator(domain_data, None)
+        assert result is coordinator
+
+    def test_multiple_entries_no_entry_id(self):
+        """Raises ServiceValidationError when multiple entries exist and no entry_id given."""
+        from homeassistant.exceptions import ServiceValidationError
+
+        entry_a = _make_mock_entry("entry_a")
+        entry_b = _make_mock_entry("entry_b")
+        domain_data = {
+            "entry_a": _make_mock_coordinator(entry_a),
+            "entry_b": _make_mock_coordinator(entry_b),
+        }
+
+        with pytest.raises(ServiceValidationError, match="Multiple ACWD entries"):
+            _get_coordinator(domain_data, None)
+
+
+# ---------------------------------------------------------------------------
+# handle_import_hourly: error paths
+# ---------------------------------------------------------------------------
+
+class TestHandleImportHourlyErrors:
+    """Tests for handle_import_hourly error paths beyond validation."""
+
+    async def test_login_failure_raises_error(self):
+        """Login returning False raises HomeAssistantError."""
+        from homeassistant.exceptions import HomeAssistantError
+
+        hass = _make_mock_hass()
+        entry = _make_mock_entry()
+        coordinator = _make_mock_coordinator(entry)
+        hass.data[DOMAIN] = {entry.entry_id: coordinator}
+
+        past_date = datetime.date.today() - datetime.timedelta(days=2)
+        call = MagicMock()
+        call.hass = hass
+        call.data = {"date": past_date, "granularity": "hourly"}
+
+        with patch("custom_components.acwd.ACWDClient") as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client.login.return_value = False
+            mock_client.logout.return_value = None
+            mock_client_cls.return_value = mock_client
+
+            with pytest.raises(HomeAssistantError, match="Failed to login"):
+                await handle_import_hourly(call)
+
+    async def test_no_data_returned_raises_error(self):
+        """API returning None raises HomeAssistantError."""
+        from homeassistant.exceptions import HomeAssistantError
+
+        hass = _make_mock_hass()
+        entry = _make_mock_entry()
+        coordinator = _make_mock_coordinator(entry)
+        hass.data[DOMAIN] = {entry.entry_id: coordinator}
+
+        past_date = datetime.date.today() - datetime.timedelta(days=2)
+        call = MagicMock()
+        call.hass = hass
+        call.data = {"date": past_date, "granularity": "hourly"}
+
+        with patch("custom_components.acwd.ACWDClient") as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client.login.return_value = True
+            mock_client.get_usage_data.return_value = None
+            mock_client.logout.return_value = None
+            mock_client_cls.return_value = mock_client
+
+            with pytest.raises(HomeAssistantError, match="No data returned"):
+                await handle_import_hourly(call)
+
+    async def test_no_meter_number_raises_error(self):
+        """Missing meter number raises HomeAssistantError."""
+        from homeassistant.exceptions import HomeAssistantError
+
+        hass = _make_mock_hass()
+        entry = _make_mock_entry()
+        coordinator = _make_mock_coordinator(entry)
+        hass.data[DOMAIN] = {entry.entry_id: coordinator}
+
+        past_date = datetime.date.today() - datetime.timedelta(days=2)
+        call = MagicMock()
+        call.hass = hass
+        call.data = {"date": past_date, "granularity": "hourly"}
+
+        with patch("custom_components.acwd.ACWDClient") as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client.login.return_value = True
+            mock_client.get_usage_data.return_value = {"objUsageGenerationResultSetTwo": [{"Hourly": "12:00 AM", "UsageValue": 1.0}]}
+            mock_client.meter_number = None
+            mock_client.logout.return_value = None
+            mock_client_cls.return_value = mock_client
+
+            with pytest.raises(HomeAssistantError, match="Meter number not available"):
+                await handle_import_hourly(call)
+
+    async def test_no_hourly_records_raises_error(self):
+        """Empty hourly records list raises HomeAssistantError."""
+        from homeassistant.exceptions import HomeAssistantError
+
+        hass = _make_mock_hass()
+        entry = _make_mock_entry()
+        coordinator = _make_mock_coordinator(entry)
+        hass.data[DOMAIN] = {entry.entry_id: coordinator}
+
+        past_date = datetime.date.today() - datetime.timedelta(days=2)
+        call = MagicMock()
+        call.hass = hass
+        call.data = {"date": past_date, "granularity": "hourly"}
+
+        with patch("custom_components.acwd.ACWDClient") as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client.login.return_value = True
+            mock_client.get_usage_data.return_value = {"objUsageGenerationResultSetTwo": []}
+            mock_client.meter_number = "230057301"
+            mock_client.logout.return_value = None
+            mock_client_cls.return_value = mock_client
+
+            with pytest.raises(HomeAssistantError, match="No hourly data available"):
+                await handle_import_hourly(call)
+
+
+# ---------------------------------------------------------------------------
+# handle_import_daily: error paths
+# ---------------------------------------------------------------------------
+
+class TestHandleImportDailyErrors:
+    """Tests for handle_import_daily error paths beyond validation."""
+
+    async def test_login_failure_raises_error(self):
+        """Login returning False raises HomeAssistantError."""
+        from homeassistant.exceptions import HomeAssistantError
+
+        hass = _make_mock_hass()
+        entry = _make_mock_entry()
+        coordinator = _make_mock_coordinator(entry)
+        hass.data[DOMAIN] = {entry.entry_id: coordinator}
+
+        call = MagicMock()
+        call.hass = hass
+        call.data = {
+            "start_date": datetime.date(2025, 12, 1),
+            "end_date": datetime.date(2025, 12, 5),
+        }
+
+        with patch("custom_components.acwd.ACWDClient") as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client.login.return_value = False
+            mock_client.logout.return_value = None
+            mock_client_cls.return_value = mock_client
+
+            with pytest.raises(HomeAssistantError, match="Failed to login"):
+                await handle_import_daily(call)
+
+    async def test_no_data_returned_raises_error(self):
+        """API returning None raises HomeAssistantError."""
+        from homeassistant.exceptions import HomeAssistantError
+
+        hass = _make_mock_hass()
+        entry = _make_mock_entry()
+        coordinator = _make_mock_coordinator(entry)
+        hass.data[DOMAIN] = {entry.entry_id: coordinator}
+
+        call = MagicMock()
+        call.hass = hass
+        call.data = {
+            "start_date": datetime.date(2025, 12, 1),
+            "end_date": datetime.date(2025, 12, 5),
+        }
+
+        with patch("custom_components.acwd.ACWDClient") as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client.login.return_value = True
+            mock_client.get_usage_data.return_value = None
+            mock_client.user_info = {"AccountNumber": "12345"}
+            mock_client.logout.return_value = None
+            mock_client_cls.return_value = mock_client
+
+            with pytest.raises(HomeAssistantError, match="No data returned"):
+                await handle_import_daily(call)
+
+    async def test_no_account_number_raises_error(self):
+        """Missing account number raises HomeAssistantError."""
+        from homeassistant.exceptions import HomeAssistantError
+
+        hass = _make_mock_hass()
+        entry = _make_mock_entry()
+        coordinator = _make_mock_coordinator(entry)
+        hass.data[DOMAIN] = {entry.entry_id: coordinator}
+
+        call = MagicMock()
+        call.hass = hass
+        call.data = {
+            "start_date": datetime.date(2025, 12, 1),
+            "end_date": datetime.date(2025, 12, 5),
+        }
+
+        with patch("custom_components.acwd.ACWDClient") as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client.login.return_value = True
+            mock_client.user_info = {}
+            mock_client.logout.return_value = None
+            mock_client_cls.return_value = mock_client
+
+            with pytest.raises(HomeAssistantError, match="Account number not available"):
+                await handle_import_daily(call)
