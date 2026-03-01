@@ -5,8 +5,7 @@ These tests validate morning import timing to catch yesterday's final hours.
 import sys
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, Mock, patch
-from zoneinfo import ZoneInfo
+from unittest.mock import Mock, patch
 
 import pytest
 

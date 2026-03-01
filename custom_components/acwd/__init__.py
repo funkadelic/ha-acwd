@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry

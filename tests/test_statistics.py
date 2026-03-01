@@ -9,17 +9,14 @@ NOTE: These tests are currently skipped pending Home Assistant mocking improveme
       Only coordinator tests are active for Phase 1 CI/CD validation.
 """
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import Mock, patch
-from zoneinfo import ZoneInfo
 
 import pytest
 
 # Import mocks - conftest sets up homeassistant module mocks
 # The actual modules will now be importable
-from homeassistant.components.recorder import StatisticData
-from homeassistant.const import UnitOfVolume
 from homeassistant.util import dt as dt_util
 
 # Import statistics module directly without triggering __init__.py

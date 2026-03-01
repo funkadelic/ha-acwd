@@ -1,11 +1,8 @@
 """Shared pytest fixtures and configuration for ACWD tests."""
-import json
 import sys
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, Mock, create_autospec
+from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock, Mock
 from zoneinfo import ZoneInfo
 
 import pytest
