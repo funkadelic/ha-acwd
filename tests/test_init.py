@@ -7,6 +7,7 @@ import datetime
 import pytest
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
 from custom_components.acwd import (
     async_setup,
@@ -165,7 +166,6 @@ class TestServiceValidation:
 
     async def test_future_date_raises_validation_error(self):
         """A future date (today or later) raises ServiceValidationError."""
-        from homeassistant.exceptions import ServiceValidationError
 
         hass = _make_mock_hass()
         entry = _make_mock_entry()
@@ -182,7 +182,6 @@ class TestServiceValidation:
 
     async def test_valid_past_date_no_validation_error(self):
         """A past date does not raise ServiceValidationError."""
-        from homeassistant.exceptions import ServiceValidationError
 
         hass = _make_mock_hass()
         entry = _make_mock_entry()
@@ -216,7 +215,6 @@ class TestServiceValidation:
 
     async def test_no_config_raises_error(self):
         """When hass.data has no DOMAIN entry, handler raises HomeAssistantError."""
-        from homeassistant.exceptions import HomeAssistantError
 
         hass = _make_mock_hass()
         hass.data = {}  # No domain data at all
@@ -231,7 +229,6 @@ class TestServiceValidation:
 
     async def test_daily_invalid_range_raises_validation_error(self):
         """start_date > end_date raises ServiceValidationError."""
-        from homeassistant.exceptions import ServiceValidationError
 
         hass = _make_mock_hass()
         entry = _make_mock_entry()
@@ -250,7 +247,6 @@ class TestServiceValidation:
 
     async def test_daily_valid_range_no_validation_error(self):
         """A valid past date range does not raise ServiceValidationError."""
-        from homeassistant.exceptions import ServiceValidationError
 
         hass = _make_mock_hass()
         entry = _make_mock_entry()
@@ -302,7 +298,6 @@ class TestGetCoordinator:
 
     def test_entry_id_not_found(self):
         """Raises ServiceValidationError when entry_id doesn't match any entry."""
-        from homeassistant.exceptions import ServiceValidationError
 
         entry = _make_mock_entry("entry_a")
         coordinator = _make_mock_coordinator(entry)
@@ -322,7 +317,6 @@ class TestGetCoordinator:
 
     def test_multiple_entries_no_entry_id(self):
         """Raises ServiceValidationError when multiple entries exist and no entry_id given."""
-        from homeassistant.exceptions import ServiceValidationError
 
         entry_a = _make_mock_entry("entry_a")
         entry_b = _make_mock_entry("entry_b")
@@ -344,7 +338,6 @@ class TestHandleImportHourlyErrors:
 
     async def test_login_failure_raises_error(self):
         """Login returning False raises HomeAssistantError."""
-        from homeassistant.exceptions import HomeAssistantError
 
         hass = _make_mock_hass()
         entry = _make_mock_entry()
@@ -367,7 +360,6 @@ class TestHandleImportHourlyErrors:
 
     async def test_no_data_returned_raises_error(self):
         """API returning None raises HomeAssistantError."""
-        from homeassistant.exceptions import HomeAssistantError
 
         hass = _make_mock_hass()
         entry = _make_mock_entry()
@@ -391,7 +383,6 @@ class TestHandleImportHourlyErrors:
 
     async def test_no_meter_number_raises_error(self):
         """Missing meter number raises HomeAssistantError."""
-        from homeassistant.exceptions import HomeAssistantError
 
         hass = _make_mock_hass()
         entry = _make_mock_entry()
@@ -416,7 +407,6 @@ class TestHandleImportHourlyErrors:
 
     async def test_no_hourly_records_raises_error(self):
         """Empty hourly records list raises HomeAssistantError."""
-        from homeassistant.exceptions import HomeAssistantError
 
         hass = _make_mock_hass()
         entry = _make_mock_entry()
@@ -449,7 +439,6 @@ class TestHandleImportDailyErrors:
 
     async def test_login_failure_raises_error(self):
         """Login returning False raises HomeAssistantError."""
-        from homeassistant.exceptions import HomeAssistantError
 
         hass = _make_mock_hass()
         entry = _make_mock_entry()
@@ -474,7 +463,6 @@ class TestHandleImportDailyErrors:
 
     async def test_no_data_returned_raises_error(self):
         """API returning None raises HomeAssistantError."""
-        from homeassistant.exceptions import HomeAssistantError
 
         hass = _make_mock_hass()
         entry = _make_mock_entry()
@@ -501,7 +489,6 @@ class TestHandleImportDailyErrors:
 
     async def test_no_account_number_raises_error(self):
         """Missing account number raises HomeAssistantError."""
-        from homeassistant.exceptions import HomeAssistantError
 
         hass = _make_mock_hass()
         entry = _make_mock_entry()
@@ -527,7 +514,6 @@ class TestHandleImportDailyErrors:
 
     async def test_no_daily_records_raises_error(self):
         """Empty daily records list raises HomeAssistantError."""
-        from homeassistant.exceptions import HomeAssistantError
 
         hass = _make_mock_hass()
         entry = _make_mock_entry()
