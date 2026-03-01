@@ -27,7 +27,7 @@ jobs:
 
       - name: Run tests with pytest
         run: |
-          pytest tests/ -v --cov=custom_components.acwd --cov-report=term-missing --cov-report=xml
+          pytest tests/ -v --cov=custom_components.acwd --cov-branch --cov-report=term-missing --cov-report=xml --junitxml=junit.xml
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
@@ -36,3 +36,10 @@ jobs:
           flags: unittests
           name: codecov-umbrella
           fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
