@@ -524,3 +524,30 @@ class TestHandleImportDailyErrors:
 
             with pytest.raises(HomeAssistantError, match="Account number not available"):
                 await handle_import_daily(call)
+
+    async def test_no_daily_records_raises_error(self):
+        """Empty daily records list raises HomeAssistantError."""
+        from homeassistant.exceptions import HomeAssistantError
+
+        hass = _make_mock_hass()
+        entry = _make_mock_entry()
+        coordinator = _make_mock_coordinator(entry)
+        hass.data[DOMAIN] = {entry.entry_id: coordinator}
+
+        call = MagicMock()
+        call.hass = hass
+        call.data = {
+            "start_date": datetime.date(2025, 12, 1),
+            "end_date": datetime.date(2025, 12, 5),
+        }
+
+        with patch("custom_components.acwd.ACWDClient") as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client.login.return_value = True
+            mock_client.user_info = {"AccountNumber": "12345"}
+            mock_client.get_usage_data.return_value = {"objUsageGenerationResultSetTwo": []}
+            mock_client.logout.return_value = None
+            mock_client_cls.return_value = mock_client
+
+            with pytest.raises(HomeAssistantError, match="No daily data available"):
+                await handle_import_daily(call)
