@@ -47,9 +47,8 @@ sys.modules['acwd.acwd_api'] = _api_mod
 _api_spec.loader.exec_module(_api_mod)
 
 ACWDClient = _api_mod.ACWDClient
-
-# Conversion constant
-HCF_TO_GALLONS = 748
+DATE_FORMAT_SLASH_MDY = _const_mod.DATE_FORMAT_SLASH_MDY
+TIME_FORMAT_12HR = _const_mod.TIME_FORMAT_12HR
 
 
 def get_credentials():
@@ -96,7 +95,7 @@ def test_fresh_client_instances(username, password):
 
         # Fetch data to verify session works
         test_date = (datetime.now() - timedelta(days=2)).date()
-        data = client.get_usage_data('H', None, None, test_date.strftime('%m/%d/%Y'), 'H')
+        data = client.get_usage_data('H', None, None, test_date.strftime(DATE_FORMAT_SLASH_MDY), 'H')
 
         if data:
             records = data.get('objUsageGenerationResultSetTwo', [])
@@ -143,7 +142,7 @@ def test_reused_session(username, password):
         test_date = (datetime.now() - timedelta(days=2+i)).date()
         print(f'  Fetching data for {test_date}...')
 
-        data = client.get_usage_data('H', None, None, test_date.strftime('%m/%d/%Y'), 'H')
+        data = client.get_usage_data('H', None, None, test_date.strftime(DATE_FORMAT_SLASH_MDY), 'H')
         if data:
             records = data.get('objUsageGenerationResultSetTwo', [])
             print(f'    [PASS] Retrieved {len(records)} hourly records')
@@ -184,7 +183,7 @@ def test_hourly_data_conversion(username, password):
     test_date = (datetime.now() - timedelta(days=2)).date()
     print(f'  Fetching hourly data for {test_date}...\n')
 
-    data = client.get_usage_data('H', None, None, test_date.strftime('%m/%d/%Y'), 'H')
+    data = client.get_usage_data('H', None, None, test_date.strftime(DATE_FORMAT_SLASH_MDY), 'H')
 
     if not data:
         print('[FAIL] No data returned')
@@ -214,7 +213,7 @@ def test_hourly_data_conversion(username, password):
 
         # Parse hour for display
         try:
-            time_obj = datetime.strptime(hourly_str, "%I:%M %p")
+            time_obj = datetime.strptime(hourly_str, TIME_FORMAT_12HR)
             hour = time_obj.hour
             display_time = f'{hour:02d}:00'
         except (ValueError, TypeError):
@@ -243,8 +242,6 @@ def test_cumulative_sum_across_days(username, password):
     2. Fetching today's data and starting from yesterday's final sum
     3. Verifying the midnight hour doesn't show negative values
     """
-    from datetime import timedelta
-
     print('\n' + '=' * 60)
     print('🧪 Test 4: Cumulative Sum Across Days')
     print('=' * 60)
@@ -260,7 +257,7 @@ def test_cumulative_sum_across_days(username, password):
         today = datetime.now().date()
 
         print(f'\n1. Fetching YESTERDAY ({yesterday}) data...')
-        yesterday_str = yesterday.strftime('%m/%d/%Y')
+        yesterday_str = yesterday.strftime(DATE_FORMAT_SLASH_MDY)
         yesterday_data = client.get_usage_data('H', None, None, yesterday_str, 'H')
 
         if not yesterday_data:
@@ -283,7 +280,7 @@ def test_cumulative_sum_across_days(username, password):
             print(f'   Yesterday final cumulative sum: {yesterday_final_sum:,.2f} gallons')
 
         print(f'\n2. Fetching TODAY ({today}) data...')
-        today_str = today.strftime('%m/%d/%Y')
+        today_str = today.strftime(DATE_FORMAT_SLASH_MDY)
         today_data = client.get_usage_data('H', None, None, today_str, 'H')
 
         if not today_data:
@@ -310,7 +307,7 @@ def test_cumulative_sum_across_days(username, password):
 
             # Parse hour for display
             try:
-                time_obj = datetime.strptime(hourly_str, '%I:%M %p')
+                time_obj = datetime.strptime(hourly_str, TIME_FORMAT_12HR)
                 hour = time_obj.hour
                 display_time = f'{hour:02d}:00'
             except (ValueError, TypeError):

@@ -1,14 +1,11 @@
 """Sensor platform for ACWD Water Usage integration."""
 from __future__ import annotations
 
-from datetime import datetime
-from decimal import Decimal
 import logging
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
-    SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfVolume
@@ -17,7 +14,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, GALLONS_TO_LITERS, HCF_TO_GALLONS
+from .const import DOMAIN, HCF_TO_GALLONS
 
 _LOGGER = logging.getLogger(__name__)
 

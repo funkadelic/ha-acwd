@@ -7,7 +7,6 @@ import datetime
 import pytest
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
-from tests.conftest import dt_util
 
 from custom_components.acwd import (
     async_setup,
