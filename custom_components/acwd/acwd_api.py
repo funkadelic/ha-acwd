@@ -204,16 +204,18 @@ class ACWDClient:
 
                         # Navigate to the appropriate dashboard
                         _LOGGER.info(f"Navigating to {dashboard_url}...")
-                        dashboard_response = self.session.get(dashboard_url, timeout=HTTP_TIMEOUT)
+                        try:
+                            dashboard_response = self.session.get(dashboard_url, timeout=HTTP_TIMEOUT)
 
-                        if dashboard_response.status_code == 200:
-                            _LOGGER.info("Successfully accessed Dashboard!")
-                            self.logged_in = True
-                            return True
-                        else:
-                            _LOGGER.warning(f"Dashboard returned {dashboard_response.status_code}")
-                            self.logged_in = True  # Still logged in even if dashboard fails
-                            return True
+                            if dashboard_response.status_code == 200:
+                                _LOGGER.info("Successfully accessed Dashboard!")
+                            else:
+                                _LOGGER.warning(f"Dashboard returned {dashboard_response.status_code}")
+                        except (requests.Timeout, requests.ConnectionError) as e:
+                            _LOGGER.warning("Network error reaching %s: %s", dashboard_url, e)
+
+                        self.logged_in = True
+                        return True
                 else:
                     _LOGGER.error(f"Unexpected response structure: {main_table}")
                     return False

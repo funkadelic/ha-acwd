@@ -18,6 +18,29 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 # ---------------------------------------------------------------------------
 
 
+def _assert_timeout(kwargs):
+    """Assert that the caller passed timeout=HTTP_TIMEOUT."""
+    from custom_components.acwd.const import HTTP_TIMEOUT
+    actual = kwargs.get("timeout")
+    assert actual == HTTP_TIMEOUT, f"Expected timeout={HTTP_TIMEOUT}, got timeout={actual}"
+
+
+def _raising(error):
+    """Return a side_effect that asserts timeout and raises *error*."""
+    def _fn(*args, **kwargs):
+        _assert_timeout(kwargs)
+        raise error
+    return _fn
+
+
+def _returning(value):
+    """Return a side_effect that asserts timeout and returns *value*."""
+    def _fn(*args, **kwargs):
+        _assert_timeout(kwargs)
+        return value
+    return _fn
+
+
 def _make_client():
     """Return a fresh ACWDClient instance."""
     from custom_components.acwd.acwd_api import ACWDClient
@@ -50,11 +73,12 @@ def _mock_usage_json():
 
 
 def _post_failing_first(error):
-    """Return a post side_effect that raises on first call, succeeds after."""
+    """Return a post side_effect that asserts timeout, raises on first call, succeeds after."""
     usage_resp = _mock_usage_json()
     calls = {"n": 0}
 
     def _side_effect(*args, **kwargs):
+        _assert_timeout(kwargs)
         calls["n"] += 1
         if calls["n"] == 1:
             raise error
@@ -63,35 +87,9 @@ def _post_failing_first(error):
     return _side_effect
 
 
-def _make_mock_hass():
-    """Return a MagicMock hass suitable for service tests."""
-    hass = MagicMock()
-    hass.services.has_service = Mock(return_value=False)
-    hass.services.async_register = Mock()
-    hass.services.async_remove = Mock()
-    hass.data = {}
-    hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
-    hass.config_entries.async_forward_entry_setups = AsyncMock()
-    hass.config_entries.async_loaded_entries = Mock(return_value=[])
-    hass.async_add_executor_job = AsyncMock(side_effect=lambda func, *args: func(*args))
-    return hass
-
-
-def _make_mock_entry(entry_id="test_entry_id"):
-    """Return a MagicMock config entry."""
-    entry = MagicMock()
-    entry.entry_id = entry_id
-    entry.data = {"username": "test_user", "password": "test_pass"}
-    return entry
-
-
-def _make_mock_coordinator(entry):
-    """Return a MagicMock coordinator."""
-    coordinator = MagicMock()
-    coordinator.entry = entry
-    coordinator.client.user_info = {"AccountNumber": "12345"}
-    coordinator.client.meter_number = "230057301"
-    return coordinator
+from tests.helpers import make_mock_hass as _make_mock_hass
+from tests.helpers import make_mock_entry as _make_mock_entry
+from tests.helpers import make_mock_coordinator as _make_mock_coordinator
 
 
 def _setup_service_handler_mocks():
@@ -164,7 +162,7 @@ class TestLoginTimeoutPropagation:
         """Test 2: login() raises requests.Timeout when initial GET to base_url times out."""
         client = _make_client()
 
-        with patch.object(client.session, "get", side_effect=requests.Timeout("timed out")):
+        with patch.object(client.session, "get", side_effect=_raising(requests.Timeout("timed out"))):
             with pytest.raises(requests.Timeout):
                 client.login()
 
@@ -187,12 +185,13 @@ class TestLoginTimeoutPropagation:
         call_count = {"n": 0}
 
         def _post_side_effect(*args, **kwargs):
+            _assert_timeout(kwargs)
             call_count["n"] += 1
             if call_count["n"] == 1:
                 return mock_update_response  # updateState
             raise requests.Timeout("validate login timed out")
 
-        with patch.object(client.session, "get", return_value=mock_get_response):
+        with patch.object(client.session, "get", side_effect=_returning(mock_get_response)):
             with patch.object(client.session, "post", side_effect=_post_side_effect):
                 with pytest.raises(requests.Timeout):
                     client.login()
@@ -202,7 +201,7 @@ class TestLoginTimeoutPropagation:
         client = _make_client()
 
         with patch.object(
-            client.session, "get", side_effect=requests.ConnectionError("no route to host")
+            client.session, "get", side_effect=_raising(requests.ConnectionError("no route to host"))
         ):
             with pytest.raises(requests.ConnectionError):
                 client.login()
@@ -215,7 +214,7 @@ class TestBindMultiMeterTimeout:
         """Test 4: Timeout on BindMultiMeter sets meter to '' and does not raise."""
         client = _make_logged_in_client(meter_cached=False)
 
-        with patch.object(client.session, "get", return_value=_mock_usage_page()):
+        with patch.object(client.session, "get", side_effect=_returning(_mock_usage_page())):
             with patch.object(
                 client.session, "post",
                 side_effect=_post_failing_first(requests.Timeout("bind meter timed out")),
@@ -231,16 +230,19 @@ class TestBindMultiMeterTimeout:
         client = _make_logged_in_client(meter_cached=False)
 
         with caplog.at_level(logging.WARNING):
-            with patch.object(client.session, "get", return_value=_mock_usage_page()):
+            with patch.object(client.session, "get", side_effect=_returning(_mock_usage_page())):
                 with patch.object(
                     client.session, "post",
                     side_effect=_post_failing_first(requests.Timeout("bind meter timed out")),
                 ):
                     client.get_usage_data(mode="B")
 
-        warning_messages = [r.message for r in caplog.records if r.levelname == "WARNING"]
-        assert any("BindMultiMeter" in m or "meter" in m.lower() for m in warning_messages), (
-            f"Expected a warning mentioning BindMultiMeter or meter URL, got: {warning_messages}"
+        warning_messages = [
+            r.message for r in caplog.records
+            if r.levelname == "WARNING" and r.name == "custom_components.acwd.acwd_api"
+        ]
+        assert any("BindMultiMeter" in m for m in warning_messages), (
+            f"Expected a warning mentioning BindMultiMeter, got: {warning_messages}"
         )
 
 
@@ -251,9 +253,9 @@ class TestLoadWaterUsageTimeoutPropagation:
         """Test 5: Timeout on LoadWaterUsage POST propagates up (raises requests.Timeout)."""
         client = _make_logged_in_client(meter_cached=True)
 
-        with patch.object(client.session, "get", return_value=_mock_usage_page()):
+        with patch.object(client.session, "get", side_effect=_returning(_mock_usage_page())):
             with patch.object(
-                client.session, "post", side_effect=requests.Timeout("usage POST timed out")
+                client.session, "post", side_effect=_raising(requests.Timeout("usage POST timed out"))
             ):
                 with pytest.raises(requests.Timeout):
                     client.get_usage_data(mode="B")
@@ -269,10 +271,11 @@ class TestCsrfRefreshTimeoutNonFatal:
         with patch.object(
             client.session, "get", side_effect=requests.Timeout("csrf refresh timed out")
         ):
-            with patch.object(client.session, "post", return_value=_mock_usage_json()):
+            with patch.object(client.session, "post", return_value=_mock_usage_json()) as mock_post:
                 result = client.get_usage_data(mode="B")
 
-        assert result is not None or result == {} or isinstance(result, dict)
+        mock_post.assert_called_once()
+        assert result == {"objUsageGenerationResultSetTwo": []}
 
     def test_csrf_refresh_timeout_logs_warning_with_url(self, caplog):
         """Test 5b: CSRF refresh timeout logs warning including the usage_page_url."""
@@ -287,9 +290,12 @@ class TestCsrfRefreshTimeoutNonFatal:
                 with patch.object(client.session, "post", return_value=_mock_usage_json()):
                     client.get_usage_data(mode="B")
 
-        warning_messages = [r.message for r in caplog.records if r.levelname == "WARNING"]
-        assert any("usages.aspx" in m or "CSRF" in m or "csrf" in m.lower() for m in warning_messages), (
-            f"Expected warning mentioning CSRF or usage URL, got: {warning_messages}"
+        warning_messages = [
+            r.message for r in caplog.records
+            if r.levelname == "WARNING" and r.name == "custom_components.acwd.acwd_api"
+        ]
+        assert any("usages.aspx" in m for m in warning_messages), (
+            f"Expected a warning mentioning usages.aspx URL, got: {warning_messages}"
         )
 
 
@@ -346,7 +352,7 @@ class TestServiceHandlerNetworkErrors:
         import custom_components.acwd as acwd_module
         from homeassistant.exceptions import HomeAssistantError
 
-        hass, entry, coordinator = _setup_service_handler_mocks()
+        hass, _, _ = _setup_service_handler_mocks()
 
         call = MagicMock()
         call.hass = hass
