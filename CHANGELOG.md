@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.22] - 2026-03-02
+
+### Fixed
+
+- use changelog content as GitHub release notes (#22)
+
+### Changed
+
+- add Codecov coverage and test analytics reporting (#24)
+- add dependabot config for Python pip dependencies (#23)
+- remove unused imports and use centralized format constants (#19)
+- domain-level service lifecycle (Phase 02) (#18)
+
+### Testing
+
+- add unit tests for _get_coordinator and handler error paths (#21)
+- add unit tests for helpers.py local_midnight() (#20)
 ## [1.0.21] - 2026-02-26
 
 ### Fixed
@@ -217,7 +234,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Five water usage sensors (current cycle, projected, last billing, average, highest)
 - 15-minute interval support via manual service
 
-[Unreleased]: https://github.com/funkadelic/ha-acwd/compare/v1.0.21...HEAD
+[Unreleased]: https://github.com/funkadelic/ha-acwd/compare/v1.0.22...HEAD
+[1.0.22]: https://github.com/funkadelic/ha-acwd/compare/v1.0.21...v1.0.22
 [1.0.21]: https://github.com/funkadelic/ha-acwd/compare/v1.0.20...v1.0.21
 [1.0.20]: https://github.com/funkadelic/ha-acwd/compare/v1.0.19...v1.0.20
 [1.0.19]: https://github.com/funkadelic/ha-acwd/compare/v1.0.18...v1.0.19
