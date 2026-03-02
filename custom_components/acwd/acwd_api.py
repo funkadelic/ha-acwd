@@ -7,12 +7,12 @@ import requests
 from bs4 import BeautifulSoup
 import logging
 
-from .const import DATE_FORMAT_SLASH_MDY, DATE_FORMAT_LONG, HTTP_TIMEOUT
+from .const import DATE_FORMAT_SLASH_MDY, DATE_FORMAT_LONG, HTTP_TIMEOUT, LOG_NETWORK_ERROR
 
 _LOGGER = logging.getLogger(__name__)
 
 # User agent string for HTTP requests
-USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
+USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36'
 
 # HTTP header constants
 CONTENT_TYPE_JSON = 'application/json; charset=UTF-8'
@@ -72,7 +72,7 @@ class ACWDClient:
         try:
             response = self.session.get(self.base_url, timeout=HTTP_TIMEOUT)
         except (requests.Timeout, requests.ConnectionError) as e:
-            _LOGGER.warning("Network error reaching %s: %s", self.base_url, e)
+            _LOGGER.warning(LOG_NETWORK_ERROR, self.base_url, e)
             raise
 
         if response.status_code != 200:
@@ -143,7 +143,7 @@ class ACWDClient:
                 timeout=HTTP_TIMEOUT
             )
         except (requests.Timeout, requests.ConnectionError) as e:
-            _LOGGER.warning("Network error reaching %s: %s", validate_login_url, e)
+            _LOGGER.warning(LOG_NETWORK_ERROR, validate_login_url, e)
             raise
 
         if validate_response.status_code != 200:
@@ -212,7 +212,7 @@ class ACWDClient:
                             else:
                                 _LOGGER.warning(f"Dashboard returned {dashboard_response.status_code}")
                         except (requests.Timeout, requests.ConnectionError) as e:
-                            _LOGGER.warning("Network error reaching %s: %s", dashboard_url, e)
+                            _LOGGER.warning(LOG_NETWORK_ERROR, dashboard_url, e)
 
                         self.logged_in = True
                         return True

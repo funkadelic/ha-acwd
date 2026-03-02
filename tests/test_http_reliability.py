@@ -269,9 +269,9 @@ class TestCsrfRefreshTimeoutNonFatal:
         client = _make_logged_in_client(meter_cached=True)
 
         with patch.object(
-            client.session, "get", side_effect=requests.Timeout("csrf refresh timed out")
+            client.session, "get", side_effect=_raising(requests.Timeout("csrf refresh timed out"))
         ):
-            with patch.object(client.session, "post", return_value=_mock_usage_json()) as mock_post:
+            with patch.object(client.session, "post", side_effect=_returning(_mock_usage_json())) as mock_post:
                 result = client.get_usage_data(mode="B")
 
         mock_post.assert_called_once()
@@ -285,9 +285,9 @@ class TestCsrfRefreshTimeoutNonFatal:
 
         with caplog.at_level(logging.WARNING):
             with patch.object(
-                client.session, "get", side_effect=requests.Timeout("csrf refresh timed out")
+                client.session, "get", side_effect=_raising(requests.Timeout("csrf refresh timed out"))
             ):
-                with patch.object(client.session, "post", return_value=_mock_usage_json()):
+                with patch.object(client.session, "post", side_effect=_returning(_mock_usage_json())):
                     client.get_usage_data(mode="B")
 
         warning_messages = [
