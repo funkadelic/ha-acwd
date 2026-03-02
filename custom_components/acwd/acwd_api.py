@@ -7,7 +7,7 @@ import requests
 from bs4 import BeautifulSoup
 import logging
 
-from .const import DATE_FORMAT_SLASH_MDY, DATE_FORMAT_LONG
+from .const import DATE_FORMAT_SLASH_MDY, DATE_FORMAT_LONG, HTTP_TIMEOUT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -69,7 +69,11 @@ class ACWDClient:
         _LOGGER.info("Fetching login page...")
 
         # Step 1: Get the login page to establish session and extract tokens
-        response = self.session.get(self.base_url)
+        try:
+            response = self.session.get(self.base_url, timeout=HTTP_TIMEOUT)
+        except (requests.Timeout, requests.ConnectionError) as e:
+            _LOGGER.warning("Network error reaching %s: %s", self.base_url, e)
+            raise
 
         if response.status_code != 200:
             raise Exception(f"Failed to load login page: {response.status_code}")
@@ -103,7 +107,8 @@ class ACWDClient:
                 HEADER_X_REQUESTED_WITH: VALUE_XML_HTTP_REQUEST,
                 'User-Agent': USER_AGENT,
                 'CSRFToken': csrf_token
-            }
+            },
+            timeout=HTTP_TIMEOUT
         )
 
         if update_state_response.status_code != 200:
@@ -124,17 +129,22 @@ class ACWDClient:
             'isEdgeBrowser': False
         }
 
-        validate_response = self.session.post(
-            validate_login_url,
-            json=login_payload,
-            headers={
-                'Content-Type': CONTENT_TYPE_JSON,
-                'Referer': self.base_url,
-                HEADER_X_REQUESTED_WITH: VALUE_XML_HTTP_REQUEST,
-                'User-Agent': USER_AGENT,
-                'CSRFToken': csrf_token
-            }
-        )
+        try:
+            validate_response = self.session.post(
+                validate_login_url,
+                json=login_payload,
+                headers={
+                    'Content-Type': CONTENT_TYPE_JSON,
+                    'Referer': self.base_url,
+                    HEADER_X_REQUESTED_WITH: VALUE_XML_HTTP_REQUEST,
+                    'User-Agent': USER_AGENT,
+                    'CSRFToken': csrf_token
+                },
+                timeout=HTTP_TIMEOUT
+            )
+        except (requests.Timeout, requests.ConnectionError) as e:
+            _LOGGER.warning("Network error reaching %s: %s", validate_login_url, e)
+            raise
 
         if validate_response.status_code != 200:
             _LOGGER.error(f"validateLogin failed with status code: {validate_response.status_code}")
@@ -194,7 +204,7 @@ class ACWDClient:
 
                         # Navigate to the appropriate dashboard
                         _LOGGER.info(f"Navigating to {dashboard_url}...")
-                        dashboard_response = self.session.get(dashboard_url)
+                        dashboard_response = self.session.get(dashboard_url, timeout=HTTP_TIMEOUT)
 
                         if dashboard_response.status_code == 200:
                             _LOGGER.info("Successfully accessed Dashboard!")
@@ -252,16 +262,22 @@ class ACWDClient:
 
         # First, navigate to the usage page to get a fresh CSRF token
         usage_page_url = f"{self.base_url}usages.aspx?type=WU"
-        page_response = self.session.get(usage_page_url)
+        try:
+            page_response = self.session.get(usage_page_url, timeout=HTTP_TIMEOUT)
 
-        if page_response.status_code == 200:
-            soup = BeautifulSoup(page_response.text, PARSER_HTML)
-            csrf_input = soup.find('input', {'id': FIELD_CSRF_TOKEN})
-            if csrf_input:
-                fresh_csrf = csrf_input.get('value', '')
-                if fresh_csrf:
-                    self.csrf_token = fresh_csrf
-                    _LOGGER.info("Got fresh CSRF token from usage page")
+            if page_response.status_code == 200:
+                soup = BeautifulSoup(page_response.text, PARSER_HTML)
+                csrf_input = soup.find('input', {'id': FIELD_CSRF_TOKEN})
+                if csrf_input:
+                    fresh_csrf = csrf_input.get('value', '')
+                    if fresh_csrf:
+                        self.csrf_token = fresh_csrf
+                        _LOGGER.info("Got fresh CSRF token from usage page")
+        except (requests.Timeout, requests.ConnectionError) as e:
+            _LOGGER.warning(
+                "Network error refreshing CSRF token from %s: %s", usage_page_url, e
+            )
+            # Continue without fresh CSRF — get_usage_data() proceeds with existing session state
 
         usage_url = f"{self.base_url}Usages.aspx/LoadWaterUsage"
 
@@ -304,7 +320,8 @@ class ACWDClient:
                 bind_response = self.session.post(
                     bind_meter_url,
                     json=bind_payload,
-                    headers=headers
+                    headers=headers,
+                    timeout=HTTP_TIMEOUT
                 )
 
                 if bind_response.status_code == 200:
@@ -331,6 +348,11 @@ class ACWDClient:
                             else:
                                 self._water_meter_number = ''
                                 _LOGGER.warning("No water meters found, using empty meter number")
+            except (requests.Timeout, requests.ConnectionError) as e:
+                _LOGGER.warning(
+                    "Network timeout fetching meter list from %s: %s", bind_meter_url, e
+                )
+                self._water_meter_number = ''
             except Exception as e:
                 _LOGGER.error(f"Error fetching meter list: {e}")
                 self._water_meter_number = ''
@@ -356,7 +378,8 @@ class ACWDClient:
         response = self.session.post(
             usage_url,
             json=payload,
-            headers=headers
+            headers=headers,
+            timeout=HTTP_TIMEOUT
         )
 
         if response.status_code != 200:
