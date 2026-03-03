@@ -17,8 +17,8 @@ from homeassistant.const import UnitOfVolume
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, DATE_FORMAT_LONG, TIME_FORMAT_12HR
-from .helpers import local_midnight
+from .const import DOMAIN
+from .helpers import local_midnight, parse_date_long, parse_time_12hr
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -121,11 +121,8 @@ async def async_import_hourly_statistics(
         usage_gallons = record.get("UsageValue", 0)
 
         # Parse hour from "HH:MM AM/PM" format
-        try:
-            time_obj = datetime.strptime(hourly_str, TIME_FORMAT_12HR)
-            hour = time_obj.hour
-        except (ValueError, TypeError):
-            _LOGGER.warning(f"Could not parse hourly time: {hourly_str}")
+        hour = parse_time_12hr(hourly_str)
+        if hour is None:
             hour = 0
 
         # Add to cumulative sum
@@ -280,10 +277,8 @@ async def async_import_daily_statistics(
             continue
 
         # Parse the date string
-        try:
-            date_obj = datetime.strptime(date_str, DATE_FORMAT_LONG)
-        except (ValueError, TypeError):
-            _LOGGER.warning(f"Could not parse date: {date_str}")
+        date_obj = parse_date_long(date_str)
+        if date_obj is None:
             continue
 
         # Add to cumulative sum

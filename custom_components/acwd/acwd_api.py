@@ -7,8 +7,8 @@ import requests
 from bs4 import BeautifulSoup
 import logging
 
-from .const import DATE_FORMAT_SLASH_MDY, DATE_FORMAT_LONG, HTTP_TIMEOUT, LOG_NETWORK_ERROR
-from .helpers import parse_api_response
+from .const import DATE_FORMAT_LONG, HTTP_TIMEOUT, LOG_NETWORK_ERROR
+from .helpers import parse_api_response, parse_date_mdy
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -278,14 +278,12 @@ class ACWDClient:
         # Convert MM/DD/YYYY date to "Month D, YYYY" format if provided
         formatted_date = ''
         if str_date:
-            try:
-                from datetime import datetime
-                date_obj = datetime.strptime(str_date, DATE_FORMAT_SLASH_MDY)
+            date_obj = parse_date_mdy(str_date)
+            if date_obj is not None:
                 # Format as "December 4, 2025" (no leading zero on day)
                 formatted_date = date_obj.strftime(DATE_FORMAT_LONG).replace(' 0', ' ')
-            except (ValueError, TypeError):
-                _LOGGER.exception("Failed to parse date '%s', using original value", str_date)
-                formatted_date = str(str_date)
+            else:
+                formatted_date = str(str_date) if str_date else ''
 
         # Set up headers for API requests
         headers = {
