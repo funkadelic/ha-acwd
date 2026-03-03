@@ -108,7 +108,7 @@ class TestACWDCurrentUsageSensor:
 
     def test_unique_id(self, mock_coordinator, mock_config_entry):
         sensor = ACWDCurrentUsageSensor(mock_coordinator, mock_config_entry)
-        assert sensor._attr_unique_id == "12345_current_usage"
+        assert sensor.unique_id == "12345_current_usage"
 
 
 # -- ACWDCurrentCycleSensor --------------------------------------------------

@@ -290,6 +290,10 @@ def _setup_homeassistant_mocks():
         def __init__(self, coordinator):
             self.coordinator = coordinator
 
+        @property
+        def unique_id(self):
+            return getattr(self, "_attr_unique_id", None)
+
     update_coordinator_mock.CoordinatorEntity = CoordinatorEntity
     helpers_mock.update_coordinator = update_coordinator_mock
 
