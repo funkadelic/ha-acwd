@@ -279,8 +279,55 @@ def _setup_homeassistant_mocks():
     helpers_mock = ModuleType("helpers")
     update_coordinator_mock = ModuleType("update_coordinator")
     update_coordinator_mock.DataUpdateCoordinator = MagicMock
-    update_coordinator_mock.UpdateFailed = Exception
+    class UpdateFailed(Exception):
+        """Mock UpdateFailed — distinct type so tests don't accidentally catch unrelated errors."""
+
+    update_coordinator_mock.UpdateFailed = UpdateFailed
+
+    # CoordinatorEntity base class for sensor tests
+    class CoordinatorEntity:
+        """Mock CoordinatorEntity that stores coordinator reference."""
+        def __init__(self, coordinator):
+            self.coordinator = coordinator
+
+        @property
+        def unique_id(self):
+            return getattr(self, "_attr_unique_id", None)
+
+    update_coordinator_mock.CoordinatorEntity = CoordinatorEntity
     helpers_mock.update_coordinator = update_coordinator_mock
+
+    # Create sensor module mock
+    sensor_mock = ModuleType("sensor")
+
+    class SensorDeviceClass:
+        WATER = "water"
+
+    class SensorEntity:
+        pass
+
+    sensor_mock.SensorDeviceClass = SensorDeviceClass
+    sensor_mock.SensorEntity = SensorEntity
+
+    # Create helpers.entity module mock
+    entity_mock = ModuleType("entity")
+
+    class DeviceInfo(dict):
+        """Mock DeviceInfo that accepts kwargs."""
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+
+    entity_mock.DeviceInfo = DeviceInfo
+
+    # Create helpers.entity_platform module mock
+    entity_platform_mock = ModuleType("entity_platform")
+    entity_platform_mock.AddEntitiesCallback = lambda *args, **kwargs: None
+
+    # Create data_entry_flow module mock
+    data_entry_flow_mock = ModuleType("data_entry_flow")
+    data_entry_flow_mock.FlowResult = dict
 
     # Create exceptions module with real exception classes (must be raisable/catchable)
     exceptions_mock = ModuleType("exceptions")
@@ -313,9 +360,41 @@ def _setup_homeassistant_mocks():
     core_mock.ServiceCall = MagicMock
     core_mock.callback = lambda func: func
 
-    # Create config_entries module
+    # Create config_entries module with ConfigFlow base class
     config_entries_mock = ModuleType("config_entries")
     config_entries_mock.ConfigEntry = MagicMock
+
+    class _ConfigFlowBase:
+        """Mock ConfigFlow base class."""
+        def __init_subclass__(cls, domain=None, **kwargs):
+            super().__init_subclass__(**kwargs)
+            if domain:
+                cls.DOMAIN = domain
+
+        async def async_set_unique_id(self, uid):
+            # No-op: real HA checks config entry registry; tests don't need deduplication
+            pass
+
+        def _abort_if_unique_id_configured(self):
+            # No-op: real HA aborts if unique ID exists; tests skip this validation
+            pass
+
+        def async_create_entry(self, *, title, data):
+            return {"type": "create_entry", "title": title, "data": data}
+
+        def async_show_form(self, *, step_id, data_schema=None, errors=None, description_placeholders=None):
+            return {
+                "type": "form",
+                "step_id": step_id,
+                "errors": errors or {},
+                "data_schema": data_schema,
+                "description_placeholders": description_placeholders,
+            }
+
+    config_entries_mock.ConfigFlow = _ConfigFlowBase
+
+    # Add sensor to components
+    components_mock.sensor = sensor_mock
 
     # Set up main homeassistant module
     ha_mock.components = components_mock
@@ -325,22 +404,43 @@ def _setup_homeassistant_mocks():
     ha_mock.core = core_mock
     ha_mock.config_entries = config_entries_mock
     ha_mock.exceptions = exceptions_mock
+    ha_mock.data_entry_flow = data_entry_flow_mock
 
     # Install all mocks in sys.modules
     sys.modules["homeassistant"] = ha_mock
     sys.modules["homeassistant.components"] = components_mock
     sys.modules["homeassistant.components.recorder"] = recorder_mock
     sys.modules["homeassistant.components.recorder.statistics"] = recorder_statistics_mock
+    sys.modules["homeassistant.components.sensor"] = sensor_mock
     sys.modules["homeassistant.const"] = const_mock
     sys.modules["homeassistant.util"] = util_mock
     sys.modules["homeassistant.helpers"] = helpers_mock
+    sys.modules["homeassistant.helpers.entity"] = entity_mock
+    sys.modules["homeassistant.helpers.entity_platform"] = entity_platform_mock
     sys.modules["homeassistant.helpers.update_coordinator"] = update_coordinator_mock
     sys.modules["homeassistant.helpers.config_validation"] = config_validation_mock
     sys.modules["homeassistant.helpers.typing"] = helpers_typing_mock
     sys.modules["homeassistant.core"] = core_mock
     sys.modules["homeassistant.config_entries"] = config_entries_mock
     sys.modules["homeassistant.exceptions"] = exceptions_mock
+    sys.modules["homeassistant.data_entry_flow"] = data_entry_flow_mock
 
 
 # Set up mocks before pytest collects tests
 _setup_homeassistant_mocks()
+
+
+def _setup_custom_components_package():
+    """Add repo root to sys.path so `custom_components.acwd` is importable.
+
+    This must run after HA mocks are in place but before any test file tries
+    to import from custom_components.acwd so that collection order doesn't matter.
+    """
+    from pathlib import Path
+
+    repo_root = str(Path(__file__).parent.parent)
+    if repo_root not in sys.path:
+        sys.path.insert(0, repo_root)
+
+
+_setup_custom_components_package()

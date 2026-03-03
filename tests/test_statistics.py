@@ -5,8 +5,6 @@ These tests prevent regressions of critical bugs:
 - v1.0.14: Type conversion errors (float vs datetime timestamps)
 - v1.0.16: Timezone handling (naive datetime causing wrong UTC conversions)
 
-NOTE: These tests are currently skipped pending Home Assistant mocking improvements.
-      Only coordinator tests are active for Phase 1 CI/CD validation.
 """
 import sys
 from datetime import datetime
@@ -15,61 +13,26 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-# Import mocks - conftest sets up homeassistant module mocks
-# The actual modules will now be importable
+# Import mocks - conftest sets up homeassistant module mocks and
+# registers real custom_components.acwd.const and .helpers via sys.path.
 from homeassistant.util import dt as dt_util
 
 # Import statistics module directly without triggering __init__.py
 import importlib.util
 
-# Create real module objects for the integration (avoids silent attribute absorption)
-import types
-from homeassistant.util import dt as _dt_util
-
-# Only create a bare custom_components package if it isn't already present.
-# Overwriting an existing real module would corrupt sys.modules for downstream tests.
-if "custom_components" not in sys.modules:
-    _custom_components = types.ModuleType("custom_components")
-    _custom_components.__path__ = []
-    sys.modules["custom_components"] = _custom_components
-
-# Only create a bare acwd package if one isn't already loaded. The bare module is
-# only needed so that statistics.py's relative imports can resolve .const and .helpers.
-# If the real __init__.py is already cached, preserve it — just update the sub-modules.
-if "custom_components.acwd" not in sys.modules:
-    _acwd_package = types.ModuleType("custom_components.acwd")
-    _acwd_package.__path__ = []
-    sys.modules["custom_components.acwd"] = _acwd_package
-
-_const_module = types.ModuleType("custom_components.acwd.const")
-_const_module.DOMAIN = "acwd"
-_const_module.DATE_FORMAT_LONG = "%B %d, %Y"
-_const_module.TIME_FORMAT_12HR = "%I:%M %p"
-_const_module.HTTP_CONNECT_TIMEOUT = 10
-_const_module.HTTP_READ_TIMEOUT = 30
-_const_module.HTTP_TIMEOUT = (10, 30)
-
-_helpers_module = types.ModuleType("custom_components.acwd.helpers")
-
-def _local_midnight(d):
-    local_tz = _dt_util.get_default_time_zone()
-    return datetime.combine(d, datetime.min.time()).replace(tzinfo=local_tz)
-
-_helpers_module.local_midnight = _local_midnight
-
-sys.modules["custom_components.acwd.const"] = _const_module
-sys.modules["custom_components.acwd.helpers"] = _helpers_module
-
 _stats_spec = importlib.util.spec_from_file_location(
     "custom_components.acwd.statistics",
     Path(__file__).parent.parent / "custom_components" / "acwd" / "statistics.py"
 )
+assert _stats_spec is not None and _stats_spec.loader is not None
 _stats_module = importlib.util.module_from_spec(_stats_spec)
 _stats_spec.loader.exec_module(_stats_module)
+sys.modules["custom_components.acwd.statistics"] = _stats_module
+# Also set as attribute on parent package so patch() can resolve dotted paths
+sys.modules["custom_components.acwd"].statistics = _stats_module
 async_import_hourly_statistics = _stats_module.async_import_hourly_statistics
 
 
-@pytest.mark.skip(reason="Pending Home Assistant mocking improvements - Phase 2")
 @pytest.mark.unit
 @pytest.mark.asyncio
 class TestBaselineCalculation:
@@ -116,7 +79,7 @@ class TestBaselineCalculation:
             # Verify statistics were imported
             assert mock_async_add_external_statistics.called
             call_args = mock_async_add_external_statistics.call_args
-            statistics = call_args[0][1]  # Second argument is the statistics list
+            statistics = call_args[0][2]  # Third argument: (hass, metadata, statistics)
 
             # First hour should be: yesterday_final + first_hour_usage
             first_hour_usage = hourly_records[0]["UsageValue"]  # 3.89 gallons
@@ -154,7 +117,7 @@ class TestBaselineCalculation:
 
             # Verify first hour starts from 0
             assert mock_async_add_external_statistics.called
-            statistics = mock_async_add_external_statistics.call_args[0][1]
+            statistics = mock_async_add_external_statistics.call_args[0][2]
 
             first_hour_usage = hourly_records[0]["UsageValue"]  # 2.17 gallons
             assert statistics[0].sum == pytest.approx(first_hour_usage, rel=0.01)
@@ -214,7 +177,7 @@ class TestBaselineCalculation:
             await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
 
             # Verify it used yesterday's final sum, not today's partial
-            statistics = mock_async_add_external_statistics.call_args[0][1]
+            statistics = mock_async_add_external_statistics.call_args[0][2]
             first_hour_usage = hourly_records[0]["UsageValue"]
             expected_first_cumulative = yesterday_final_sum + first_hour_usage
 
@@ -261,7 +224,7 @@ class TestBaselineCalculation:
             await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
 
             # Verify baseline was used correctly
-            statistics = mock_async_add_external_statistics.call_args[0][1]
+            statistics = mock_async_add_external_statistics.call_args[0][2]
             first_hour_usage = hourly_records[0]["UsageValue"]
             expected_first_cumulative = yesterday_final_sum + first_hour_usage
 
@@ -301,7 +264,7 @@ class TestBaselineCalculation:
             await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
 
             # Verify baseline was used
-            statistics = mock_async_add_external_statistics.call_args[0][1]
+            statistics = mock_async_add_external_statistics.call_args[0][2]
             first_hour_usage = hourly_records[0]["UsageValue"]
             expected_first_cumulative = yesterday_final_sum + first_hour_usage
 
@@ -309,7 +272,6 @@ class TestBaselineCalculation:
 
 
 @pytest.mark.unit
-@pytest.mark.skip(reason="Pending Home Assistant mocking improvements - Phase 2")
 @pytest.mark.timezone
 @pytest.mark.asyncio
 class TestTimezoneHandling:
@@ -343,7 +305,7 @@ class TestTimezoneHandling:
             await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
 
             # Verify midnight hour timestamp is correct in UTC
-            statistics = mock_async_add_external_statistics.call_args[0][1]
+            statistics = mock_async_add_external_statistics.call_args[0][2]
             midnight_stat = statistics[0]
 
             # Dec 10 00:00 PST should be Dec 10 08:00 UTC
@@ -374,7 +336,7 @@ class TestTimezoneHandling:
 
             await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
 
-            statistics = mock_async_add_external_statistics.call_args[0][1]
+            statistics = mock_async_add_external_statistics.call_args[0][2]
             midnight_stat = statistics[0]
 
             # Dec 10 00:00 EST should be Dec 10 05:00 UTC
@@ -415,7 +377,7 @@ class TestTimezoneHandling:
             await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
 
             # All timestamps should be properly converted to UTC
-            statistics = mock_async_add_external_statistics.call_args[0][1]
+            statistics = mock_async_add_external_statistics.call_args[0][2]
             for stat in statistics:
                 assert stat.start.tzinfo == dt_util.UTC
 
@@ -443,14 +405,13 @@ class TestTimezoneHandling:
 
             await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
 
-            statistics = mock_async_add_external_statistics.call_args[0][1]
+            statistics = mock_async_add_external_statistics.call_args[0][2]
 
             # Verify all timestamps are in UTC
             for stat in statistics:
                 assert stat.start.tzinfo == dt_util.UTC
 
 
-@pytest.mark.skip(reason="Pending Home Assistant mocking improvements - Phase 2")
 @pytest.mark.unit
 @pytest.mark.asyncio
 class TestCumulativeSumCalculation:
@@ -491,7 +452,7 @@ class TestCumulativeSumCalculation:
             date_dt = datetime.combine(dec_9_2025, datetime.min.time()).replace(tzinfo=pst_timezone)
             await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
 
-            statistics = mock_async_add_external_statistics.call_args[0][1]
+            statistics = mock_async_add_external_statistics.call_args[0][2]
 
             # Verify cumulative progression
             assert statistics[0].sum == pytest.approx(110.0, rel=0.01)  # 100 + 10
@@ -526,7 +487,7 @@ class TestCumulativeSumCalculation:
             date_dt = datetime.combine(dec_9_2025, datetime.min.time()).replace(tzinfo=pst_timezone)
             await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
 
-            statistics = mock_async_add_external_statistics.call_args[0][1]
+            statistics = mock_async_add_external_statistics.call_args[0][2]
 
             assert statistics[0].sum == pytest.approx(0.0, rel=0.01)
             assert statistics[1].sum == pytest.approx(0.0, rel=0.01)
@@ -566,7 +527,7 @@ class TestCumulativeSumCalculation:
             date_dt = datetime.combine(dec_9_2025, datetime.min.time()).replace(tzinfo=pst_timezone)
             await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
 
-            statistics = mock_async_add_external_statistics.call_args[0][1]
+            statistics = mock_async_add_external_statistics.call_args[0][2]
 
             # Verify precision is maintained
             expected = large_baseline + 0.01
