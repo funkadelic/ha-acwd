@@ -349,9 +349,7 @@ class ACWDClient:
                                 self._water_meter_number = ''
                                 _LOGGER.warning("No water meters found, using empty meter number")
             except (requests.Timeout, requests.ConnectionError) as e:
-                _LOGGER.warning(
-                    "Network timeout fetching meter list from %s: %s", bind_meter_url, e
-                )
+                _LOGGER.warning(LOG_NETWORK_ERROR, bind_meter_url, e)
                 self._water_meter_number = ''
             except Exception as e:
                 _LOGGER.error(f"Error fetching meter list: {e}")
