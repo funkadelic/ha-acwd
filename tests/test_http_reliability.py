@@ -238,7 +238,7 @@ class TestBindMultiMeterTimeout:
                     client.get_usage_data(mode="B")
 
         warning_messages = [
-            r.message for r in caplog.records
+            r.getMessage() for r in caplog.records
             if r.levelname == "WARNING" and r.name == "custom_components.acwd.acwd_api"
         ]
         assert any("BindMultiMeter" in m for m in warning_messages), (
@@ -291,7 +291,7 @@ class TestCsrfRefreshTimeoutNonFatal:
                     client.get_usage_data(mode="B")
 
         warning_messages = [
-            r.message for r in caplog.records
+            r.getMessage() for r in caplog.records
             if r.levelname == "WARNING" and r.name == "custom_components.acwd.acwd_api"
         ]
         assert any("usages.aspx" in m for m in warning_messages), (
