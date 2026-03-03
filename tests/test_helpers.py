@@ -93,3 +93,54 @@ class TestLocalMidnight:
             result_utc = result.astimezone(timezone.utc)
 
             assert result_utc == datetime(2025, 12, 10, 8, 0, 0, tzinfo=timezone.utc)
+
+
+from custom_components.acwd.helpers import parse_api_response
+
+
+@pytest.mark.unit
+class TestParseApiResponse:
+    """Tests for parse_api_response() helper function."""
+
+    def test_parses_dict_response(self):
+        """parse_api_response returns parsed dict when 'd' contains a JSON object."""
+        result = parse_api_response({"d": '{"key": "value"}'})
+        assert result == {"key": "value"}
+
+    def test_parses_list_response(self):
+        """parse_api_response returns parsed list when 'd' contains a JSON array."""
+        result = parse_api_response({"d": '[{"STATUS": "1"}]'})
+        assert result == [{"STATUS": "1"}]
+
+    def test_missing_d_property_raises_value_error(self):
+        """parse_api_response raises ValueError when 'd' key is absent."""
+        with pytest.raises(ValueError) as exc_info:
+            parse_api_response({})
+        assert "missing 'd' property" in str(exc_info.value)
+
+    def test_missing_d_includes_endpoint_in_error(self):
+        """ValueError for missing 'd' includes the endpoint name."""
+        with pytest.raises(ValueError) as exc_info:
+            parse_api_response({}, endpoint="LoadWaterUsage")
+        assert "LoadWaterUsage" in str(exc_info.value)
+
+    def test_malformed_json_raises_value_error(self):
+        """parse_api_response raises ValueError (not JSONDecodeError) for bad JSON."""
+        with pytest.raises(ValueError):
+            parse_api_response({"d": "not-json"})
+
+    def test_malformed_json_includes_endpoint_in_error(self):
+        """ValueError for malformed JSON includes the endpoint name."""
+        with pytest.raises(ValueError) as exc_info:
+            parse_api_response({"d": "not-json"}, endpoint="LoadWaterUsage")
+        assert "LoadWaterUsage" in str(exc_info.value)
+
+    def test_valid_response_with_endpoint_name_succeeds(self):
+        """Endpoint name does not affect parsing of valid responses."""
+        result = parse_api_response({"d": '{"k": "v"}'}, endpoint="LoadWaterUsage")
+        assert result == {"k": "v"}
+
+    def test_migrated_user_found_raises_value_error(self):
+        """'Migrated User Found' string is not valid JSON — raises ValueError."""
+        with pytest.raises(ValueError):
+            parse_api_response({"d": "Migrated User Found"})

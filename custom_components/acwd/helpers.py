@@ -1,9 +1,41 @@
 """Shared utility functions for the ACWD Water Usage integration."""
 from __future__ import annotations
 
+import json
 from datetime import date, datetime
+from typing import Any
 
 from homeassistant.util import dt as dt_util
+
+
+def parse_api_response(result: dict, endpoint: str = "unknown") -> Any:
+    """Parse an ASP.NET WebMethods response envelope and return the inner object.
+
+    The ACWD portal wraps all API responses in a JSON object with a single 'd' key
+    whose value is a JSON-encoded string. This helper extracts and parses that inner
+    value, providing consistent error messages on failure.
+
+    Args:
+        result: The decoded JSON response dict from the API (must contain 'd' key).
+        endpoint: API endpoint name used in error messages for easier debugging.
+
+    Returns:
+        The parsed Python object (dict, list, etc.) from result['d'].
+
+    Raises:
+        ValueError: If 'd' is absent or its value is not valid JSON.
+    """
+    if "d" not in result:
+        raise ValueError(
+            f"Unexpected API response from {endpoint}: missing 'd' property"
+        )
+    try:
+        return json.loads(result["d"])
+    except json.JSONDecodeError as e:
+        snippet = result["d"][:200]
+        raise ValueError(
+            f"Failed to parse API response from {endpoint}: {e} (got: {snippet!r})"
+        ) from e
 
 
 def local_midnight(d: date) -> datetime:
