@@ -210,21 +210,29 @@ class TestLoginTimeoutPropagation:
 class TestBindMultiMeterTimeout:
     """Test 4: BindMultiMeter timeout degrades gracefully — leaves meter uncached, logs warning."""
 
-    def test_bind_meter_timeout_leaves_meter_uncached(self):
-        """Test 4: Timeout on BindMultiMeter leaves meter as None so next call retries."""
+    @pytest.mark.parametrize("error", [
+        requests.Timeout("bind meter timed out"),
+        requests.ConnectionError("bind meter unreachable"),
+    ], ids=["timeout", "connection_error"])
+    def test_bind_meter_timeout_leaves_meter_uncached(self, error):
+        """Test 4: Network error on BindMultiMeter leaves meter as None so next call retries."""
         client = _make_logged_in_client(meter_cached=False)
 
         with patch.object(client.session, "get", side_effect=_returning(_mock_usage_page())):
             with patch.object(
                 client.session, "post",
-                side_effect=_post_failing_first(requests.Timeout("bind meter timed out")),
+                side_effect=_post_failing_first(error),
             ):
                 client.get_usage_data(mode="B")
 
         assert client._water_meter_number is None
 
-    def test_bind_meter_timeout_logs_warning_with_url(self, caplog):
-        """Test 4: BindMultiMeter timeout warning includes the bind_meter_url."""
+    @pytest.mark.parametrize("error", [
+        requests.Timeout("bind meter timed out"),
+        requests.ConnectionError("bind meter unreachable"),
+    ], ids=["timeout", "connection_error"])
+    def test_bind_meter_timeout_logs_warning_with_url(self, error, caplog):
+        """Test 4: BindMultiMeter network error warning includes the URL."""
         import logging
 
         client = _make_logged_in_client(meter_cached=False)
@@ -233,7 +241,7 @@ class TestBindMultiMeterTimeout:
             with patch.object(client.session, "get", side_effect=_returning(_mock_usage_page())):
                 with patch.object(
                     client.session, "post",
-                    side_effect=_post_failing_first(requests.Timeout("bind meter timed out")),
+                    side_effect=_post_failing_first(error),
                 ):
                     client.get_usage_data(mode="B")
 
@@ -241,8 +249,8 @@ class TestBindMultiMeterTimeout:
             r.getMessage() for r in caplog.records
             if r.levelname == "WARNING" and r.name == "custom_components.acwd.acwd_api"
         ]
-        assert any("BindMultiMeter" in m for m in warning_messages), (
-            f"Expected a warning mentioning BindMultiMeter, got: {warning_messages}"
+        assert any("BindMultiMeter" in m and "Network error" in m for m in warning_messages), (
+            f"Expected a warning mentioning both BindMultiMeter URL and network error, got: {warning_messages}"
         )
 
 
@@ -264,12 +272,16 @@ class TestLoadWaterUsageTimeoutPropagation:
 class TestCsrfRefreshTimeoutNonFatal:
     """Test 5b: usage_page_url CSRF GET timeout logs warning and does NOT raise."""
 
-    def test_csrf_refresh_timeout_does_not_raise(self):
-        """Test 5b: Timeout on CSRF refresh GET does not raise — get_usage_data() continues."""
+    @pytest.mark.parametrize("error", [
+        requests.Timeout("csrf refresh timed out"),
+        requests.ConnectionError("csrf refresh unreachable"),
+    ], ids=["timeout", "connection_error"])
+    def test_csrf_refresh_does_not_raise(self, error):
+        """Test 5b: Network error on CSRF refresh GET does not raise — get_usage_data() continues."""
         client = _make_logged_in_client(meter_cached=True)
 
         with patch.object(
-            client.session, "get", side_effect=_raising(requests.Timeout("csrf refresh timed out"))
+            client.session, "get", side_effect=_raising(error)
         ):
             with patch.object(client.session, "post", side_effect=_returning(_mock_usage_json())) as mock_post:
                 result = client.get_usage_data(mode="B")
@@ -277,15 +289,19 @@ class TestCsrfRefreshTimeoutNonFatal:
         mock_post.assert_called_once()
         assert result == {"objUsageGenerationResultSetTwo": []}
 
-    def test_csrf_refresh_timeout_logs_warning_with_url(self, caplog):
-        """Test 5b: CSRF refresh timeout logs warning including the usage_page_url."""
+    @pytest.mark.parametrize("error", [
+        requests.Timeout("csrf refresh timed out"),
+        requests.ConnectionError("csrf refresh unreachable"),
+    ], ids=["timeout", "connection_error"])
+    def test_csrf_refresh_logs_warning_with_url(self, error, caplog):
+        """Test 5b: CSRF refresh network error logs warning including the usage_page_url."""
         import logging
 
         client = _make_logged_in_client(meter_cached=True)
 
         with caplog.at_level(logging.WARNING):
             with patch.object(
-                client.session, "get", side_effect=_raising(requests.Timeout("csrf refresh timed out"))
+                client.session, "get", side_effect=_raising(error)
             ):
                 with patch.object(client.session, "post", side_effect=_returning(_mock_usage_json())):
                     client.get_usage_data(mode="B")
@@ -294,8 +310,8 @@ class TestCsrfRefreshTimeoutNonFatal:
             r.getMessage() for r in caplog.records
             if r.levelname == "WARNING" and r.name == "custom_components.acwd.acwd_api"
         ]
-        assert any("usages.aspx" in m for m in warning_messages), (
-            f"Expected a warning mentioning usages.aspx URL, got: {warning_messages}"
+        assert any("usages.aspx" in m and "Network error" in m for m in warning_messages), (
+            f"Expected a warning mentioning both usages.aspx URL and network error, got: {warning_messages}"
         )
 
 
