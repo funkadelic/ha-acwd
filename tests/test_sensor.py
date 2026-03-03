@@ -141,7 +141,7 @@ class TestACWDLastBillingCycleSensor:
         assert attrs["from_date"] == "11/01/2025"
         assert attrs["to_date"] == "12/31/2025"
         assert attrs["usage_date"] == "01/01/2026"
-        assert attrs["service_charge"] == 45.50
+        assert attrs["service_charge"] == pytest.approx(45.50)
         assert "usage_hcf" in attrs
         assert attrs["high_usage_level"] == "No"
 

@@ -5,8 +5,6 @@ These tests prevent regressions of critical bugs:
 - v1.0.14: Type conversion errors (float vs datetime timestamps)
 - v1.0.16: Timezone handling (naive datetime causing wrong UTC conversions)
 
-NOTE: These tests are currently skipped pending Home Assistant mocking improvements.
-      Only coordinator tests are active for Phase 1 CI/CD validation.
 """
 import sys
 from datetime import datetime
@@ -28,7 +26,6 @@ _stats_spec = importlib.util.spec_from_file_location(
 )
 _stats_module = importlib.util.module_from_spec(_stats_spec)
 _stats_spec.loader.exec_module(_stats_module)
-sys.modules["custom_components.acwd.statistics"] = _stats_module
 sys.modules["custom_components.acwd.statistics"] = _stats_module
 # Also set as attribute on parent package so patch() can resolve dotted paths
 sys.modules["custom_components.acwd"].statistics = _stats_module

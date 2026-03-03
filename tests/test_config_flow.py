@@ -49,7 +49,7 @@ def mock_hass():
     return hass
 
 
-USER_INPUT = {"username": "testuser", "password": "testpass"}
+USER_INPUT = {"username": "testuser", "password": "testpass"} # NOSONAR
 
 
 # -- validate_input tests ----------------------------------------------------

@@ -365,9 +365,11 @@ def _setup_homeassistant_mocks():
                 cls.DOMAIN = domain
 
         async def async_set_unique_id(self, uid):
+            # No-op: real HA checks config entry registry; tests don't need deduplication
             pass
 
         def _abort_if_unique_id_configured(self):
+            # No-op: real HA aborts if unique ID exists; tests skip this validation
             pass
 
         def async_create_entry(self, *, title, data):
