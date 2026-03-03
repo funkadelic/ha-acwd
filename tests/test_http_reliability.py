@@ -208,10 +208,10 @@ class TestLoginTimeoutPropagation:
 
 
 class TestBindMultiMeterTimeout:
-    """Test 4: BindMultiMeter timeout degrades gracefully — sets empty meter, logs warning."""
+    """Test 4: BindMultiMeter timeout degrades gracefully — leaves meter uncached, logs warning."""
 
-    def test_bind_meter_timeout_sets_empty_meter(self):
-        """Test 4: Timeout on BindMultiMeter sets meter to '' and does not raise."""
+    def test_bind_meter_timeout_leaves_meter_uncached(self):
+        """Test 4: Timeout on BindMultiMeter leaves meter as None so next call retries."""
         client = _make_logged_in_client(meter_cached=False)
 
         with patch.object(client.session, "get", side_effect=_returning(_mock_usage_page())):
@@ -221,7 +221,7 @@ class TestBindMultiMeterTimeout:
             ):
                 client.get_usage_data(mode="B")
 
-        assert client._water_meter_number == ""
+        assert client._water_meter_number is None
 
     def test_bind_meter_timeout_logs_warning_with_url(self, caplog):
         """Test 4: BindMultiMeter timeout warning includes the bind_meter_url."""
