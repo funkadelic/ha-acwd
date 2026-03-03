@@ -319,7 +319,7 @@ def _setup_homeassistant_mocks():
 
     # Create helpers.entity_platform module mock
     entity_platform_mock = ModuleType("entity_platform")
-    entity_platform_mock.AddEntitiesCallback = list.append
+    entity_platform_mock.AddEntitiesCallback = lambda *args, **kwargs: None
 
     # Create data_entry_flow module mock
     data_entry_flow_mock = ModuleType("data_entry_flow")

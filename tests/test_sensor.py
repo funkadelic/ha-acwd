@@ -15,6 +15,8 @@ _sensor_module = importlib.util.module_from_spec(_sensor_spec)
 _sensor_spec.loader.exec_module(_sensor_module)
 sys.modules["custom_components.acwd.sensor"] = _sensor_module
 
+HCF_TO_GALLONS = _sensor_module.HCF_TO_GALLONS
+
 # Extract classes for direct use
 ACWDSensorBase = _sensor_module.ACWDSensorBase
 ACWDCurrentUsageSensor = _sensor_module.ACWDCurrentUsageSensor
@@ -91,7 +93,7 @@ class TestACWDCurrentUsageSensor:
         assert "expected_total_hcf" in attrs
         assert "expected_total_gallons" in attrs
         assert "cycle_date" in attrs
-        assert attrs["usage_hcf"] == pytest.approx(round(5000.50 / 748, 2))
+        assert attrs["usage_hcf"] == pytest.approx(round(5000.50 / HCF_TO_GALLONS, 2))
         assert attrs["usage_gallons"] == pytest.approx(round(5000.50, 2))
         assert attrs["cycle_date"] == "01/15/2026"
 
