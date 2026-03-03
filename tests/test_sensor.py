@@ -91,7 +91,8 @@ class TestACWDCurrentUsageSensor:
         assert "expected_total_hcf" in attrs
         assert "expected_total_gallons" in attrs
         assert "cycle_date" in attrs
-        assert attrs["usage_gallons"] == round(5000.50, 2)
+        assert attrs["usage_hcf"] == pytest.approx(round(5000.50 / 748, 2))
+        assert attrs["usage_gallons"] == pytest.approx(round(5000.50, 2))
         assert attrs["cycle_date"] == "01/15/2026"
 
     def test_extra_state_attributes_no_data(self, mock_coordinator, mock_config_entry):

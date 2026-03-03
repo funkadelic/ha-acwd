@@ -279,7 +279,10 @@ def _setup_homeassistant_mocks():
     helpers_mock = ModuleType("helpers")
     update_coordinator_mock = ModuleType("update_coordinator")
     update_coordinator_mock.DataUpdateCoordinator = MagicMock
-    update_coordinator_mock.UpdateFailed = Exception
+    class UpdateFailed(Exception):
+        """Mock UpdateFailed — distinct type so tests don't accidentally catch unrelated errors."""
+
+    update_coordinator_mock.UpdateFailed = UpdateFailed
 
     # CoordinatorEntity base class for sensor tests
     class CoordinatorEntity:
