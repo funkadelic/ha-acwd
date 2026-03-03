@@ -379,7 +379,13 @@ def _setup_homeassistant_mocks():
             return {"type": "create_entry", "title": title, "data": data}
 
         def async_show_form(self, *, step_id, data_schema=None, errors=None, description_placeholders=None):
-            return {"type": "form", "step_id": step_id, "errors": errors or {}}
+            return {
+                "type": "form",
+                "step_id": step_id,
+                "errors": errors or {},
+                "data_schema": data_schema,
+                "description_placeholders": description_placeholders,
+            }
 
     config_entries_mock.ConfigFlow = _ConfigFlowBase
 
