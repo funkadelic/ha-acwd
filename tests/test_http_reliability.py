@@ -11,6 +11,9 @@ import datetime
 import pytest
 import requests
 from unittest.mock import MagicMock, patch
+from tests.helpers import make_mock_hass as _make_mock_hass
+from tests.helpers import make_mock_entry as _make_mock_entry
+from tests.helpers import make_mock_coordinator as _make_mock_coordinator
 
 
 # ---------------------------------------------------------------------------
@@ -85,11 +88,6 @@ def _post_failing_first(error):
         return usage_resp
 
     return _side_effect
-
-
-from tests.helpers import make_mock_hass as _make_mock_hass
-from tests.helpers import make_mock_entry as _make_mock_entry
-from tests.helpers import make_mock_coordinator as _make_mock_coordinator
 
 
 def _setup_service_handler_mocks():

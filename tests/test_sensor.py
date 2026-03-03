@@ -1,31 +1,12 @@
 """Tests for sensor.py - ACWD sensor entities."""
 import sys
-import types
+import importlib.util
 from pathlib import Path
 from unittest.mock import MagicMock, AsyncMock
 
 import pytest
 
-# Ensure custom_components.acwd package and const sub-module exist in sys.modules
-# (conftest.py sets up homeassistant mocks; we need the integration package stubs)
-if "custom_components" not in sys.modules:
-    _custom_components = types.ModuleType("custom_components")
-    _custom_components.__path__ = []
-    sys.modules["custom_components"] = _custom_components
-
-if "custom_components.acwd" not in sys.modules:
-    _acwd_package = types.ModuleType("custom_components.acwd")
-    _acwd_package.__path__ = []
-    sys.modules["custom_components.acwd"] = _acwd_package
-
-_const_module = types.ModuleType("custom_components.acwd.const")
-_const_module.DOMAIN = "acwd"
-_const_module.HCF_TO_GALLONS = 748
-sys.modules["custom_components.acwd.const"] = _const_module
-
-# Import sensor module via importlib
-import importlib.util
-
+# Import sensor module via importlib (avoids pulling in __init__.py)
 _sensor_spec = importlib.util.spec_from_file_location(
     "custom_components.acwd.sensor",
     Path(__file__).parent.parent / "custom_components" / "acwd" / "sensor.py",
@@ -33,7 +14,6 @@ _sensor_spec = importlib.util.spec_from_file_location(
 _sensor_module = importlib.util.module_from_spec(_sensor_spec)
 _sensor_spec.loader.exec_module(_sensor_module)
 sys.modules["custom_components.acwd.sensor"] = _sensor_module
-sys.modules["custom_components.acwd"].sensor = _sensor_module
 
 # Extract classes for direct use
 ACWDSensorBase = _sensor_module.ACWDSensorBase

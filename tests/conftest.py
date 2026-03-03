@@ -413,3 +413,19 @@ def _setup_homeassistant_mocks():
 
 # Set up mocks before pytest collects tests
 _setup_homeassistant_mocks()
+
+
+def _setup_custom_components_package():
+    """Add repo root to sys.path so `custom_components.acwd` is importable.
+
+    This must run after HA mocks are in place but before any test file tries
+    to import from custom_components.acwd so that collection order doesn't matter.
+    """
+    from pathlib import Path
+
+    repo_root = str(Path(__file__).parent.parent)
+    if repo_root not in sys.path:
+        sys.path.insert(0, repo_root)
+
+
+_setup_custom_components_package()

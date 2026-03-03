@@ -15,50 +15,12 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-# Import mocks - conftest sets up homeassistant module mocks
-# The actual modules will now be importable
+# Import mocks - conftest sets up homeassistant module mocks and
+# registers real custom_components.acwd.const and .helpers via sys.path.
 from homeassistant.util import dt as dt_util
 
 # Import statistics module directly without triggering __init__.py
 import importlib.util
-
-# Create real module objects for the integration (avoids silent attribute absorption)
-import types
-from homeassistant.util import dt as _dt_util
-
-# Only create a bare custom_components package if it isn't already present.
-# Overwriting an existing real module would corrupt sys.modules for downstream tests.
-if "custom_components" not in sys.modules:
-    _custom_components = types.ModuleType("custom_components")
-    _custom_components.__path__ = []
-    sys.modules["custom_components"] = _custom_components
-
-# Only create a bare acwd package if one isn't already loaded. The bare module is
-# only needed so that statistics.py's relative imports can resolve .const and .helpers.
-# If the real __init__.py is already cached, preserve it — just update the sub-modules.
-if "custom_components.acwd" not in sys.modules:
-    _acwd_package = types.ModuleType("custom_components.acwd")
-    _acwd_package.__path__ = []
-    sys.modules["custom_components.acwd"] = _acwd_package
-
-_const_module = types.ModuleType("custom_components.acwd.const")
-_const_module.DOMAIN = "acwd"
-_const_module.DATE_FORMAT_LONG = "%B %d, %Y"
-_const_module.TIME_FORMAT_12HR = "%I:%M %p"
-_const_module.HTTP_CONNECT_TIMEOUT = 10
-_const_module.HTTP_READ_TIMEOUT = 30
-_const_module.HTTP_TIMEOUT = (10, 30)
-
-_helpers_module = types.ModuleType("custom_components.acwd.helpers")
-
-def _local_midnight(d):
-    local_tz = _dt_util.get_default_time_zone()
-    return datetime.combine(d, datetime.min.time()).replace(tzinfo=local_tz)
-
-_helpers_module.local_midnight = _local_midnight
-
-sys.modules["custom_components.acwd.const"] = _const_module
-sys.modules["custom_components.acwd.helpers"] = _helpers_module
 
 _stats_spec = importlib.util.spec_from_file_location(
     "custom_components.acwd.statistics",
@@ -66,6 +28,7 @@ _stats_spec = importlib.util.spec_from_file_location(
 )
 _stats_module = importlib.util.module_from_spec(_stats_spec)
 _stats_spec.loader.exec_module(_stats_module)
+sys.modules["custom_components.acwd.statistics"] = _stats_module
 sys.modules["custom_components.acwd.statistics"] = _stats_module
 # Also set as attribute on parent package so patch() can resolve dotted paths
 sys.modules["custom_components.acwd"].statistics = _stats_module

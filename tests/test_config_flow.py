@@ -1,35 +1,23 @@
 """Tests for config_flow.py - ACWD configuration flow."""
 import sys
 import types
+import importlib.util
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# Ensure custom_components.acwd package exists
-if "custom_components" not in sys.modules:
-    _custom_components = types.ModuleType("custom_components")
-    _custom_components.__path__ = []
-    sys.modules["custom_components"] = _custom_components
+# Temporarily stub acwd_api during config_flow import, then restore.
+# This prevents importing the real requests-based client at module level,
+# while not polluting sys.modules for other test files that need the real client.
+_had_api = "custom_components.acwd.acwd_api" in sys.modules
+_prev_api = sys.modules.get("custom_components.acwd.acwd_api")
 
-if "custom_components.acwd" not in sys.modules:
-    _acwd_package = types.ModuleType("custom_components.acwd")
-    _acwd_package.__path__ = []
-    sys.modules["custom_components.acwd"] = _acwd_package
+_api_stub = types.ModuleType("custom_components.acwd.acwd_api")
+_api_stub.ACWDClient = MagicMock
+sys.modules["custom_components.acwd.acwd_api"] = _api_stub
 
-# Set up const module
-_const_module = types.ModuleType("custom_components.acwd.const")
-_const_module.DOMAIN = "acwd"
-sys.modules["custom_components.acwd.const"] = _const_module
-
-# Set up acwd_api module mock (avoid importing real requests-based client)
-_api_module = types.ModuleType("custom_components.acwd.acwd_api")
-_api_module.ACWDClient = MagicMock
-sys.modules["custom_components.acwd.acwd_api"] = _api_module
-
-# Import config_flow module via importlib
-import importlib.util
-
+# Import config_flow via importlib to avoid pulling in __init__.py
 _flow_spec = importlib.util.spec_from_file_location(
     "custom_components.acwd.config_flow",
     Path(__file__).parent.parent / "custom_components" / "acwd" / "config_flow.py",
@@ -37,7 +25,12 @@ _flow_spec = importlib.util.spec_from_file_location(
 _flow_module = importlib.util.module_from_spec(_flow_spec)
 _flow_spec.loader.exec_module(_flow_module)
 sys.modules["custom_components.acwd.config_flow"] = _flow_module
-sys.modules["custom_components.acwd"].config_flow = _flow_module
+
+# Restore acwd_api so other tests get the real module
+if _had_api:
+    sys.modules["custom_components.acwd.acwd_api"] = _prev_api
+else:
+    del sys.modules["custom_components.acwd.acwd_api"]
 
 # Extract classes
 ConfigFlow = _flow_module.ConfigFlow
