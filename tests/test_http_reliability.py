@@ -27,7 +27,7 @@ def _assert_timeout(kwargs):
 
 def _raising(error):
     """Return a side_effect that asserts timeout and raises *error*."""
-    def _fn(*args, **kwargs):
+    def _fn(*_args, **kwargs):
         _assert_timeout(kwargs)
         raise error
     return _fn
@@ -35,7 +35,7 @@ def _raising(error):
 
 def _returning(value):
     """Return a side_effect that asserts timeout and returns *value*."""
-    def _fn(*args, **kwargs):
+    def _fn(*_args, **kwargs):
         _assert_timeout(kwargs)
         return value
     return _fn
@@ -77,7 +77,7 @@ def _post_failing_first(error):
     usage_resp = _mock_usage_json()
     calls = {"n": 0}
 
-    def _side_effect(*args, **kwargs):
+    def _side_effect(*_args, **kwargs):
         _assert_timeout(kwargs)
         calls["n"] += 1
         if calls["n"] == 1:
@@ -184,7 +184,7 @@ class TestLoginTimeoutPropagation:
         # Second POST (validateLogin) times out
         call_count = {"n": 0}
 
-        def _post_side_effect(*args, **kwargs):
+        def _post_side_effect(*_args, **kwargs):
             _assert_timeout(kwargs)
             call_count["n"] += 1
             if call_count["n"] == 1:
@@ -333,7 +333,8 @@ class TestCoordinatorNetworkErrors:
         with pytest.raises(UpdateFailed) as exc_info:
             await stub._async_update_data()
 
-        assert "Network error" in str(exc_info.value) or "ACWD" in str(exc_info.value)
+        assert str(exc_info.value).startswith("Network error communicating with ACWD portal")
+        assert exc_info.value.__cause__ is error
 
 
 class TestServiceHandlerNetworkErrors:
@@ -361,5 +362,8 @@ class TestServiceHandlerNetworkErrors:
         handler = getattr(acwd_module, handler_name)
 
         with _make_failing_client_patch(error):
-            with pytest.raises(HomeAssistantError):
+            with pytest.raises(HomeAssistantError) as exc_info:
                 await handler(call)
+
+        assert str(exc_info.value).startswith("Network error communicating with ACWD portal")
+        assert exc_info.value.__cause__ is error
