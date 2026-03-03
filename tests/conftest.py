@@ -297,6 +297,7 @@ def _setup_homeassistant_mocks():
     # Create config_validation mock (cv.date is a passthrough for tests)
     config_validation_mock = ModuleType("config_validation")
     config_validation_mock.date = lambda v: v
+    config_validation_mock.config_entry_only_config_schema = lambda domain: {}
 
     # Create helpers.typing mock
     helpers_typing_mock = ModuleType("typing")

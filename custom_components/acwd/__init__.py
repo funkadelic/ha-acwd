@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
+import requests
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
@@ -24,6 +25,7 @@ from .statistics import (
 
 _LOGGER = logging.getLogger(__name__)
 
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 # Update interval - check for new data every hour
@@ -168,6 +170,10 @@ async def handle_import_hourly(call: ServiceCall) -> None:
 
         _LOGGER.info(f"Successfully imported {granularity} data for {date}")
 
+    except (requests.Timeout, requests.ConnectionError) as err:
+        raise HomeAssistantError(
+            f"Network error communicating with ACWD portal: {err}"
+        ) from err
     except (ServiceValidationError, HomeAssistantError):
         raise
     except Exception as err:
@@ -243,6 +249,10 @@ async def handle_import_daily(call: ServiceCall) -> None:
             f"Successfully imported daily data from {start_date} to {end_date}"
         )
 
+    except (requests.Timeout, requests.ConnectionError) as err:
+        raise HomeAssistantError(
+            f"Network error communicating with ACWD portal: {err}"
+        ) from err
     except (ServiceValidationError, HomeAssistantError):
         raise
     except Exception as err:
@@ -418,6 +428,10 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
 
             return data
 
+        except (requests.Timeout, requests.ConnectionError) as err:
+            raise UpdateFailed(
+                f"Network error communicating with ACWD portal: {err}"
+            ) from err
         except Exception as err:
             raise UpdateFailed(f"Error communicating with ACWD: {err}") from err
 

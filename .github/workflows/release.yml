@@ -126,6 +126,13 @@ jobs:
           # Extract this version's changelog section
           NOTES=$(sed -n "/^## \[$VERSION\]/,/^## \[/{/^## \[$VERSION\]/d;/^## \[/d;p;}" CHANGELOG.md)
 
+          # Find previous tag for comparison link
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            COMPARE_URL="https://github.com/${GITHUB_REPOSITORY}/compare/${PREV_TAG}...v${VERSION}"
+            printf -v NOTES '%s\n\n**Full Changelog**: %s' "$NOTES" "$COMPARE_URL"
+          fi
+
           # Delete existing release if re-running, then create fresh
           gh release delete "v$VERSION" --yes 2>/dev/null || true
           gh release create "v$VERSION" \

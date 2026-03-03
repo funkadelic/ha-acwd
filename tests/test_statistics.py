@@ -45,6 +45,9 @@ _const_module = types.ModuleType("custom_components.acwd.const")
 _const_module.DOMAIN = "acwd"
 _const_module.DATE_FORMAT_LONG = "%B %d, %Y"
 _const_module.TIME_FORMAT_12HR = "%I:%M %p"
+_const_module.HTTP_CONNECT_TIMEOUT = 10
+_const_module.HTTP_READ_TIMEOUT = 30
+_const_module.HTTP_TIMEOUT = (10, 30)
 
 _helpers_module = types.ModuleType("custom_components.acwd.helpers")
 
