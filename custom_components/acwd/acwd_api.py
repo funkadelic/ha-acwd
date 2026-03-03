@@ -276,9 +276,7 @@ class ACWDClient:
                         self.csrf_token = fresh_csrf
                         _LOGGER.info("Got fresh CSRF token from usage page")
         except (requests.Timeout, requests.ConnectionError) as e:
-            _LOGGER.warning(
-                "Network error refreshing CSRF token from %s: %s", usage_page_url, e
-            )
+            _LOGGER.warning(LOG_NETWORK_ERROR, usage_page_url, e)
             # Continue without fresh CSRF — get_usage_data() proceeds with existing session state
 
         usage_url = f"{self.base_url}Usages.aspx/LoadWaterUsage"
