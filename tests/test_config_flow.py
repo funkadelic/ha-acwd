@@ -22,6 +22,7 @@ _flow_spec = importlib.util.spec_from_file_location(
     "custom_components.acwd.config_flow",
     Path(__file__).parent.parent / "custom_components" / "acwd" / "config_flow.py",
 )
+assert _flow_spec is not None and _flow_spec.loader is not None
 _flow_module = importlib.util.module_from_spec(_flow_spec)
 _flow_spec.loader.exec_module(_flow_module)
 sys.modules["custom_components.acwd.config_flow"] = _flow_module

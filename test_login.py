@@ -36,12 +36,14 @@ sys.modules['acwd'] = _acwd_pkg
 
 # Load acwd.const so relative imports from acwd_api resolve
 _const_spec = importlib.util.spec_from_file_location('acwd.const', os.path.join(_acwd_dir, 'const.py'))
+assert _const_spec is not None and _const_spec.loader is not None
 _const_mod = importlib.util.module_from_spec(_const_spec)
 sys.modules['acwd.const'] = _const_mod
 _const_spec.loader.exec_module(_const_mod)
 
 # Load acwd.acwd_api
 _api_spec = importlib.util.spec_from_file_location('acwd.acwd_api', os.path.join(_acwd_dir, 'acwd_api.py'))
+assert _api_spec is not None and _api_spec.loader is not None
 _api_mod = importlib.util.module_from_spec(_api_spec)
 sys.modules['acwd.acwd_api'] = _api_mod
 _api_spec.loader.exec_module(_api_mod)

@@ -2,7 +2,7 @@
 import sys
 import importlib.util
 from pathlib import Path
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -12,8 +12,9 @@ _sensor_spec = importlib.util.spec_from_file_location(
     "custom_components.acwd.sensor",
     _sensor_path,
 )
-if _sensor_spec is None or _sensor_spec.loader is None:
-    pytest.fail(f"Failed to create module spec from {_sensor_path}")
+assert _sensor_spec is not None and _sensor_spec.loader is not None, (
+    f"Failed to create module spec from {_sensor_path}"
+)
 _sensor_module = importlib.util.module_from_spec(_sensor_spec)
 _sensor_spec.loader.exec_module(_sensor_module)
 sys.modules["custom_components.acwd.sensor"] = _sensor_module

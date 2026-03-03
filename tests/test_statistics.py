@@ -24,6 +24,7 @@ _stats_spec = importlib.util.spec_from_file_location(
     "custom_components.acwd.statistics",
     Path(__file__).parent.parent / "custom_components" / "acwd" / "statistics.py"
 )
+assert _stats_spec is not None and _stats_spec.loader is not None
 _stats_module = importlib.util.module_from_spec(_stats_spec)
 _stats_spec.loader.exec_module(_stats_module)
 sys.modules["custom_components.acwd.statistics"] = _stats_module
