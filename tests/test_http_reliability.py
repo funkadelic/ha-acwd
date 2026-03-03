@@ -10,7 +10,7 @@ Validates that:
 import datetime
 import pytest
 import requests
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 
 # ---------------------------------------------------------------------------
