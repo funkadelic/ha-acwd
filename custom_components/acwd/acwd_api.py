@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 import logging
 
 from .const import DATE_FORMAT_SLASH_MDY, DATE_FORMAT_LONG, HTTP_TIMEOUT, LOG_NETWORK_ERROR
+from .helpers import parse_api_response
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -155,20 +156,14 @@ class ACWDClient:
             result = validate_response.json()
             _LOGGER.debug("validateLogin response received")
 
-            # ASP.NET WebMethods wrap response in 'd' property
-            if 'd' not in result:
-                _LOGGER.error("Unexpected response format - missing 'd' property")
+            # Check for special cases before JSON parsing (not valid JSON)
+            if result.get('d') == "Migrated User Found":
+                _LOGGER.error("Account requires migration")
                 return False
 
             # Parse the inner JSON (it's a JSON string inside 'd')
-            import json
-            login_data = json.loads(result['d'])
+            login_data = parse_api_response(result, endpoint="validateLogin")
             _LOGGER.debug("Login response parsed successfully")
-
-            # Check for special cases
-            if result['d'] == "Migrated User Found":
-                _LOGGER.error("Account requires migration")
-                return False
 
             # Handle error response format (dtResponse)
             if isinstance(login_data, dict) and 'dtResponse' in login_data:
@@ -223,9 +218,8 @@ class ACWDClient:
                 _LOGGER.error(f"Unexpected login response: {login_data}")
                 return False
 
-        except json.JSONDecodeError as e:
+        except ValueError as e:
             _LOGGER.error(f"Failed to parse login response JSON: {e}")
-            _LOGGER.error(f"Response: {result.get('d', '')[:200]}")
             return False
         except Exception as e:
             _LOGGER.error(f"Error processing validateLogin response: {e}")
@@ -294,7 +288,6 @@ class ACWDClient:
                 formatted_date = str(str_date)
 
         # Set up headers for API requests
-        import json
         headers = {
             'Content-Type': CONTENT_TYPE_JSON,
             HEADER_X_REQUESTED_WITH: VALUE_XML_HTTP_REQUEST,
@@ -326,28 +319,31 @@ class ACWDClient:
 
                 if bind_response.status_code == 200:
                     bind_result = bind_response.json()
-                    if 'd' in bind_result:
-                        bind_data = json.loads(bind_result['d'])
+                    try:
+                        bind_data = parse_api_response(bind_result, endpoint="BindMultiMeter")
                         meter_details = bind_data.get('MeterDetails', [])
+                    except ValueError as e:
+                        _LOGGER.warning("Failed to parse BindMultiMeter response: %s", e)
+                        meter_details = []
 
-                        # Find AMI-enabled meter (smart meter with hourly data)
-                        ami_meter = None
-                        for meter in meter_details:
-                            if meter.get('IsAMI') and meter.get('MeterType') == 'W':
-                                ami_meter = meter.get('MeterNumber', '')
-                                _LOGGER.info(f"Found AMI water meter: {ami_meter}")
-                                break
+                    # Find AMI-enabled meter (smart meter with hourly data)
+                    ami_meter = None
+                    for meter in meter_details:
+                        if meter.get('IsAMI') and meter.get('MeterType') == 'W':
+                            ami_meter = meter.get('MeterNumber', '')
+                            _LOGGER.info(f"Found AMI water meter: {ami_meter}")
+                            break
 
-                        if ami_meter:
-                            self._water_meter_number = ami_meter
+                    if ami_meter:
+                        self._water_meter_number = ami_meter
+                    else:
+                        # No AMI meter found, try first water meter or empty
+                        if meter_details:
+                            self._water_meter_number = meter_details[0].get('MeterNumber', '')
+                            _LOGGER.info(f"No AMI meter found, using first meter: {self._water_meter_number}")
                         else:
-                            # No AMI meter found, try first water meter or empty
-                            if meter_details:
-                                self._water_meter_number = meter_details[0].get('MeterNumber', '')
-                                _LOGGER.info(f"No AMI meter found, using first meter: {self._water_meter_number}")
-                            else:
-                                self._water_meter_number = ''
-                                _LOGGER.warning("No water meters found, using empty meter number")
+                            self._water_meter_number = ''
+                            _LOGGER.warning("No water meters found, using empty meter number")
             except (requests.Timeout, requests.ConnectionError) as e:
                 _LOGGER.warning(LOG_NETWORK_ERROR, bind_meter_url, e)
             except Exception as e:
@@ -385,15 +381,16 @@ class ACWDClient:
 
         try:
             result = response.json()
-            if 'd' in result:
-                usage_data = json.loads(result['d'])
-                _LOGGER.info("Retrieved usage data successfully")
-                return usage_data
-            else:
-                _LOGGER.error("Unexpected response format")
-                return None
         except Exception as e:
-            _LOGGER.error(f"Error parsing usage data: {e}")
+            _LOGGER.error(f"Error decoding usage response: {e}")
+            return None
+
+        try:
+            usage_data = parse_api_response(result, endpoint="LoadWaterUsage")
+            _LOGGER.info("Retrieved usage data successfully")
+            return usage_data
+        except ValueError as e:
+            _LOGGER.error("Error parsing usage data: %s", e)
             return None
 
     def logout(self):
