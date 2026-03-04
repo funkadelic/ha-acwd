@@ -95,7 +95,112 @@ class TestLocalMidnight:
             assert result_utc == datetime(2025, 12, 10, 8, 0, 0, tzinfo=timezone.utc)
 
 
-from custom_components.acwd.helpers import parse_api_response
+from custom_components.acwd.helpers import (
+    parse_api_response,
+    parse_date_long,
+    parse_date_mdy,
+    parse_time_12hr,
+)
+
+
+@pytest.mark.unit
+class TestParseDateMdy:
+    """Tests for parse_date_mdy() — parses MM/DD/YYYY strings."""
+
+    def test_valid_date_returns_datetime(self):
+        """parse_date_mdy('01/15/2026') returns datetime(2026, 1, 15)."""
+        result = parse_date_mdy("01/15/2026")
+        assert result == datetime(2026, 1, 15)
+
+    def test_invalid_string_returns_none(self):
+        """parse_date_mdy('invalid') returns None."""
+        result = parse_date_mdy("invalid")
+        assert result is None
+
+    def test_none_input_returns_none(self):
+        """parse_date_mdy(None) returns None."""
+        result = parse_date_mdy(None)
+        assert result is None
+
+    def test_empty_string_returns_none(self):
+        """parse_date_mdy('') returns None."""
+        result = parse_date_mdy("")
+        assert result is None
+
+    def test_year_only_returns_none(self):
+        """parse_date_mdy('2026') returns None (partial date)."""
+        result = parse_date_mdy("2026")
+        assert result is None
+
+
+@pytest.mark.unit
+class TestParseTime12hr:
+    """Tests for parse_time_12hr() — parses H:MM AM/PM strings, returns hour int."""
+
+    def test_1am_returns_1(self):
+        """parse_time_12hr('1:00 AM') returns 1."""
+        result = parse_time_12hr("1:00 AM")
+        assert result == 1
+
+    def test_noon_returns_12(self):
+        """parse_time_12hr('12:00 PM') returns 12."""
+        result = parse_time_12hr("12:00 PM")
+        assert result == 12
+
+    def test_3pm_returns_15(self):
+        """parse_time_12hr('3:00 PM') returns 15."""
+        result = parse_time_12hr("3:00 PM")
+        assert result == 15
+
+    def test_midnight_returns_0(self):
+        """parse_time_12hr('12:00 AM') returns 0."""
+        result = parse_time_12hr("12:00 AM")
+        assert result == 0
+
+    def test_invalid_string_returns_none(self):
+        """parse_time_12hr('invalid') returns None."""
+        result = parse_time_12hr("invalid")
+        assert result is None
+
+    def test_none_input_returns_none(self):
+        """parse_time_12hr(None) returns None."""
+        result = parse_time_12hr(None)
+        assert result is None
+
+    def test_empty_string_returns_none(self):
+        """parse_time_12hr('') returns None."""
+        result = parse_time_12hr("")
+        assert result is None
+
+
+@pytest.mark.unit
+class TestParseDateLong:
+    """Tests for parse_date_long() — parses 'Month D, YYYY' strings."""
+
+    def test_december_date_returns_datetime(self):
+        """parse_date_long('December 3, 2025') returns datetime(2025, 12, 3)."""
+        result = parse_date_long("December 3, 2025")
+        assert result == datetime(2025, 12, 3)
+
+    def test_january_date_returns_datetime(self):
+        """parse_date_long('January 15, 2026') returns datetime(2026, 1, 15)."""
+        result = parse_date_long("January 15, 2026")
+        assert result == datetime(2026, 1, 15)
+
+    def test_invalid_string_returns_none(self):
+        """parse_date_long('invalid') returns None."""
+        result = parse_date_long("invalid")
+        assert result is None
+
+    def test_none_input_returns_none(self):
+        """parse_date_long(None) returns None."""
+        result = parse_date_long(None)
+        assert result is None
+
+    def test_empty_string_returns_none(self):
+        """parse_date_long('') returns None."""
+        result = parse_date_long("")
+        assert result is None
 
 
 @pytest.mark.unit
