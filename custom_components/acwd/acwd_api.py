@@ -321,7 +321,11 @@ class ACWDClient:
                     bind_result = bind_response.json()
                     try:
                         bind_data = parse_api_response(bind_result, endpoint="BindMultiMeter")
-                        meter_details = bind_data.get('MeterDetails', [])
+                        if not isinstance(bind_data, dict):
+                            _LOGGER.warning("Unexpected BindMultiMeter response type: %s", type(bind_data).__name__)
+                            meter_details = None
+                        else:
+                            meter_details = bind_data.get('MeterDetails', [])
                     except ValueError as e:
                         _LOGGER.warning("Failed to parse BindMultiMeter response: %s", e)
                         meter_details = None
