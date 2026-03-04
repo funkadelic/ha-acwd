@@ -6,6 +6,7 @@ These tests prevent regressions of critical bugs:
 - v1.0.16: Timezone handling (naive datetime causing wrong UTC conversions)
 
 """
+
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -23,7 +24,7 @@ import importlib.util
 
 _stats_spec = importlib.util.spec_from_file_location(
     "custom_components.acwd.statistics",
-    Path(__file__).parent.parent / "custom_components" / "acwd" / "statistics.py"
+    Path(__file__).parent.parent / "custom_components" / "acwd" / "statistics.py",
 )
 assert _stats_spec is not None and _stats_spec.loader is not None
 _stats_module = importlib.util.module_from_spec(_stats_spec)
@@ -58,19 +59,34 @@ class TestBaselineCalculation:
         yesterday_final_sum = 931.18  # Cumulative sum at end of Dec 9
         yesterday_11pm_utc = datetime(2025, 12, 10, 7, 0, 0, tzinfo=dt_util.UTC)
 
-        mock_get_last_stats = Mock(return_value={
-            statistic_id: [{
-                "start": yesterday_11pm_utc,
-                "sum": yesterday_final_sum,
-            }]
-        })
+        mock_get_last_stats = Mock(
+            return_value={
+                statistic_id: [
+                    {
+                        "start": yesterday_11pm_utc,
+                        "sum": yesterday_final_sum,
+                    }
+                ]
+            }
+        )
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
             # Import today's partial data
-            hourly_records = sample_hourly_data_dec_10_partial["objUsageGenerationResultSetTwo"]
-            date_dt = datetime.combine(dec_10_2025, datetime.min.time()).replace(tzinfo=pst_timezone)
+            hourly_records = sample_hourly_data_dec_10_partial[
+                "objUsageGenerationResultSetTwo"
+            ]
+            date_dt = datetime.combine(dec_10_2025, datetime.min.time()).replace(
+                tzinfo=pst_timezone
+            )
 
-            await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
+            await async_import_hourly_statistics(
+                mock_hass, meter_number, hourly_records, date_dt
+            )
 
             # Verify statistics were imported
             assert mock_async_add_external_statistics.called
@@ -79,11 +95,17 @@ class TestBaselineCalculation:
 
             # First hour should be: yesterday_final + first_hour_usage
             first_hour_usage = hourly_records[0]["UsageValue"]  # 3.89 gallons
-            expected_first_cumulative = yesterday_final_sum + first_hour_usage  # 931.18 + 3.89 = 935.07
+            expected_first_cumulative = (
+                yesterday_final_sum + first_hour_usage
+            )  # 931.18 + 3.89 = 935.07
 
             assert len(statistics) == len(hourly_records)
-            assert statistics[0].sum == pytest.approx(expected_first_cumulative, rel=0.01)
-            assert statistics[0].sum > 0, "First hour cumulative must be positive (prevents v1.0.13 bug)"
+            assert statistics[0].sum == pytest.approx(
+                expected_first_cumulative, rel=0.01
+            )
+            assert statistics[0].sum > 0, (
+                "First hour cumulative must be positive (prevents v1.0.13 bug)"
+            )
 
     async def test_baseline_when_no_previous_data(
         self,
@@ -100,12 +122,20 @@ class TestBaselineCalculation:
         # Mock empty statistics (first time import)
         mock_get_last_stats = Mock(return_value={})
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
-
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
             hourly_records = sample_hourly_data_dec_9["objUsageGenerationResultSetTwo"]
-            date_dt = datetime.combine(dec_9_2025, datetime.min.time()).replace(tzinfo=pst_timezone)
+            date_dt = datetime.combine(dec_9_2025, datetime.min.time()).replace(
+                tzinfo=pst_timezone
+            )
 
-            await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
+            await async_import_hourly_statistics(
+                mock_hass, meter_number, hourly_records, date_dt
+            )
 
             # Verify first hour starts from 0
             assert mock_async_add_external_statistics.called
@@ -139,15 +169,19 @@ class TestBaselineCalculation:
         yesterday_11pm_utc = datetime(2025, 12, 10, 7, 0, 0, tzinfo=dt_util.UTC)
 
         # First call returns today's stat, extended search returns yesterday's
-        mock_get_last_stats_first = Mock(return_value={
-            statistic_id: [{"start": today_8am_utc, "sum": today_partial_sum}]
-        })
-        mock_get_last_stats_extended = Mock(return_value={
-            statistic_id: [
-                {"start": today_8am_utc, "sum": today_partial_sum},
-                {"start": yesterday_11pm_utc, "sum": yesterday_final_sum},
-            ]
-        })
+        mock_get_last_stats_first = Mock(
+            return_value={
+                statistic_id: [{"start": today_8am_utc, "sum": today_partial_sum}]
+            }
+        )
+        mock_get_last_stats_extended = Mock(
+            return_value={
+                statistic_id: [
+                    {"start": today_8am_utc, "sum": today_partial_sum},
+                    {"start": yesterday_11pm_utc, "sum": yesterday_final_sum},
+                ]
+            }
+        )
 
         call_count = {"count": 0}
 
@@ -157,20 +191,34 @@ class TestBaselineCalculation:
                 return mock_get_last_stats_first(hass, count, stat_id, convert, types)
             return mock_get_last_stats_extended(hass, count, stat_id, convert, types)
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, get_last_stats_side_effect, pst_timezone):
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            get_last_stats_side_effect,
+            pst_timezone,
+        ):
+            hourly_records = sample_hourly_data_dec_10_partial[
+                "objUsageGenerationResultSetTwo"
+            ]
+            date_dt = datetime.combine(dec_10_2025, datetime.min.time()).replace(
+                tzinfo=pst_timezone
+            )
 
-            hourly_records = sample_hourly_data_dec_10_partial["objUsageGenerationResultSetTwo"]
-            date_dt = datetime.combine(dec_10_2025, datetime.min.time()).replace(tzinfo=pst_timezone)
-
-            await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
+            await async_import_hourly_statistics(
+                mock_hass, meter_number, hourly_records, date_dt
+            )
 
             # Verify it used yesterday's final sum, not today's partial
             statistics = mock_async_add_external_statistics.call_args[0][2]
             first_hour_usage = hourly_records[0]["UsageValue"]
             expected_first_cumulative = yesterday_final_sum + first_hour_usage
 
-            assert statistics[0].sum == pytest.approx(expected_first_cumulative, rel=0.01)
-            assert statistics[0].sum != pytest.approx(today_partial_sum + first_hour_usage, rel=0.01)
+            assert statistics[0].sum == pytest.approx(
+                expected_first_cumulative, rel=0.01
+            )
+            assert statistics[0].sum != pytest.approx(
+                today_partial_sum + first_hour_usage, rel=0.01
+            )
 
     async def test_baseline_timestamp_as_float(
         self,
@@ -192,27 +240,43 @@ class TestBaselineCalculation:
         yesterday_11pm_utc = datetime(2025, 12, 10, 7, 0, 0, tzinfo=dt_util.UTC)
         unix_timestamp = yesterday_11pm_utc.timestamp()  # Convert to float
 
-        mock_get_last_stats = Mock(return_value={
-            statistic_id: [{
-                "start": unix_timestamp,  # Float instead of datetime
-                "sum": yesterday_final_sum,
-            }]
-        })
+        mock_get_last_stats = Mock(
+            return_value={
+                statistic_id: [
+                    {
+                        "start": unix_timestamp,  # Float instead of datetime
+                        "sum": yesterday_final_sum,
+                    }
+                ]
+            }
+        )
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
-
-            hourly_records = sample_hourly_data_dec_10_partial["objUsageGenerationResultSetTwo"]
-            date_dt = datetime.combine(dec_10_2025, datetime.min.time()).replace(tzinfo=pst_timezone)
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
+            hourly_records = sample_hourly_data_dec_10_partial[
+                "objUsageGenerationResultSetTwo"
+            ]
+            date_dt = datetime.combine(dec_10_2025, datetime.min.time()).replace(
+                tzinfo=pst_timezone
+            )
 
             # Should not raise TypeError
-            await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
+            await async_import_hourly_statistics(
+                mock_hass, meter_number, hourly_records, date_dt
+            )
 
             # Verify baseline was used correctly
             statistics = mock_async_add_external_statistics.call_args[0][2]
             first_hour_usage = hourly_records[0]["UsageValue"]
             expected_first_cumulative = yesterday_final_sum + first_hour_usage
 
-            assert statistics[0].sum == pytest.approx(expected_first_cumulative, rel=0.01)
+            assert statistics[0].sum == pytest.approx(
+                expected_first_cumulative, rel=0.01
+            )
 
     async def test_baseline_timestamp_as_datetime(
         self,
@@ -229,26 +293,42 @@ class TestBaselineCalculation:
         yesterday_final_sum = 931.18
         yesterday_11pm_utc = datetime(2025, 12, 10, 7, 0, 0, tzinfo=dt_util.UTC)
 
-        mock_get_last_stats = Mock(return_value={
-            statistic_id: [{
-                "start": yesterday_11pm_utc,  # Already a datetime
-                "sum": yesterday_final_sum,
-            }]
-        })
+        mock_get_last_stats = Mock(
+            return_value={
+                statistic_id: [
+                    {
+                        "start": yesterday_11pm_utc,  # Already a datetime
+                        "sum": yesterday_final_sum,
+                    }
+                ]
+            }
+        )
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
+            hourly_records = sample_hourly_data_dec_10_partial[
+                "objUsageGenerationResultSetTwo"
+            ]
+            date_dt = datetime.combine(dec_10_2025, datetime.min.time()).replace(
+                tzinfo=pst_timezone
+            )
 
-            hourly_records = sample_hourly_data_dec_10_partial["objUsageGenerationResultSetTwo"]
-            date_dt = datetime.combine(dec_10_2025, datetime.min.time()).replace(tzinfo=pst_timezone)
-
-            await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
+            await async_import_hourly_statistics(
+                mock_hass, meter_number, hourly_records, date_dt
+            )
 
             # Verify baseline was used
             statistics = mock_async_add_external_statistics.call_args[0][2]
             first_hour_usage = hourly_records[0]["UsageValue"]
             expected_first_cumulative = yesterday_final_sum + first_hour_usage
 
-            assert statistics[0].sum == pytest.approx(expected_first_cumulative, rel=0.01)
+            assert statistics[0].sum == pytest.approx(
+                expected_first_cumulative, rel=0.01
+            )
 
 
 @pytest.mark.unit
@@ -273,12 +353,22 @@ class TestTimezoneHandling:
         """
         mock_get_last_stats = Mock(return_value={})
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
+            hourly_records = sample_hourly_data_dec_10_partial[
+                "objUsageGenerationResultSetTwo"
+            ]
+            date_dt = datetime.combine(dec_10_2025, datetime.min.time()).replace(
+                tzinfo=pst_timezone
+            )
 
-            hourly_records = sample_hourly_data_dec_10_partial["objUsageGenerationResultSetTwo"]
-            date_dt = datetime.combine(dec_10_2025, datetime.min.time()).replace(tzinfo=pst_timezone)
-
-            await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
+            await async_import_hourly_statistics(
+                mock_hass, meter_number, hourly_records, date_dt
+            )
 
             # Verify midnight hour timestamp is correct in UTC
             statistics = mock_async_add_external_statistics.call_args[0][2]
@@ -301,12 +391,22 @@ class TestTimezoneHandling:
         """Verify Dec 10 00:00 EST = Dec 10 05:00 UTC."""
         mock_get_last_stats = Mock(return_value={})
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, est_timezone):
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            est_timezone,
+        ):
+            hourly_records = sample_hourly_data_dec_10_partial[
+                "objUsageGenerationResultSetTwo"
+            ]
+            date_dt = datetime.combine(dec_10_2025, datetime.min.time()).replace(
+                tzinfo=est_timezone
+            )
 
-            hourly_records = sample_hourly_data_dec_10_partial["objUsageGenerationResultSetTwo"]
-            date_dt = datetime.combine(dec_10_2025, datetime.min.time()).replace(tzinfo=est_timezone)
-
-            await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
+            await async_import_hourly_statistics(
+                mock_hass, meter_number, hourly_records, date_dt
+            )
 
             statistics = mock_async_add_external_statistics.call_args[0][2]
             midnight_stat = statistics[0]
@@ -331,18 +431,28 @@ class TestTimezoneHandling:
         """
         mock_get_last_stats = Mock(return_value={})
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
-
-            hourly_records = sample_hourly_data_dec_10_partial["objUsageGenerationResultSetTwo"]
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
+            hourly_records = sample_hourly_data_dec_10_partial[
+                "objUsageGenerationResultSetTwo"
+            ]
 
             # Create date_dt with timezone (this is what __init__.py does)
-            date_dt = datetime.combine(dec_10_2025, datetime.min.time()).replace(tzinfo=pst_timezone)
+            date_dt = datetime.combine(dec_10_2025, datetime.min.time()).replace(
+                tzinfo=pst_timezone
+            )
 
             # Verify it has timezone info
             assert date_dt.tzinfo is not None
             assert date_dt.tzinfo == pst_timezone
 
-            await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
+            await async_import_hourly_statistics(
+                mock_hass, meter_number, hourly_records, date_dt
+            )
 
             # All timestamps should be properly converted to UTC
             statistics = mock_async_add_external_statistics.call_args[0][2]
@@ -362,12 +472,22 @@ class TestTimezoneHandling:
         """Verify works in different timezones (EST)."""
         mock_get_last_stats = Mock(return_value={})
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, est_timezone):
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            est_timezone,
+        ):
+            hourly_records = sample_hourly_data_dec_10_partial[
+                "objUsageGenerationResultSetTwo"
+            ]
+            date_dt = datetime.combine(dec_10_2025, datetime.min.time()).replace(
+                tzinfo=est_timezone
+            )
 
-            hourly_records = sample_hourly_data_dec_10_partial["objUsageGenerationResultSetTwo"]
-            date_dt = datetime.combine(dec_10_2025, datetime.min.time()).replace(tzinfo=est_timezone)
-
-            await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
+            await async_import_hourly_statistics(
+                mock_hass, meter_number, hourly_records, date_dt
+            )
 
             statistics = mock_async_add_external_statistics.call_args[0][2]
 
@@ -386,6 +506,7 @@ class TestCumulativeSumCalculation:
         mock_hass,
         mock_get_instance,
         mock_async_add_external_statistics,
+        statistic_id,
         meter_number,
         dec_9_2025,
         pst_timezone,
@@ -394,12 +515,16 @@ class TestCumulativeSumCalculation:
         baseline = 100.0
         yesterday_11pm_utc = datetime(2025, 12, 9, 7, 0, 0, tzinfo=dt_util.UTC)
 
-        mock_get_last_stats = Mock(return_value={
-            f"acwd:{meter_number}_hourly_usage": [{
-                "start": yesterday_11pm_utc,
-                "sum": baseline,
-            }]
-        })
+        mock_get_last_stats = Mock(
+            return_value={
+                statistic_id: [
+                    {
+                        "start": yesterday_11pm_utc,
+                        "sum": baseline,
+                    }
+                ]
+            }
+        )
 
         hourly_records = [
             {"Hourly": "12:00 AM", "UsageValue": 10.0},
@@ -407,10 +532,18 @@ class TestCumulativeSumCalculation:
             {"Hourly": "2:00 AM", "UsageValue": 30.0},
         ]
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
-
-            date_dt = datetime.combine(dec_9_2025, datetime.min.time()).replace(tzinfo=pst_timezone)
-            await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
+            date_dt = datetime.combine(dec_9_2025, datetime.min.time()).replace(
+                tzinfo=pst_timezone
+            )
+            await async_import_hourly_statistics(
+                mock_hass, meter_number, hourly_records, date_dt
+            )
 
             statistics = mock_async_add_external_statistics.call_args[0][2]
 
@@ -438,10 +571,18 @@ class TestCumulativeSumCalculation:
             {"Hourly": "3:00 AM", "UsageValue": 0.0},
         ]
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
-
-            date_dt = datetime.combine(dec_9_2025, datetime.min.time()).replace(tzinfo=pst_timezone)
-            await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
+            date_dt = datetime.combine(dec_9_2025, datetime.min.time()).replace(
+                tzinfo=pst_timezone
+            )
+            await async_import_hourly_statistics(
+                mock_hass, meter_number, hourly_records, date_dt
+            )
 
             statistics = mock_async_add_external_statistics.call_args[0][2]
 
@@ -455,6 +596,7 @@ class TestCumulativeSumCalculation:
         mock_hass,
         mock_get_instance,
         mock_async_add_external_statistics,
+        statistic_id,
         meter_number,
         dec_9_2025,
         pst_timezone,
@@ -463,21 +605,33 @@ class TestCumulativeSumCalculation:
         large_baseline = 999999.99
         yesterday_11pm_utc = datetime(2025, 12, 9, 7, 0, 0, tzinfo=dt_util.UTC)
 
-        mock_get_last_stats = Mock(return_value={
-            f"acwd:{meter_number}_hourly_usage": [{
-                "start": yesterday_11pm_utc,
-                "sum": large_baseline,
-            }]
-        })
+        mock_get_last_stats = Mock(
+            return_value={
+                statistic_id: [
+                    {
+                        "start": yesterday_11pm_utc,
+                        "sum": large_baseline,
+                    }
+                ]
+            }
+        )
 
         hourly_records = [
             {"Hourly": "12:00 AM", "UsageValue": 0.01},
         ]
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
-
-            date_dt = datetime.combine(dec_9_2025, datetime.min.time()).replace(tzinfo=pst_timezone)
-            await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
+            date_dt = datetime.combine(dec_9_2025, datetime.min.time()).replace(
+                tzinfo=pst_timezone
+            )
+            await async_import_hourly_statistics(
+                mock_hass, meter_number, hourly_records, date_dt
+            )
 
             statistics = mock_async_add_external_statistics.call_args[0][2]
 

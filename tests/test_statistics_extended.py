@@ -36,7 +36,9 @@ else:
     sys.modules["custom_components.acwd"].statistics = _stats_module
 
 async_import_hourly_statistics = _stats_module.async_import_hourly_statistics
-async_import_quarter_hourly_statistics = _stats_module.async_import_quarter_hourly_statistics
+async_import_quarter_hourly_statistics = (
+    _stats_module.async_import_quarter_hourly_statistics
+)
 async_import_daily_statistics = _stats_module.async_import_daily_statistics
 
 
@@ -78,9 +80,15 @@ class TestHourlyEdgeCases:
             {"Hourly": "12:00 AM", "UsageValue": 3.0},  # only valid record
         ]
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
-
-            await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
+            await async_import_hourly_statistics(
+                mock_hass, meter_number, hourly_records, date_dt
+            )
 
         assert mock_async_add_external_statistics.called
         statistics = mock_async_add_external_statistics.call_args[0][2]
@@ -102,12 +110,18 @@ class TestHourlyEdgeCases:
 
         hourly_records = [
             {"Hourly": "bad-time", "UsageValue": 5.0},  # skipped
-            {"Hourly": "1:00 AM", "UsageValue": 2.0},   # valid
+            {"Hourly": "1:00 AM", "UsageValue": 2.0},  # valid
         ]
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
-
-            await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
+            await async_import_hourly_statistics(
+                mock_hass, meter_number, hourly_records, date_dt
+            )
 
         statistics = mock_async_add_external_statistics.call_args[0][2]
         assert len(statistics) == 1
@@ -156,9 +170,15 @@ class TestHourlyEdgeCases:
 
         hourly_records = [{"Hourly": "12:00 AM", "UsageValue": 10.0}]
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, _get_last_stats, pst_timezone):
-
-            await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            _get_last_stats,
+            pst_timezone,
+        ):
+            await async_import_hourly_statistics(
+                mock_hass, meter_number, hourly_records, date_dt
+            )
 
         statistics = mock_async_add_external_statistics.call_args[0][2]
         # Baseline is yesterday's sum, so first stat = 500 + 10 = 510
@@ -177,8 +197,12 @@ class TestHourlyEdgeCases:
         mock_get_last_stats = Mock(return_value={})
         date_dt = _make_date_dt(2025, 12, 9, pst_timezone)
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
-
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
             await async_import_hourly_statistics(mock_hass, meter_number, [], date_dt)
 
         assert not mock_async_add_external_statistics.called
@@ -213,9 +237,15 @@ class TestQuarterHourlyStatistics:
             {"Hour": 0, "Minute": 45, "UsageValue": 2.0},
         ]
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
-
-            await async_import_quarter_hourly_statistics(mock_hass, meter_number, quarter_records, date_dt)
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
+            await async_import_quarter_hourly_statistics(
+                mock_hass, meter_number, quarter_records, date_dt
+            )
 
         assert mock_async_add_external_statistics.called
         statistics = mock_async_add_external_statistics.call_args[0][2]
@@ -239,9 +269,15 @@ class TestQuarterHourlyStatistics:
 
         quarter_records = [{"Hour": 0, "Minute": 0, "UsageValue": 1.0}]
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
-
-            await async_import_quarter_hourly_statistics(mock_hass, meter_number, quarter_records, date_dt)
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
+            await async_import_quarter_hourly_statistics(
+                mock_hass, meter_number, quarter_records, date_dt
+            )
 
         metadata = mock_async_add_external_statistics.call_args[0][1]
         assert metadata.statistic_id == f"acwd:{meter_number}_quarter_hourly_usage"
@@ -260,12 +296,18 @@ class TestQuarterHourlyStatistics:
 
         quarter_records = [
             {"Hour": None, "Minute": 0, "UsageValue": 1.0},  # skipped
-            {"Hour": 0, "Minute": 15, "UsageValue": 4.0},    # valid
+            {"Hour": 0, "Minute": 15, "UsageValue": 4.0},  # valid
         ]
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
-
-            await async_import_quarter_hourly_statistics(mock_hass, meter_number, quarter_records, date_dt)
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
+            await async_import_quarter_hourly_statistics(
+                mock_hass, meter_number, quarter_records, date_dt
+            )
 
         statistics = mock_async_add_external_statistics.call_args[0][2]
         assert len(statistics) == 1
@@ -285,12 +327,18 @@ class TestQuarterHourlyStatistics:
 
         quarter_records = [
             {"Hour": 0, "Minute": None, "UsageValue": 1.0},  # skipped
-            {"Hour": 0, "Minute": 30, "UsageValue": 6.0},    # valid
+            {"Hour": 0, "Minute": 30, "UsageValue": 6.0},  # valid
         ]
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
-
-            await async_import_quarter_hourly_statistics(mock_hass, meter_number, quarter_records, date_dt)
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
+            await async_import_quarter_hourly_statistics(
+                mock_hass, meter_number, quarter_records, date_dt
+            )
 
         statistics = mock_async_add_external_statistics.call_args[0][2]
         assert len(statistics) == 1
@@ -310,9 +358,15 @@ class TestQuarterHourlyStatistics:
 
         quarter_records = [{"Hour": 0, "Minute": 0, "UsageValue": 10.0}]
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
-
-            await async_import_quarter_hourly_statistics(mock_hass, meter_number, quarter_records, date_dt)
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
+            await async_import_quarter_hourly_statistics(
+                mock_hass, meter_number, quarter_records, date_dt
+            )
 
         statistics = mock_async_add_external_statistics.call_args[0][2]
         assert statistics[0].sum == pytest.approx(10.0, rel=0.01)
@@ -333,15 +387,23 @@ class TestQuarterHourlyStatistics:
         yesterday_stat_utc = datetime(2025, 12, 10, 7, 0, 0, tzinfo=dt_util.UTC)
         yesterday_sum = 250.0
 
-        mock_get_last_stats = Mock(return_value={
-            statistic_id: [{"start": yesterday_stat_utc, "sum": yesterday_sum}]
-        })
+        mock_get_last_stats = Mock(
+            return_value={
+                statistic_id: [{"start": yesterday_stat_utc, "sum": yesterday_sum}]
+            }
+        )
 
         quarter_records = [{"Hour": 0, "Minute": 0, "UsageValue": 5.0}]
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
-
-            await async_import_quarter_hourly_statistics(mock_hass, meter_number, quarter_records, date_dt)
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
+            await async_import_quarter_hourly_statistics(
+                mock_hass, meter_number, quarter_records, date_dt
+            )
 
         statistics = mock_async_add_external_statistics.call_args[0][2]
         assert statistics[0].sum == pytest.approx(yesterday_sum + 5.0, rel=0.01)
@@ -381,9 +443,15 @@ class TestQuarterHourlyStatistics:
 
         quarter_records = [{"Hour": 0, "Minute": 0, "UsageValue": 8.0}]
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, _get_last_stats, pst_timezone):
-
-            await async_import_quarter_hourly_statistics(mock_hass, meter_number, quarter_records, date_dt)
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            _get_last_stats,
+            pst_timezone,
+        ):
+            await async_import_quarter_hourly_statistics(
+                mock_hass, meter_number, quarter_records, date_dt
+            )
 
         # Should have made 2 get_last_statistics calls
         assert call_count["n"] == 2
@@ -426,10 +494,16 @@ class TestQuarterHourlyStatistics:
 
         quarter_records = [{"Hour": 0, "Minute": 0, "UsageValue": 3.0}]
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, _get_last_stats, pst_timezone):
-
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            _get_last_stats,
+            pst_timezone,
+        ):
             # Should not raise TypeError on float timestamp comparison
-            await async_import_quarter_hourly_statistics(mock_hass, meter_number, quarter_records, date_dt)
+            await async_import_quarter_hourly_statistics(
+                mock_hass, meter_number, quarter_records, date_dt
+            )
 
         statistics = mock_async_add_external_statistics.call_args[0][2]
         assert statistics[0].sum == pytest.approx(yesterday_sum + 3.0, rel=0.01)
@@ -446,9 +520,15 @@ class TestQuarterHourlyStatistics:
         mock_get_last_stats = Mock(return_value={})
         date_dt = _make_date_dt(2025, 12, 9, pst_timezone)
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
-
-            await async_import_quarter_hourly_statistics(mock_hass, meter_number, [], date_dt)
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
+            await async_import_quarter_hourly_statistics(
+                mock_hass, meter_number, [], date_dt
+            )
 
         assert not mock_async_add_external_statistics.called
 
@@ -480,8 +560,12 @@ class TestDailyStatistics:
             {"UsageDate": "December 3, 2025", "UsageValue": 50.0},
         ]
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
-
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
             await async_import_daily_statistics(mock_hass, meter_number, daily_records)
 
         assert mock_async_add_external_statistics.called
@@ -503,12 +587,16 @@ class TestDailyStatistics:
         mock_get_last_stats = Mock(return_value={})
 
         daily_records = [
-            {"UsageDate": None, "UsageValue": 5.0},         # skipped
+            {"UsageDate": None, "UsageValue": 5.0},  # skipped
             {"UsageDate": "December 1, 2025", "UsageValue": 100.0},  # valid
         ]
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
-
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
             await async_import_daily_statistics(mock_hass, meter_number, daily_records)
 
         statistics = mock_async_add_external_statistics.call_args[0][2]
@@ -527,12 +615,16 @@ class TestDailyStatistics:
         mock_get_last_stats = Mock(return_value={})
 
         daily_records = [
-            {"UsageDate": "bad date", "UsageValue": 5.0},           # skipped
+            {"UsageDate": "bad date", "UsageValue": 5.0},  # skipped
             {"UsageDate": "December 2, 2025", "UsageValue": 75.0},  # valid
         ]
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
-
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
             await async_import_daily_statistics(mock_hass, meter_number, daily_records)
 
         statistics = mock_async_add_external_statistics.call_args[0][2]
@@ -551,16 +643,18 @@ class TestDailyStatistics:
         statistic_id = f"acwd:{meter_number}_daily_usage"
         prior_sum = 500.0
 
-        mock_get_last_stats = Mock(return_value={
-            statistic_id: [{"sum": prior_sum}]
-        })
+        mock_get_last_stats = Mock(return_value={statistic_id: [{"sum": prior_sum}]})
 
         daily_records = [
             {"UsageDate": "December 1, 2025", "UsageValue": 100.0},
         ]
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
-
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
             await async_import_daily_statistics(mock_hass, meter_number, daily_records)
 
         statistics = mock_async_add_external_statistics.call_args[0][2]
@@ -579,8 +673,12 @@ class TestDailyStatistics:
 
         daily_records = [{"UsageDate": "December 1, 2025", "UsageValue": 50.0}]
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
-
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
             await async_import_daily_statistics(mock_hass, meter_number, daily_records)
 
         metadata = mock_async_add_external_statistics.call_args[0][1]
@@ -597,8 +695,12 @@ class TestDailyStatistics:
         """Empty daily_data list: async_add_external_statistics is NOT called."""
         mock_get_last_stats = Mock(return_value={})
 
-        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
-
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
             await async_import_daily_statistics(mock_hass, meter_number, [])
 
         assert not mock_async_add_external_statistics.called

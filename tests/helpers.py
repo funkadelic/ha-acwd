@@ -37,8 +37,9 @@ def make_mock_coordinator(entry):
 
 
 @contextmanager
-def patch_statistics(mock_get_instance, mock_async_add_external_statistics,
-                     mock_get_last_stats, tz):
+def patch_statistics(
+    mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, tz
+):
     """Common patches for statistics module tests.
 
     Args:
@@ -47,14 +48,33 @@ def patch_statistics(mock_get_instance, mock_async_add_external_statistics,
         mock_get_last_stats: Mock or callable for recorder.get_last_statistics.
         tz: Timezone to return from dt_util.get_default_time_zone.
     """
+    # Use side_effect for plain functions (called on each invocation);
+    # use new for Mock objects (replace target directly).
     last_stats_kwargs = (
         {"side_effect": mock_get_last_stats}
         if callable(mock_get_last_stats) and not isinstance(mock_get_last_stats, Mock)
         else {"new": mock_get_last_stats}
     )
-    with patch("custom_components.acwd.statistics.get_instance", mock_get_instance), \
-         patch("custom_components.acwd.statistics.get_last_statistics", **last_stats_kwargs), \
-         patch("custom_components.acwd.statistics.async_add_external_statistics", mock_async_add_external_statistics), \
-         patch("custom_components.acwd.statistics.dt_util.get_default_time_zone", return_value=tz), \
-         patch("custom_components.acwd.statistics.dt_util.as_utc", side_effect=lambda dt: dt.astimezone(timezone.utc)):
+    with (
+        patch("custom_components.acwd.statistics.get_instance", mock_get_instance),
+        patch(
+            "custom_components.acwd.statistics.get_last_statistics", **last_stats_kwargs
+        ),
+        patch(
+            "custom_components.acwd.statistics.async_add_external_statistics",
+            mock_async_add_external_statistics,
+        ),
+        patch(
+            "custom_components.acwd.statistics.dt_util.get_default_time_zone",
+            return_value=tz,
+        ),
+        patch(
+            "custom_components.acwd.statistics.dt_util.as_utc",
+            side_effect=lambda dt: (
+                dt.replace(tzinfo=timezone.utc)
+                if dt.tzinfo is None
+                else dt.astimezone(timezone.utc)
+            ),
+        ),
+    ):
         yield
