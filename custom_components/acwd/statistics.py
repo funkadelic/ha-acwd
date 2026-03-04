@@ -79,22 +79,22 @@ async def async_import_hourly_statistics(
             if last_stat_time and not isinstance(last_stat_time, datetime):
                 last_stat_time = datetime.fromtimestamp(last_stat_time, tz=dt_util.UTC)
 
-            _LOGGER.debug(f"Last statistic: time={last_stat_time}, sum={last_stat_sum}, target_date_start={target_date_start}")
+            _LOGGER.debug("Last statistic: time=%s, sum=%s, target_date_start=%s", last_stat_time, last_stat_sum, target_date_start)
 
             # Only use the last sum if it's from before the target date
             # Otherwise, we'd be adding today's values on top of today's partial sum
             if last_stat_time and last_stat_time < target_date_start:
                 last_sum = last_stat_sum
-                _LOGGER.debug(f"Using last sum {last_sum} from {last_stat_time} as baseline")
+                _LOGGER.debug("Using last sum %s from %s as baseline", last_sum, last_stat_time)
             else:
                 # Last statistic is from target date, need to get sum from day before
-                _LOGGER.debug(f"Last statistic is from target date {date.date()}, fetching baseline from previous day")
+                _LOGGER.debug("Last statistic is from target date %s, fetching baseline from previous day", date.date())
                 # Get more history to find the last stat before target date
                 last_stats_extended = await get_instance(hass).async_add_executor_job(
                     get_last_statistics, hass, 48, statistic_id, True, {"sum"}  # Get up to 48 hours
                 )
                 if statistic_id in last_stats_extended:
-                    _LOGGER.debug(f"Searching {len(last_stats_extended[statistic_id])} historical stats for baseline")
+                    _LOGGER.debug("Searching %d historical stats for baseline", len(last_stats_extended[statistic_id]))
                     for i, stat in enumerate(last_stats_extended[statistic_id]):
                         stat_time = stat.get("start")
                         stat_sum = stat.get("sum") or 0
@@ -102,11 +102,11 @@ async def async_import_hourly_statistics(
                         if stat_time and not isinstance(stat_time, datetime):
                             stat_time = datetime.fromtimestamp(stat_time, tz=dt_util.UTC)
 
-                        _LOGGER.debug(f"  Stat {i}: time={stat_time}, sum={stat_sum}, before_target={stat_time < target_date_start if stat_time else None}")
+                        _LOGGER.debug("  Stat %d: time=%s, sum=%s, before_target=%s", i, stat_time, stat_sum, stat_time < target_date_start if stat_time else None)
 
                         if stat_time and stat_time < target_date_start:
                             last_sum = stat_sum
-                            _LOGGER.debug(f"Found baseline sum {last_sum} from {stat_time}")
+                            _LOGGER.debug("Found baseline sum %s from %s", last_sum, stat_time)
                             break
 
     # Convert hourly data to statistics
@@ -146,9 +146,7 @@ async def async_import_hourly_statistics(
     # Import the statistics
     if statistics:
         async_add_external_statistics(hass, metadata, statistics)
-        _LOGGER.info(
-            f"Imported {len(statistics)} hourly statistics for {date.date()}"
-        )
+        _LOGGER.info("Imported %d hourly statistics for %s", len(statistics), date.date())
 
 
 async def async_import_quarter_hourly_statistics(
@@ -225,9 +223,13 @@ async def async_import_quarter_hourly_statistics(
     for record in quarter_hourly_data:
         # Parse the timestamp and usage
         # Assuming API returns Hour and Quarter (0, 15, 30, 45)
-        hour = record.get("Hour", 0)
-        minute = record.get("Minute", 0)  # Should be 0, 15, 30, or 45
+        hour = record.get("Hour")
+        minute = record.get("Minute")  # Should be 0, 15, 30, or 45
         usage_gallons = record.get("UsageValue") or 0
+
+        if hour is None or minute is None:
+            _LOGGER.warning("Skipping record with missing Hour or Minute field")
+            continue
 
         # Add to cumulative sum
         cumulative_sum += usage_gallons
@@ -247,9 +249,7 @@ async def async_import_quarter_hourly_statistics(
     # Import the statistics
     if statistics:
         async_add_external_statistics(hass, metadata, statistics)
-        _LOGGER.info(
-            f"Imported {len(statistics)} 15-minute statistics for {date.date()}"
-        )
+        _LOGGER.info("Imported %d 15-minute statistics for %s", len(statistics), date.date())
 
 
 async def async_import_daily_statistics(
@@ -326,4 +326,4 @@ async def async_import_daily_statistics(
     # Import the statistics
     if statistics:
         async_add_external_statistics(hass, metadata, statistics)
-        _LOGGER.info(f"Imported {len(statistics)} daily statistics")
+        _LOGGER.info("Imported %d daily statistics", len(statistics))
