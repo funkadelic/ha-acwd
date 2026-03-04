@@ -189,7 +189,7 @@ async def async_import_quarter_hourly_statistics(
     if statistic_id in last_stats:
         stats_list = last_stats[statistic_id]
         if stats_list:
-            last_sum = stats_list[0]["sum"]
+            last_sum = stats_list[0].get("sum", 0)
 
     # Convert 15-minute data to statistics
     statistics: list[StatisticData] = []
@@ -263,7 +263,7 @@ async def async_import_daily_statistics(
     if statistic_id in last_stats:
         stats_list = last_stats[statistic_id]
         if stats_list:
-            last_sum = stats_list[0]["sum"]
+            last_sum = stats_list[0].get("sum", 0)
 
     # Convert daily data to statistics
     statistics: list[StatisticData] = []
@@ -280,8 +280,8 @@ async def async_import_daily_statistics(
         # Parse the date string
         date_obj = parse_date_long(date_str)
         if date_obj is None:
+            _LOGGER.warning("Skipping record with unparseable date: %r", date_str)
             continue
-
         # Add to cumulative sum
         cumulative_sum += usage_gallons
 
