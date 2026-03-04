@@ -388,7 +388,7 @@ class ACWDClient:
         try:
             result = response.json()
         except Exception as e:
-            _LOGGER.error(f"Error decoding usage response: {e}")
+            _LOGGER.exception("Error decoding usage response: %s", e)
             return None
 
         try:
