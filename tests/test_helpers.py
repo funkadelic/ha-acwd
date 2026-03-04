@@ -147,6 +147,11 @@ class TestParseTime12hr:
         result = parse_time_12hr("12:00 PM")
         assert result == 12
 
+    def test_3pm_returns_15(self):
+        """parse_time_12hr('3:00 PM') returns 15."""
+        result = parse_time_12hr("3:00 PM")
+        assert result == 15
+
     def test_midnight_returns_0(self):
         """parse_time_12hr('12:00 AM') returns 0."""
         result = parse_time_12hr("12:00 AM")
