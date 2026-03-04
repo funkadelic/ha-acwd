@@ -77,8 +77,7 @@ async def async_import_hourly_statistics(
 
             # Ensure last_stat_time is a datetime object (might be float/Unix timestamp)
             if last_stat_time and not isinstance(last_stat_time, datetime):
-                from datetime import datetime as dt_class
-                last_stat_time = dt_class.fromtimestamp(last_stat_time, tz=dt_util.UTC)
+                last_stat_time = datetime.fromtimestamp(last_stat_time, tz=dt_util.UTC)
 
             _LOGGER.debug(f"Last statistic: time={last_stat_time}, sum={last_stat_sum}, target_date_start={target_date_start}")
 
@@ -101,8 +100,7 @@ async def async_import_hourly_statistics(
                         stat_sum = stat.get("sum") or 0
                         # Ensure it's a datetime object
                         if stat_time and not isinstance(stat_time, datetime):
-                            from datetime import datetime as dt_class
-                            stat_time = dt_class.fromtimestamp(stat_time, tz=dt_util.UTC)
+                            stat_time = datetime.fromtimestamp(stat_time, tz=dt_util.UTC)
 
                         _LOGGER.debug(f"  Stat {i}: time={stat_time}, sum={stat_sum}, before_target={stat_time < target_date_start if stat_time else None}")
 
@@ -117,8 +115,12 @@ async def async_import_hourly_statistics(
 
     for record in hourly_data:
         # Parse the hour and usage value
-        hourly_str = record.get("Hourly", "12:00 AM")  # Format: "12:00 AM", "1:00 AM", etc.
+        hourly_str = record.get("Hourly")  # Format: "12:00 AM", "1:00 AM", etc.
         usage_gallons = record.get("UsageValue") or 0
+
+        if not hourly_str or not hourly_str.strip():
+            _LOGGER.warning("Skipping record with missing Hourly field")
+            continue
 
         # Parse hour from "HH:MM AM/PM" format
         hour = parse_time_12hr(hourly_str)
@@ -180,7 +182,11 @@ async def async_import_quarter_hourly_statistics(
         unit_class="volume",
     )
 
-    # Get the last imported statistics
+    # Get the last statistic from BEFORE the target date to get the correct baseline
+    # This ensures re-imports of the same date don't inflate cumulative sums
+    target_date_midnight_local = local_midnight(date.date())
+    target_date_start = dt_util.as_utc(target_date_midnight_local)
+
     last_stats = await get_instance(hass).async_add_executor_job(
         get_last_statistics, hass, 1, statistic_id, True, {"sum"}
     )
@@ -189,7 +195,28 @@ async def async_import_quarter_hourly_statistics(
     if statistic_id in last_stats:
         stats_list = last_stats[statistic_id]
         if stats_list:
-            last_sum = stats_list[0].get("sum") or 0
+            last_stat_time = stats_list[0].get("start")
+            last_stat_sum = stats_list[0].get("sum") or 0
+
+            if last_stat_time and not isinstance(last_stat_time, datetime):
+                last_stat_time = datetime.fromtimestamp(last_stat_time, tz=dt_util.UTC)
+
+            if last_stat_time and last_stat_time < target_date_start:
+                last_sum = last_stat_sum
+            else:
+                # Last statistic is from target date, search further back
+                last_stats_extended = await get_instance(hass).async_add_executor_job(
+                    get_last_statistics, hass, 192, statistic_id, True, {"sum"}
+                )
+                if statistic_id in last_stats_extended:
+                    for stat in last_stats_extended[statistic_id]:
+                        stat_time = stat.get("start")
+                        stat_sum = stat.get("sum") or 0
+                        if stat_time and not isinstance(stat_time, datetime):
+                            stat_time = datetime.fromtimestamp(stat_time, tz=dt_util.UTC)
+                        if stat_time and stat_time < target_date_start:
+                            last_sum = stat_sum
+                            break
 
     # Convert 15-minute data to statistics
     statistics: list[StatisticData] = []
