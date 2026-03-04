@@ -73,7 +73,7 @@ async def async_import_hourly_statistics(
         stats_list = last_stats[statistic_id]
         if stats_list:
             last_stat_time = stats_list[0].get("start")
-            last_stat_sum = stats_list[0].get("sum", 0)
+            last_stat_sum = stats_list[0].get("sum") or 0
 
             # Ensure last_stat_time is a datetime object (might be float/Unix timestamp)
             if last_stat_time and not isinstance(last_stat_time, datetime):
@@ -98,7 +98,7 @@ async def async_import_hourly_statistics(
                     _LOGGER.debug(f"Searching {len(last_stats_extended[statistic_id])} historical stats for baseline")
                     for i, stat in enumerate(last_stats_extended[statistic_id]):
                         stat_time = stat.get("start")
-                        stat_sum = stat.get("sum", 0)
+                        stat_sum = stat.get("sum") or 0
                         # Ensure it's a datetime object
                         if stat_time and not isinstance(stat_time, datetime):
                             from datetime import datetime as dt_class
@@ -118,7 +118,7 @@ async def async_import_hourly_statistics(
     for record in hourly_data:
         # Parse the hour and usage value
         hourly_str = record.get("Hourly", "12:00 AM")  # Format: "12:00 AM", "1:00 AM", etc.
-        usage_gallons = record.get("UsageValue", 0)
+        usage_gallons = record.get("UsageValue") or 0
 
         # Parse hour from "HH:MM AM/PM" format
         hour = parse_time_12hr(hourly_str)
@@ -189,7 +189,7 @@ async def async_import_quarter_hourly_statistics(
     if statistic_id in last_stats:
         stats_list = last_stats[statistic_id]
         if stats_list:
-            last_sum = stats_list[0].get("sum", 0)
+            last_sum = stats_list[0].get("sum") or 0
 
     # Convert 15-minute data to statistics
     statistics: list[StatisticData] = []
@@ -200,7 +200,7 @@ async def async_import_quarter_hourly_statistics(
         # Assuming API returns Hour and Quarter (0, 15, 30, 45)
         hour = record.get("Hour", 0)
         minute = record.get("Minute", 0)  # Should be 0, 15, 30, or 45
-        usage_gallons = record.get("UsageValue", 0)
+        usage_gallons = record.get("UsageValue") or 0
 
         # Add to cumulative sum
         cumulative_sum += usage_gallons
@@ -263,7 +263,7 @@ async def async_import_daily_statistics(
     if statistic_id in last_stats:
         stats_list = last_stats[statistic_id]
         if stats_list:
-            last_sum = stats_list[0].get("sum", 0)
+            last_sum = stats_list[0].get("sum") or 0
 
     # Convert daily data to statistics
     statistics: list[StatisticData] = []
@@ -272,7 +272,7 @@ async def async_import_daily_statistics(
     for record in daily_data:
         # Parse date and usage
         date_str = record.get("UsageDate")  # Format: "December 3, 2025"
-        usage_gallons = record.get("UsageValue", 0)
+        usage_gallons = record.get("UsageValue") or 0
 
         if not date_str:
             continue
