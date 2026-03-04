@@ -283,6 +283,7 @@ class ACWDClient:
                 # Format as "December 4, 2025" (no leading zero on day)
                 formatted_date = date_obj.strftime(DATE_FORMAT_LONG).replace(' 0', ' ')
             else:
+                _LOGGER.warning("Failed to parse date %r, using raw value", str_date)
                 formatted_date = str(str_date) if str_date else ''
 
         # Set up headers for API requests

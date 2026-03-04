@@ -168,6 +168,12 @@ class TestParseTime12hr:
         result = parse_time_12hr(None)
         assert result is None
 
+    def test_empty_string_returns_none(self):
+        """parse_time_12hr('') returns None."""
+        from custom_components.acwd.helpers import parse_time_12hr
+        result = parse_time_12hr("")
+        assert result is None
+
 
 @pytest.mark.unit
 class TestParseDateLong:

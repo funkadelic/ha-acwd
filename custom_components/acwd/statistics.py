@@ -123,7 +123,8 @@ async def async_import_hourly_statistics(
         # Parse hour from "HH:MM AM/PM" format
         hour = parse_time_12hr(hourly_str)
         if hour is None:
-            hour = 0
+            _LOGGER.warning("Skipping record with unparseable hour: %r", hourly_str)
+            continue
 
         # Add to cumulative sum
         cumulative_sum += usage_gallons
