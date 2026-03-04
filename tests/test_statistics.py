@@ -9,12 +9,13 @@ These tests prevent regressions of critical bugs:
 import sys
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 
 # Import mocks - conftest sets up homeassistant module mocks and
 # registers real custom_components.acwd.const and .helpers via sys.path.
+from tests.helpers import patch_statistics
 from homeassistant.util import dt as dt_util
 
 # Import statistics module directly without triggering __init__.py
@@ -64,12 +65,7 @@ class TestBaselineCalculation:
             }]
         })
 
-        with patch("custom_components.acwd.statistics.get_instance", mock_get_instance), \
-             patch("custom_components.acwd.statistics.get_last_statistics", mock_get_last_stats), \
-             patch("custom_components.acwd.statistics.async_add_external_statistics", mock_async_add_external_statistics), \
-             patch("custom_components.acwd.statistics.dt_util.get_default_time_zone", return_value=pst_timezone), \
-             patch("custom_components.acwd.statistics.dt_util.as_utc", side_effect=lambda dt: dt.astimezone(dt_util.UTC)):
-
+        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
             # Import today's partial data
             hourly_records = sample_hourly_data_dec_10_partial["objUsageGenerationResultSetTwo"]
             date_dt = datetime.combine(dec_10_2025, datetime.min.time()).replace(tzinfo=pst_timezone)
@@ -104,11 +100,7 @@ class TestBaselineCalculation:
         # Mock empty statistics (first time import)
         mock_get_last_stats = Mock(return_value={})
 
-        with patch("custom_components.acwd.statistics.get_instance", mock_get_instance), \
-             patch("custom_components.acwd.statistics.get_last_statistics", mock_get_last_stats), \
-             patch("custom_components.acwd.statistics.async_add_external_statistics", mock_async_add_external_statistics), \
-             patch("custom_components.acwd.statistics.dt_util.get_default_time_zone", return_value=pst_timezone), \
-             patch("custom_components.acwd.statistics.dt_util.as_utc", side_effect=lambda dt: dt.astimezone(dt_util.UTC)):
+        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
 
             hourly_records = sample_hourly_data_dec_9["objUsageGenerationResultSetTwo"]
             date_dt = datetime.combine(dec_9_2025, datetime.min.time()).replace(tzinfo=pst_timezone)
@@ -165,11 +157,7 @@ class TestBaselineCalculation:
                 return mock_get_last_stats_first(hass, count, stat_id, convert, types)
             return mock_get_last_stats_extended(hass, count, stat_id, convert, types)
 
-        with patch("custom_components.acwd.statistics.get_instance", mock_get_instance), \
-             patch("custom_components.acwd.statistics.get_last_statistics", side_effect=get_last_stats_side_effect), \
-             patch("custom_components.acwd.statistics.async_add_external_statistics", mock_async_add_external_statistics), \
-             patch("custom_components.acwd.statistics.dt_util.get_default_time_zone", return_value=pst_timezone), \
-             patch("custom_components.acwd.statistics.dt_util.as_utc", side_effect=lambda dt: dt.astimezone(dt_util.UTC)):
+        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, get_last_stats_side_effect, pst_timezone):
 
             hourly_records = sample_hourly_data_dec_10_partial["objUsageGenerationResultSetTwo"]
             date_dt = datetime.combine(dec_10_2025, datetime.min.time()).replace(tzinfo=pst_timezone)
@@ -211,11 +199,7 @@ class TestBaselineCalculation:
             }]
         })
 
-        with patch("custom_components.acwd.statistics.get_instance", mock_get_instance), \
-             patch("custom_components.acwd.statistics.get_last_statistics", mock_get_last_stats), \
-             patch("custom_components.acwd.statistics.async_add_external_statistics", mock_async_add_external_statistics), \
-             patch("custom_components.acwd.statistics.dt_util.get_default_time_zone", return_value=pst_timezone), \
-             patch("custom_components.acwd.statistics.dt_util.as_utc", side_effect=lambda dt: dt.astimezone(dt_util.UTC)):
+        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
 
             hourly_records = sample_hourly_data_dec_10_partial["objUsageGenerationResultSetTwo"]
             date_dt = datetime.combine(dec_10_2025, datetime.min.time()).replace(tzinfo=pst_timezone)
@@ -252,11 +236,7 @@ class TestBaselineCalculation:
             }]
         })
 
-        with patch("custom_components.acwd.statistics.get_instance", mock_get_instance), \
-             patch("custom_components.acwd.statistics.get_last_statistics", mock_get_last_stats), \
-             patch("custom_components.acwd.statistics.async_add_external_statistics", mock_async_add_external_statistics), \
-             patch("custom_components.acwd.statistics.dt_util.get_default_time_zone", return_value=pst_timezone), \
-             patch("custom_components.acwd.statistics.dt_util.as_utc", side_effect=lambda dt: dt.astimezone(dt_util.UTC)):
+        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
 
             hourly_records = sample_hourly_data_dec_10_partial["objUsageGenerationResultSetTwo"]
             date_dt = datetime.combine(dec_10_2025, datetime.min.time()).replace(tzinfo=pst_timezone)
@@ -293,11 +273,7 @@ class TestTimezoneHandling:
         """
         mock_get_last_stats = Mock(return_value={})
 
-        with patch("custom_components.acwd.statistics.get_instance", mock_get_instance), \
-             patch("custom_components.acwd.statistics.get_last_statistics", mock_get_last_stats), \
-             patch("custom_components.acwd.statistics.async_add_external_statistics", mock_async_add_external_statistics), \
-             patch("custom_components.acwd.statistics.dt_util.get_default_time_zone", return_value=pst_timezone), \
-             patch("custom_components.acwd.statistics.dt_util.as_utc", side_effect=lambda dt: dt.astimezone(dt_util.UTC)):
+        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
 
             hourly_records = sample_hourly_data_dec_10_partial["objUsageGenerationResultSetTwo"]
             date_dt = datetime.combine(dec_10_2025, datetime.min.time()).replace(tzinfo=pst_timezone)
@@ -325,11 +301,7 @@ class TestTimezoneHandling:
         """Verify Dec 10 00:00 EST = Dec 10 05:00 UTC."""
         mock_get_last_stats = Mock(return_value={})
 
-        with patch("custom_components.acwd.statistics.get_instance", mock_get_instance), \
-             patch("custom_components.acwd.statistics.get_last_statistics", mock_get_last_stats), \
-             patch("custom_components.acwd.statistics.async_add_external_statistics", mock_async_add_external_statistics), \
-             patch("custom_components.acwd.statistics.dt_util.get_default_time_zone", return_value=est_timezone), \
-             patch("custom_components.acwd.statistics.dt_util.as_utc", side_effect=lambda dt: dt.astimezone(dt_util.UTC)):
+        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, est_timezone):
 
             hourly_records = sample_hourly_data_dec_10_partial["objUsageGenerationResultSetTwo"]
             date_dt = datetime.combine(dec_10_2025, datetime.min.time()).replace(tzinfo=est_timezone)
@@ -359,11 +331,7 @@ class TestTimezoneHandling:
         """
         mock_get_last_stats = Mock(return_value={})
 
-        with patch("custom_components.acwd.statistics.get_instance", mock_get_instance), \
-             patch("custom_components.acwd.statistics.get_last_statistics", mock_get_last_stats), \
-             patch("custom_components.acwd.statistics.async_add_external_statistics", mock_async_add_external_statistics), \
-             patch("custom_components.acwd.statistics.dt_util.get_default_time_zone", return_value=pst_timezone), \
-             patch("custom_components.acwd.statistics.dt_util.as_utc", side_effect=lambda dt: dt.astimezone(dt_util.UTC)):
+        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
 
             hourly_records = sample_hourly_data_dec_10_partial["objUsageGenerationResultSetTwo"]
 
@@ -394,11 +362,7 @@ class TestTimezoneHandling:
         """Verify works in different timezones (EST)."""
         mock_get_last_stats = Mock(return_value={})
 
-        with patch("custom_components.acwd.statistics.get_instance", mock_get_instance), \
-             patch("custom_components.acwd.statistics.get_last_statistics", mock_get_last_stats), \
-             patch("custom_components.acwd.statistics.async_add_external_statistics", mock_async_add_external_statistics), \
-             patch("custom_components.acwd.statistics.dt_util.get_default_time_zone", return_value=est_timezone), \
-             patch("custom_components.acwd.statistics.dt_util.as_utc", side_effect=lambda dt: dt.astimezone(dt_util.UTC)):
+        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, est_timezone):
 
             hourly_records = sample_hourly_data_dec_10_partial["objUsageGenerationResultSetTwo"]
             date_dt = datetime.combine(dec_10_2025, datetime.min.time()).replace(tzinfo=est_timezone)
@@ -443,11 +407,7 @@ class TestCumulativeSumCalculation:
             {"Hourly": "2:00 AM", "UsageValue": 30.0},
         ]
 
-        with patch("custom_components.acwd.statistics.get_instance", mock_get_instance), \
-             patch("custom_components.acwd.statistics.get_last_statistics", mock_get_last_stats), \
-             patch("custom_components.acwd.statistics.async_add_external_statistics", mock_async_add_external_statistics), \
-             patch("custom_components.acwd.statistics.dt_util.get_default_time_zone", return_value=pst_timezone), \
-             patch("custom_components.acwd.statistics.dt_util.as_utc", side_effect=lambda dt: dt.astimezone(dt_util.UTC)):
+        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
 
             date_dt = datetime.combine(dec_9_2025, datetime.min.time()).replace(tzinfo=pst_timezone)
             await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
@@ -478,11 +438,7 @@ class TestCumulativeSumCalculation:
             {"Hourly": "3:00 AM", "UsageValue": 0.0},
         ]
 
-        with patch("custom_components.acwd.statistics.get_instance", mock_get_instance), \
-             patch("custom_components.acwd.statistics.get_last_statistics", mock_get_last_stats), \
-             patch("custom_components.acwd.statistics.async_add_external_statistics", mock_async_add_external_statistics), \
-             patch("custom_components.acwd.statistics.dt_util.get_default_time_zone", return_value=pst_timezone), \
-             patch("custom_components.acwd.statistics.dt_util.as_utc", side_effect=lambda dt: dt.astimezone(dt_util.UTC)):
+        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
 
             date_dt = datetime.combine(dec_9_2025, datetime.min.time()).replace(tzinfo=pst_timezone)
             await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
@@ -518,11 +474,7 @@ class TestCumulativeSumCalculation:
             {"Hourly": "12:00 AM", "UsageValue": 0.01},
         ]
 
-        with patch("custom_components.acwd.statistics.get_instance", mock_get_instance), \
-             patch("custom_components.acwd.statistics.get_last_statistics", mock_get_last_stats), \
-             patch("custom_components.acwd.statistics.async_add_external_statistics", mock_async_add_external_statistics), \
-             patch("custom_components.acwd.statistics.dt_util.get_default_time_zone", return_value=pst_timezone), \
-             patch("custom_components.acwd.statistics.dt_util.as_utc", side_effect=lambda dt: dt.astimezone(dt_util.UTC)):
+        with patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock_get_last_stats, pst_timezone):
 
             date_dt = datetime.combine(dec_9_2025, datetime.min.time()).replace(tzinfo=pst_timezone)
             await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
