@@ -8,14 +8,14 @@ Covers previously-untested branches in statistics.py to bring coverage from 46% 
 
 import importlib.util
 import sys
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 
 # Import mocks - conftest sets up homeassistant module mocks.
-from tests.helpers import patch_statistics
+from tests.helpers import make_baseline_mock, make_date_dt, patch_statistics
 from homeassistant.util import dt as dt_util
 
 # Load statistics module directly (same pattern as test_statistics.py).
@@ -43,17 +43,7 @@ async_import_daily_statistics = _stats_module.async_import_daily_statistics
 
 
 # ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _make_date_dt(year, month, day, tz):
-    """Return a timezone-aware datetime at midnight for the given date."""
-    return datetime(year, month, day, 0, 0, 0, tzinfo=tz)
-
-
-# ---------------------------------------------------------------------------
-# Task 2A: Hourly edge cases
+# Hourly edge cases
 # ---------------------------------------------------------------------------
 
 
@@ -72,7 +62,7 @@ class TestHourlyEdgeCases:
     ):
         """Records with Hourly=None are skipped; only valid records are imported."""
         mock_get_last_stats = Mock(return_value={})
-        date_dt = _make_date_dt(2025, 12, 9, pst_timezone)
+        date_dt = make_date_dt(date(2025, 12, 9), pst_timezone)
 
         hourly_records = [
             {"Hourly": None, "UsageValue": 5.0},
@@ -106,7 +96,7 @@ class TestHourlyEdgeCases:
     ):
         """Records with an unparseable Hourly string are skipped."""
         mock_get_last_stats = Mock(return_value={})
-        date_dt = _make_date_dt(2025, 12, 9, pst_timezone)
+        date_dt = make_date_dt(date(2025, 12, 9), pst_timezone)
 
         hourly_records = [
             {"Hourly": "bad-time", "UsageValue": 5.0},  # skipped
@@ -137,7 +127,7 @@ class TestHourlyEdgeCases:
     ):
         """Float Unix timestamp in extended 48-hour search is converted to datetime."""
         statistic_id = f"acwd:{meter_number}_hourly_usage"
-        date_dt = _make_date_dt(2025, 12, 10, pst_timezone)
+        date_dt = make_date_dt(date(2025, 12, 10), pst_timezone)
 
         # Today's stat — forces the extended search
         today_8am_utc = datetime(2025, 12, 10, 16, 0, 0, tzinfo=dt_util.UTC)
@@ -195,7 +185,7 @@ class TestHourlyEdgeCases:
     ):
         """Empty hourly_data list: async_add_external_statistics is NOT called."""
         mock_get_last_stats = Mock(return_value={})
-        date_dt = _make_date_dt(2025, 12, 9, pst_timezone)
+        date_dt = make_date_dt(date(2025, 12, 9), pst_timezone)
 
         with patch_statistics(
             mock_get_instance,
@@ -228,7 +218,7 @@ class TestQuarterHourlyStatistics:
     ):
         """4 records across hour 0 (minutes 0/15/30/45) produce correct cumulative sum."""
         mock_get_last_stats = Mock(return_value={})
-        date_dt = _make_date_dt(2025, 12, 9, pst_timezone)
+        date_dt = make_date_dt(date(2025, 12, 9), pst_timezone)
 
         quarter_records = [
             {"Hour": 0, "Minute": 0, "UsageValue": 5.0},
@@ -265,7 +255,7 @@ class TestQuarterHourlyStatistics:
     ):
         """statistic_id for quarter-hourly uses the _quarter_hourly_usage suffix."""
         mock_get_last_stats = Mock(return_value={})
-        date_dt = _make_date_dt(2025, 12, 9, pst_timezone)
+        date_dt = make_date_dt(date(2025, 12, 9), pst_timezone)
 
         quarter_records = [{"Hour": 0, "Minute": 0, "UsageValue": 1.0}]
 
@@ -292,7 +282,7 @@ class TestQuarterHourlyStatistics:
     ):
         """Records with Hour=None are skipped."""
         mock_get_last_stats = Mock(return_value={})
-        date_dt = _make_date_dt(2025, 12, 9, pst_timezone)
+        date_dt = make_date_dt(date(2025, 12, 9), pst_timezone)
 
         quarter_records = [
             {"Hour": None, "Minute": 0, "UsageValue": 1.0},  # skipped
@@ -323,7 +313,7 @@ class TestQuarterHourlyStatistics:
     ):
         """Records with Minute=None are skipped."""
         mock_get_last_stats = Mock(return_value={})
-        date_dt = _make_date_dt(2025, 12, 9, pst_timezone)
+        date_dt = make_date_dt(date(2025, 12, 9), pst_timezone)
 
         quarter_records = [
             {"Hour": 0, "Minute": None, "UsageValue": 1.0},  # skipped
@@ -354,7 +344,7 @@ class TestQuarterHourlyStatistics:
     ):
         """Baseline = 0 when no prior statistics exist."""
         mock_get_last_stats = Mock(return_value={})
-        date_dt = _make_date_dt(2025, 12, 9, pst_timezone)
+        date_dt = make_date_dt(date(2025, 12, 9), pst_timezone)
 
         quarter_records = [{"Hour": 0, "Minute": 0, "UsageValue": 10.0}]
 
@@ -381,16 +371,14 @@ class TestQuarterHourlyStatistics:
     ):
         """Baseline uses sum from last stat BEFORE target date midnight."""
         statistic_id = f"acwd:{meter_number}_quarter_hourly_usage"
-        date_dt = _make_date_dt(2025, 12, 10, pst_timezone)
+        date_dt = make_date_dt(date(2025, 12, 10), pst_timezone)
 
         # Yesterday's 11 PM PST = Dec 10 07:00 UTC (before Dec 10 08:00 UTC midnight)
         yesterday_stat_utc = datetime(2025, 12, 10, 7, 0, 0, tzinfo=dt_util.UTC)
         yesterday_sum = 250.0
 
-        mock_get_last_stats = Mock(
-            return_value={
-                statistic_id: [{"start": yesterday_stat_utc, "sum": yesterday_sum}]
-            }
+        mock_get_last_stats = make_baseline_mock(
+            statistic_id, yesterday_stat_utc, yesterday_sum
         )
 
         quarter_records = [{"Hour": 0, "Minute": 0, "UsageValue": 5.0}]
@@ -418,7 +406,7 @@ class TestQuarterHourlyStatistics:
     ):
         """Extended 192-record search is triggered when last stat is from target date."""
         statistic_id = f"acwd:{meter_number}_quarter_hourly_usage"
-        date_dt = _make_date_dt(2025, 12, 10, pst_timezone)
+        date_dt = make_date_dt(date(2025, 12, 10), pst_timezone)
 
         # Today's stat (after midnight UTC) — triggers extended search
         today_stat_utc = datetime(2025, 12, 10, 12, 0, 0, tzinfo=dt_util.UTC)
@@ -469,7 +457,7 @@ class TestQuarterHourlyStatistics:
     ):
         """Float Unix timestamps in quarter-hourly extended search are converted to datetime."""
         statistic_id = f"acwd:{meter_number}_quarter_hourly_usage"
-        date_dt = _make_date_dt(2025, 12, 10, pst_timezone)
+        date_dt = make_date_dt(date(2025, 12, 10), pst_timezone)
 
         # Both timestamps as floats
         today_stat_utc = datetime(2025, 12, 10, 12, 0, 0, tzinfo=dt_util.UTC)
@@ -518,7 +506,7 @@ class TestQuarterHourlyStatistics:
     ):
         """Empty quarter_hourly_data list: async_add_external_statistics is NOT called."""
         mock_get_last_stats = Mock(return_value={})
-        date_dt = _make_date_dt(2025, 12, 9, pst_timezone)
+        date_dt = make_date_dt(date(2025, 12, 9), pst_timezone)
 
         with patch_statistics(
             mock_get_instance,
