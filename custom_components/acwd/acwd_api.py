@@ -324,26 +324,28 @@ class ACWDClient:
                         meter_details = bind_data.get('MeterDetails', [])
                     except ValueError as e:
                         _LOGGER.warning("Failed to parse BindMultiMeter response: %s", e)
-                        meter_details = []
+                        meter_details = None
 
-                    # Find AMI-enabled meter (smart meter with hourly data)
-                    ami_meter = None
-                    for meter in meter_details:
-                        if meter.get('IsAMI') and meter.get('MeterType') == 'W':
-                            ami_meter = meter.get('MeterNumber', '')
-                            _LOGGER.info(f"Found AMI water meter: {ami_meter}")
-                            break
-
-                    if ami_meter:
-                        self._water_meter_number = ami_meter
+                    if meter_details is None:
+                        # Parse failed — leave existing meter number unchanged
+                        pass
+                    elif not meter_details:
+                        self._water_meter_number = ''
+                        _LOGGER.warning("No water meters found, using empty meter number")
                     else:
-                        # No AMI meter found, try first water meter or empty
-                        if meter_details:
+                        # Find AMI-enabled meter (smart meter with hourly data)
+                        ami_meter = None
+                        for meter in meter_details:
+                            if meter.get('IsAMI') and meter.get('MeterType') == 'W':
+                                ami_meter = meter.get('MeterNumber', '')
+                                _LOGGER.info(f"Found AMI water meter: {ami_meter}")
+                                break
+
+                        if ami_meter:
+                            self._water_meter_number = ami_meter
+                        else:
                             self._water_meter_number = meter_details[0].get('MeterNumber', '')
                             _LOGGER.info(f"No AMI meter found, using first meter: {self._water_meter_number}")
-                        else:
-                            self._water_meter_number = ''
-                            _LOGGER.warning("No water meters found, using empty meter number")
             except (requests.Timeout, requests.ConnectionError) as e:
                 _LOGGER.warning(LOG_NETWORK_ERROR, bind_meter_url, e)
             except Exception as e:

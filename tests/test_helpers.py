@@ -144,3 +144,9 @@ class TestParseApiResponse:
         """'Migrated User Found' string is not valid JSON — raises ValueError."""
         with pytest.raises(ValueError):
             parse_api_response({"d": "Migrated User Found"})
+
+    @pytest.mark.parametrize("bad_value", [None, {}, 42, []])
+    def test_non_string_d_raises_value_error(self, bad_value):
+        """Non-string 'd' values raise ValueError, not TypeError."""
+        with pytest.raises(ValueError, match="expected str"):
+            parse_api_response({"d": bad_value})

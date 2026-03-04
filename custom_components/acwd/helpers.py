@@ -29,10 +29,15 @@ def parse_api_response(result: dict, endpoint: str = "unknown") -> Any:
         raise ValueError(
             f"Unexpected API response from {endpoint}: missing 'd' property"
         )
+    raw = result["d"]
+    if not isinstance(raw, str):
+        raise ValueError(
+            f"Unexpected API response from {endpoint}: 'd' is {type(raw).__name__}, expected str (got: {raw!r})"
+        )
     try:
-        return json.loads(result["d"])
+        return json.loads(raw)
     except json.JSONDecodeError as e:
-        snippet = result["d"][:200]
+        snippet = raw[:200]
         raise ValueError(
             f"Failed to parse API response from {endpoint}: {e} (got: {snippet!r})"
         ) from e
