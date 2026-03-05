@@ -78,9 +78,9 @@ class dt_util:
 
     @staticmethod
     def as_utc(dt: datetime) -> datetime:
-        """Convert timezone-aware datetime to UTC."""
+        """Convert datetime to UTC. Naive datetimes are assumed to be UTC."""
         if dt.tzinfo is None:
-            raise ValueError("Cannot convert naive datetime to UTC")
+            return dt.replace(tzinfo=timezone.utc)
         return dt.astimezone(timezone.utc)
 
 
@@ -108,18 +108,6 @@ def est_timezone():
 def mock_get_default_timezone(pst_timezone):
     """Mock dt_util.get_default_time_zone to return PST."""
     return Mock(return_value=pst_timezone)
-
-
-@pytest.fixture
-def mock_as_utc():
-    """Mock dt_util.as_utc to convert timezone-aware datetime to UTC."""
-
-    def _as_utc(dt):
-        if dt.tzinfo is None:
-            raise ValueError("Cannot convert naive datetime to UTC")
-        return dt.astimezone(dt_util.UTC)
-
-    return Mock(side_effect=_as_utc)
 
 
 @pytest.fixture
