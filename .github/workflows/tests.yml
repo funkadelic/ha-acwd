@@ -11,6 +11,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
     steps:
       - uses: actions/checkout@v6
@@ -32,10 +34,10 @@ jobs:
           pytest tests/ -v --cov=custom_components.acwd --cov-branch --cov-report=term-missing --cov-report=xml --junitxml=junit.xml
 
       - name: SonarQube Scan
-        if: ${{ secrets.SONAR_TOKEN != '' }}
+        if: env.SONAR_TOKEN != ''
         uses: SonarSource/sonarqube-scan-action@v5
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
