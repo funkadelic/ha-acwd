@@ -1313,8 +1313,7 @@ class TestCoordinatorImportYesterdayCompleteData:
             ) as mock_import,
         ):
             # hour=14, after noon cutoff
-            mock_now = MagicMock()
-            mock_now.hour = 14
+            mock_now = datetime.datetime(2025, 12, 10, 14, 0, 0)
             mock_dt_util.now.return_value = mock_now
 
             await coord._import_yesterday_complete_data()
