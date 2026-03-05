@@ -1293,11 +1293,7 @@ class TestCoordinatorImportYesterdayCompleteData:
             ) as mock_import,
         ):
             # hour=6, before noon cutoff
-            mock_now = MagicMock()
-            mock_now.hour = 6
-            mock_now.__sub__ = lambda self, other: datetime.datetime(
-                2025, 12, 9, 6, 0, 0
-            )
+            mock_now = datetime.datetime(2025, 12, 10, 6, 0, 0)
             mock_dt_util.now.return_value = mock_now
             mock_midnight.return_value = datetime.datetime(2025, 12, 9, 0, 0, 0)
 
@@ -1337,11 +1333,7 @@ class TestCoordinatorImportYesterdayCompleteData:
                 new_callable=AsyncMock,
             ) as mock_import,
         ):
-            mock_now = MagicMock()
-            mock_now.hour = 6
-            mock_now.__sub__ = lambda self, other: datetime.datetime(
-                2025, 12, 9, 6, 0, 0
-            )
+            mock_now = datetime.datetime(2025, 12, 10, 6, 0, 0)
             mock_dt_util.now.return_value = mock_now
 
             await coord._import_yesterday_complete_data()
@@ -1365,11 +1357,7 @@ class TestCoordinatorImportYesterdayCompleteData:
                 new_callable=AsyncMock,
             ) as mock_import,
         ):
-            mock_now = MagicMock()
-            mock_now.hour = 6
-            mock_now.__sub__ = lambda self, other: datetime.datetime(
-                2025, 12, 9, 6, 0, 0
-            )
+            mock_now = datetime.datetime(2025, 12, 10, 6, 0, 0)
             mock_dt_util.now.return_value = mock_now
 
             await coord._import_yesterday_complete_data()
@@ -1391,11 +1379,7 @@ class TestCoordinatorImportYesterdayCompleteData:
                 new_callable=AsyncMock,
             ) as mock_import,
         ):
-            mock_now = MagicMock()
-            mock_now.hour = 6
-            mock_now.__sub__ = lambda self, other: datetime.datetime(
-                2025, 12, 9, 6, 0, 0
-            )
+            mock_now = datetime.datetime(2025, 12, 10, 6, 0, 0)
             mock_dt_util.now.return_value = mock_now
 
             await coord._import_yesterday_complete_data()
@@ -1408,11 +1392,7 @@ class TestCoordinatorImportYesterdayCompleteData:
         coord.client.get_usage_data.side_effect = RuntimeError("boom")
 
         with patch("custom_components.acwd.dt_util") as mock_dt_util:
-            mock_now = MagicMock()
-            mock_now.hour = 6
-            mock_now.__sub__ = lambda self, other: datetime.datetime(
-                2025, 12, 9, 6, 0, 0
-            )
+            mock_now = datetime.datetime(2025, 12, 10, 6, 0, 0)
             mock_dt_util.now.return_value = mock_now
 
             # Should not raise
