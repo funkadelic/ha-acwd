@@ -1,7 +1,10 @@
 """Shared mock factories for ACWD tests."""
 
+import importlib.util
+import sys
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 
@@ -44,6 +47,28 @@ def make_date_dt(date, tz):
 def make_baseline_mock(statistic_id, start, sum_value):
     """Return a Mock for get_last_statistics with a single baseline entry."""
     return Mock(return_value={statistic_id: [{"start": start, "sum": sum_value}]})
+
+
+def load_stats_module():
+    """Load the statistics module without triggering __init__.py.
+
+    Re-uses an already-loaded module to avoid breaking patches bound to the
+    first object.
+    """
+    mod_name = "custom_components.acwd.statistics"
+    if mod_name in sys.modules:
+        return sys.modules[mod_name]
+
+    spec = importlib.util.spec_from_file_location(
+        mod_name,
+        Path(__file__).parent.parent / "custom_components" / "acwd" / "statistics.py",
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    sys.modules[mod_name] = module
+    sys.modules["custom_components.acwd"].statistics = module
+    return module
 
 
 @contextmanager

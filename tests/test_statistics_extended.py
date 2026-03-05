@@ -6,35 +6,21 @@ Covers previously-untested branches in statistics.py to bring coverage from 46% 
 - async_import_daily_statistics: all branches
 """
 
-import importlib.util
-import sys
 from datetime import date, datetime
-from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 
 # Import mocks - conftest sets up homeassistant module mocks.
-from tests.helpers import make_baseline_mock, make_date_dt, patch_statistics
+from tests.helpers import (
+    load_stats_module,
+    make_baseline_mock,
+    make_date_dt,
+    patch_statistics,
+)
 from homeassistant.util import dt as dt_util
 
-# Load statistics module directly (same pattern as test_statistics.py).
-# Re-use an already-loaded module if test_statistics.py ran first — re-executing
-# exec_module() would overwrite sys.modules with a new object and break patches
-# that the other test file bound against the first object.
-if "custom_components.acwd.statistics" in sys.modules:
-    _stats_module = sys.modules["custom_components.acwd.statistics"]
-else:
-    _stats_spec = importlib.util.spec_from_file_location(
-        "custom_components.acwd.statistics",
-        Path(__file__).parent.parent / "custom_components" / "acwd" / "statistics.py",
-    )
-    assert _stats_spec is not None and _stats_spec.loader is not None
-    _stats_module = importlib.util.module_from_spec(_stats_spec)
-    _stats_spec.loader.exec_module(_stats_module)
-    sys.modules["custom_components.acwd.statistics"] = _stats_module
-    sys.modules["custom_components.acwd"].statistics = _stats_module
-
+_stats_module = load_stats_module()
 async_import_hourly_statistics = _stats_module.async_import_hourly_statistics
 async_import_quarter_hourly_statistics = (
     _stats_module.async_import_quarter_hourly_statistics
@@ -140,7 +126,7 @@ class TestHourlyEdgeCases:
 
         call_count = {"n": 0}
 
-        def _get_last_stats(hass, count, stat_id, convert, types):
+        def _get_last_stats(*_args, **_kwargs):
             call_count["n"] += 1
             if call_count["n"] == 1:
                 # First call: return today's stat as float timestamp
@@ -418,7 +404,7 @@ class TestQuarterHourlyStatistics:
 
         call_count = {"n": 0}
 
-        def _get_last_stats(hass, count, stat_id, convert, types):
+        def _get_last_stats(*_args, **_kwargs):
             call_count["n"] += 1
             if call_count["n"] == 1:
                 return {statistic_id: [{"start": today_stat_utc, "sum": today_sum}]}
@@ -469,7 +455,7 @@ class TestQuarterHourlyStatistics:
 
         call_count = {"n": 0}
 
-        def _get_last_stats(hass, count, stat_id, convert, types):
+        def _get_last_stats(*_args, **_kwargs):
             call_count["n"] += 1
             if call_count["n"] == 1:
                 return {statistic_id: [{"start": today_float_ts, "sum": 700.0}]}
