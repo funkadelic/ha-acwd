@@ -3,8 +3,8 @@
 [![Build][build-badge]][build-link]
 [![Codecov][coverage-badge]][coverage-link]
 [![Release][release-badge]][release-link]
-![HACS][hacs-badge]
-![Home Assistant][ha-badge]
+[![HACS][hacs-badge]][hacs-link]
+[![Home Assistant][ha-badge]][ha-link]
 
 A **HACS-compatible custom integration** that brings your ACWD (Alameda County Water District) water usage data directly into Home Assistant, with full support for the **Home Assistant Energy Dashboard**. ACWD services the cities of Fremont, Newark, and Union City, CA.
 
@@ -101,3 +101,5 @@ This is an unofficial tool and is not affiliated with or endorsed by ACWD. Use a
 [build-link]: https://github.com/funkadelic/ha-acwd/actions/workflows/tests.yml
 [coverage-link]: https://codecov.io/gh/funkadelic/ha-acwd
 [release-link]: https://github.com/funkadelic/ha-acwd/releases
+[hacs-link]: https://hacs.xyz
+[ha-link]: https://www.home-assistant.io
