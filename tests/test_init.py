@@ -984,3 +984,436 @@ class TestAsyncImportInitialYesterdayData:
 
             # Should not raise
             await _async_import_initial_yesterday_data(hass, coordinator)
+
+
+# ---------------------------------------------------------------------------
+# ACWDDataUpdateCoordinator._async_update_data
+# ---------------------------------------------------------------------------
+
+
+class TestCoordinatorAsyncUpdateData:
+    """Tests for ACWDDataUpdateCoordinator._async_update_data."""
+
+    def _make_coordinator(self):
+        """Create a coordinator stub using SimpleNamespace pattern (decision [03-01])."""
+        import types
+
+        from custom_components.acwd import ACWDDataUpdateCoordinator
+
+        hass = _make_mock_hass()
+        entry = _make_mock_entry()
+        client = MagicMock()
+        coord = types.SimpleNamespace(
+            hass=hass,
+            client=client,
+            entry=entry,
+            _last_hourly_import_date=None,
+        )
+        # Bind the real methods to our stub
+        coord._async_update_data = ACWDDataUpdateCoordinator._async_update_data.__get__(
+            coord
+        )
+        coord._import_today_hourly_data = (
+            ACWDDataUpdateCoordinator._import_today_hourly_data.__get__(coord)
+        )
+        coord._import_yesterday_complete_data = (
+            ACWDDataUpdateCoordinator._import_yesterday_complete_data.__get__(coord)
+        )
+        return coord
+
+    async def test_happy_path_returns_data(self):
+        """Happy path: login succeeds, billing data returned, sub-imports called."""
+        coord = self._make_coordinator()
+        coord.client.login.return_value = True
+        coord.client.get_usage_data.return_value = {"summary": "data"}
+        coord.client.logout.return_value = None
+
+        # Replace bound methods with AsyncMock on SimpleNamespace
+        mock_today = AsyncMock()
+        mock_yesterday = AsyncMock()
+        coord._import_today_hourly_data = mock_today
+        coord._import_yesterday_complete_data = mock_yesterday
+
+        result = await coord._async_update_data()
+
+        assert result == {"summary": "data"}
+        mock_today.assert_called_once()
+        mock_yesterday.assert_called_once()
+
+    async def test_login_failure_raises_update_failed(self):
+        """Login returning False raises UpdateFailed."""
+        from homeassistant.helpers.update_coordinator import UpdateFailed
+
+        coord = self._make_coordinator()
+        coord.client.login.return_value = False
+
+        with pytest.raises(UpdateFailed, match="Failed to login"):
+            await coord._async_update_data()
+
+    async def test_no_data_raises_update_failed(self):
+        """No data returned raises UpdateFailed."""
+        from homeassistant.helpers.update_coordinator import UpdateFailed
+
+        coord = self._make_coordinator()
+        coord.client.login.return_value = True
+        coord.client.get_usage_data.return_value = None
+
+        with pytest.raises(UpdateFailed, match="No data returned"):
+            await coord._async_update_data()
+
+    async def test_requests_timeout_raises_update_failed(self):
+        """requests.Timeout raises UpdateFailed with network error message."""
+        from homeassistant.helpers.update_coordinator import UpdateFailed
+
+        coord = self._make_coordinator()
+        coord.client.login.side_effect = requests.Timeout("timed out")
+
+        with pytest.raises(UpdateFailed, match="Network error"):
+            await coord._async_update_data()
+
+    async def test_requests_connection_error_raises_update_failed(self):
+        """requests.ConnectionError raises UpdateFailed with network error message."""
+        from homeassistant.helpers.update_coordinator import UpdateFailed
+
+        coord = self._make_coordinator()
+        coord.client.login.side_effect = requests.ConnectionError("refused")
+
+        with pytest.raises(UpdateFailed, match="Network error"):
+            await coord._async_update_data()
+
+    async def test_generic_exception_raises_update_failed(self):
+        """A generic exception raises UpdateFailed."""
+        from homeassistant.helpers.update_coordinator import UpdateFailed
+
+        coord = self._make_coordinator()
+        coord.client.login.side_effect = RuntimeError("unexpected")
+
+        with pytest.raises(UpdateFailed, match="Error communicating with ACWD"):
+            await coord._async_update_data()
+
+
+# ---------------------------------------------------------------------------
+# ACWDDataUpdateCoordinator._import_today_hourly_data
+# ---------------------------------------------------------------------------
+
+
+class TestCoordinatorImportTodayHourlyData:
+    """Tests for ACWDDataUpdateCoordinator._import_today_hourly_data."""
+
+    def _make_coordinator(self):
+        """Create a coordinator stub using SimpleNamespace pattern (decision [03-01])."""
+        import types
+
+        from custom_components.acwd import ACWDDataUpdateCoordinator
+
+        hass = _make_mock_hass()
+        entry = _make_mock_entry()
+        client = MagicMock()
+        coord = types.SimpleNamespace(
+            hass=hass,
+            client=client,
+            entry=entry,
+            _last_hourly_import_date=None,
+        )
+        coord._import_today_hourly_data = (
+            ACWDDataUpdateCoordinator._import_today_hourly_data.__get__(coord)
+        )
+        return coord
+
+    async def test_happy_path_imports_data(self):
+        """Happy path: data with non-zero usage records triggers import."""
+        coord = self._make_coordinator()
+        coord.client.get_usage_data.return_value = {
+            "objUsageGenerationResultSetTwo": [
+                {"Hourly": "12:00 AM", "UsageValue": 2.0},
+                {"Hourly": "1:00 AM", "UsageValue": 3.5},
+            ]
+        }
+        coord.client.meter_number = "230057301"
+
+        with (
+            patch("custom_components.acwd.dt_util") as mock_dt_util,
+            patch("custom_components.acwd.local_midnight") as mock_midnight,
+            patch(
+                "custom_components.acwd.async_import_hourly_statistics",
+                new_callable=AsyncMock,
+            ) as mock_import,
+        ):
+            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
+            mock_midnight.return_value = datetime.datetime(2025, 12, 10, 0, 0, 0)
+
+            await coord._import_today_hourly_data()
+
+            mock_import.assert_called_once()
+
+    async def test_no_data_returns_gracefully(self):
+        """No data returned from API returns without importing."""
+        coord = self._make_coordinator()
+        coord.client.get_usage_data.return_value = None
+
+        with (
+            patch("custom_components.acwd.dt_util") as mock_dt_util,
+            patch(
+                "custom_components.acwd.async_import_hourly_statistics",
+                new_callable=AsyncMock,
+            ) as mock_import,
+        ):
+            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
+
+            await coord._import_today_hourly_data()
+
+            mock_import.assert_not_called()
+
+    async def test_no_meter_number_returns_gracefully(self):
+        """No meter number returns without importing."""
+        coord = self._make_coordinator()
+        coord.client.get_usage_data.return_value = {
+            "objUsageGenerationResultSetTwo": [
+                {"Hourly": "12:00 AM", "UsageValue": 2.0},
+            ]
+        }
+        coord.client.meter_number = None
+
+        with (
+            patch("custom_components.acwd.dt_util") as mock_dt_util,
+            patch(
+                "custom_components.acwd.async_import_hourly_statistics",
+                new_callable=AsyncMock,
+            ) as mock_import,
+        ):
+            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
+
+            await coord._import_today_hourly_data()
+
+            mock_import.assert_not_called()
+
+    async def test_no_hourly_records_returns_gracefully(self):
+        """Empty hourly records returns without importing."""
+        coord = self._make_coordinator()
+        coord.client.get_usage_data.return_value = {
+            "objUsageGenerationResultSetTwo": []
+        }
+        coord.client.meter_number = "230057301"
+
+        with (
+            patch("custom_components.acwd.dt_util") as mock_dt_util,
+            patch(
+                "custom_components.acwd.async_import_hourly_statistics",
+                new_callable=AsyncMock,
+            ) as mock_import,
+        ):
+            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
+
+            await coord._import_today_hourly_data()
+
+            mock_import.assert_not_called()
+
+    async def test_all_zero_usage_still_imports(self):
+        """All-zero usage records still imports (logs 'No non-zero usage found')."""
+        coord = self._make_coordinator()
+        coord.client.get_usage_data.return_value = {
+            "objUsageGenerationResultSetTwo": [
+                {"Hourly": "12:00 AM", "UsageValue": 0},
+                {"Hourly": "1:00 AM", "UsageValue": 0},
+            ]
+        }
+        coord.client.meter_number = "230057301"
+
+        with (
+            patch("custom_components.acwd.dt_util") as mock_dt_util,
+            patch("custom_components.acwd.local_midnight") as mock_midnight,
+            patch(
+                "custom_components.acwd.async_import_hourly_statistics",
+                new_callable=AsyncMock,
+            ) as mock_import,
+        ):
+            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
+            mock_midnight.return_value = datetime.datetime(2025, 12, 10, 0, 0, 0)
+
+            await coord._import_today_hourly_data()
+
+            mock_import.assert_called_once()
+
+    async def test_exception_caught_as_warning(self):
+        """Exception during import is caught and logged as warning."""
+        coord = self._make_coordinator()
+        coord.client.get_usage_data.side_effect = RuntimeError("boom")
+
+        with patch("custom_components.acwd.dt_util") as mock_dt_util:
+            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
+
+            # Should not raise
+            await coord._import_today_hourly_data()
+
+
+# ---------------------------------------------------------------------------
+# ACWDDataUpdateCoordinator._import_yesterday_complete_data
+# ---------------------------------------------------------------------------
+
+
+class TestCoordinatorImportYesterdayCompleteData:
+    """Tests for ACWDDataUpdateCoordinator._import_yesterday_complete_data."""
+
+    def _make_coordinator(self):
+        """Create a coordinator stub using SimpleNamespace pattern (decision [03-01])."""
+        import types
+
+        from custom_components.acwd import ACWDDataUpdateCoordinator
+
+        hass = _make_mock_hass()
+        entry = _make_mock_entry()
+        client = MagicMock()
+        coord = types.SimpleNamespace(
+            hass=hass,
+            client=client,
+            entry=entry,
+            _last_hourly_import_date=None,
+        )
+        coord._import_yesterday_complete_data = (
+            ACWDDataUpdateCoordinator._import_yesterday_complete_data.__get__(coord)
+        )
+        return coord
+
+    async def test_runs_during_morning_hours(self):
+        """Runs import when current hour < MORNING_IMPORT_END_HOUR."""
+        coord = self._make_coordinator()
+        coord.client.get_usage_data.return_value = {
+            "objUsageGenerationResultSetTwo": [
+                {"Hourly": "12:00 AM", "UsageValue": 2.0},
+            ]
+        }
+        coord.client.meter_number = "230057301"
+
+        with (
+            patch("custom_components.acwd.dt_util") as mock_dt_util,
+            patch("custom_components.acwd.local_midnight") as mock_midnight,
+            patch(
+                "custom_components.acwd.async_import_hourly_statistics",
+                new_callable=AsyncMock,
+            ) as mock_import,
+        ):
+            # hour=6, before noon cutoff
+            mock_now = MagicMock()
+            mock_now.hour = 6
+            mock_now.__sub__ = lambda self, other: datetime.datetime(
+                2025, 12, 9, 6, 0, 0
+            )
+            mock_dt_util.now.return_value = mock_now
+            mock_midnight.return_value = datetime.datetime(2025, 12, 9, 0, 0, 0)
+
+            await coord._import_yesterday_complete_data()
+
+            mock_import.assert_called_once()
+
+    async def test_skips_after_morning_hours(self):
+        """Skips import when current hour >= MORNING_IMPORT_END_HOUR."""
+        coord = self._make_coordinator()
+
+        with (
+            patch("custom_components.acwd.dt_util") as mock_dt_util,
+            patch(
+                "custom_components.acwd.async_import_hourly_statistics",
+                new_callable=AsyncMock,
+            ) as mock_import,
+        ):
+            # hour=14, after noon cutoff
+            mock_now = MagicMock()
+            mock_now.hour = 14
+            mock_dt_util.now.return_value = mock_now
+
+            await coord._import_yesterday_complete_data()
+
+            mock_import.assert_not_called()
+
+    async def test_no_data_returns_gracefully(self):
+        """No data returned from API returns gracefully."""
+        coord = self._make_coordinator()
+        coord.client.get_usage_data.return_value = None
+
+        with (
+            patch("custom_components.acwd.dt_util") as mock_dt_util,
+            patch(
+                "custom_components.acwd.async_import_hourly_statistics",
+                new_callable=AsyncMock,
+            ) as mock_import,
+        ):
+            mock_now = MagicMock()
+            mock_now.hour = 6
+            mock_now.__sub__ = lambda self, other: datetime.datetime(
+                2025, 12, 9, 6, 0, 0
+            )
+            mock_dt_util.now.return_value = mock_now
+
+            await coord._import_yesterday_complete_data()
+
+            mock_import.assert_not_called()
+
+    async def test_no_meter_number_returns_gracefully(self):
+        """No meter number returns gracefully."""
+        coord = self._make_coordinator()
+        coord.client.get_usage_data.return_value = {
+            "objUsageGenerationResultSetTwo": [
+                {"Hourly": "12:00 AM", "UsageValue": 2.0},
+            ]
+        }
+        coord.client.meter_number = None
+
+        with (
+            patch("custom_components.acwd.dt_util") as mock_dt_util,
+            patch(
+                "custom_components.acwd.async_import_hourly_statistics",
+                new_callable=AsyncMock,
+            ) as mock_import,
+        ):
+            mock_now = MagicMock()
+            mock_now.hour = 6
+            mock_now.__sub__ = lambda self, other: datetime.datetime(
+                2025, 12, 9, 6, 0, 0
+            )
+            mock_dt_util.now.return_value = mock_now
+
+            await coord._import_yesterday_complete_data()
+
+            mock_import.assert_not_called()
+
+    async def test_no_hourly_records_returns_gracefully(self):
+        """Empty hourly records returns gracefully."""
+        coord = self._make_coordinator()
+        coord.client.get_usage_data.return_value = {
+            "objUsageGenerationResultSetTwo": []
+        }
+        coord.client.meter_number = "230057301"
+
+        with (
+            patch("custom_components.acwd.dt_util") as mock_dt_util,
+            patch(
+                "custom_components.acwd.async_import_hourly_statistics",
+                new_callable=AsyncMock,
+            ) as mock_import,
+        ):
+            mock_now = MagicMock()
+            mock_now.hour = 6
+            mock_now.__sub__ = lambda self, other: datetime.datetime(
+                2025, 12, 9, 6, 0, 0
+            )
+            mock_dt_util.now.return_value = mock_now
+
+            await coord._import_yesterday_complete_data()
+
+            mock_import.assert_not_called()
+
+    async def test_exception_caught_as_warning(self):
+        """Exception during yesterday import is caught and logged as warning."""
+        coord = self._make_coordinator()
+        coord.client.get_usage_data.side_effect = RuntimeError("boom")
+
+        with patch("custom_components.acwd.dt_util") as mock_dt_util:
+            mock_now = MagicMock()
+            mock_now.hour = 6
+            mock_now.__sub__ = lambda self, other: datetime.datetime(
+                2025, 12, 9, 6, 0, 0
+            )
+            mock_dt_util.now.return_value = mock_now
+
+            # Should not raise
+            await coord._import_yesterday_complete_data()
