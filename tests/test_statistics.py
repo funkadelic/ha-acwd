@@ -201,7 +201,7 @@ class TestBaselineCalculation:
 
         call_count = {"count": 0}
 
-        def get_last_stats_side_effect(hass, count, stat_id, convert, types):
+        def get_last_stats_side_effect(*_args, **_kwargs):
             call_count["count"] += 1
             return first_response if call_count["count"] == 1 else extended_response
 

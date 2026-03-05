@@ -11,8 +11,8 @@ import pytest
 # Export mock classes for use in test files
 __all__ = [
     "StatisticData",
-    "StatisticMetaData",
     "StatisticMeanType",
+    "StatisticMetaData",
     "UnitOfVolume",
     "dt_util",
 ]
