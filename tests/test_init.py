@@ -676,6 +676,8 @@ class TestHandleImportHourlyEdgeCases:
             # Should not raise despite logout failure
             await handle_import_hourly(call)
 
+            mock_client.logout.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # handle_import_daily: additional edge cases (network, logout)
@@ -790,6 +792,8 @@ class TestHandleImportDailyEdgeCases:
 
             # Should not raise despite logout failure
             await handle_import_daily(call)
+
+            mock_client.logout.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
