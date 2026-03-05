@@ -29,6 +29,11 @@ jobs:
         run: |
           pytest tests/ -v --cov=custom_components.acwd --cov-branch --cov-report=term-missing --cov-report=xml --junitxml=junit.xml
 
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
