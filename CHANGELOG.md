@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.24] - 2026-03-06
+
+### Changed
+
+- Add badges to README for integration visibility (#30)
+- Centralize date/time parsing helpers (#28)
+- Centralize API response JSON parsing (#27)
+- Add unit tests for sensor, config flow, and statistics (#26)
+
+### Testing
+
+- increase __init__.py test coverage from 55% to 98% (#31)
+- increase ACWD API and statistics test coverage (#29)
 ## [1.0.23] - 2026-03-03
 
 ### Added
@@ -239,7 +252,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Five water usage sensors (current cycle, projected, last billing, average, highest)
 - 15-minute interval support via manual service
 
-[Unreleased]: https://github.com/funkadelic/ha-acwd/compare/v1.0.23...HEAD
+[Unreleased]: https://github.com/funkadelic/ha-acwd/compare/v1.0.24...HEAD
+[1.0.24]: https://github.com/funkadelic/ha-acwd/compare/v1.0.23...v1.0.24
 [1.0.23]: https://github.com/funkadelic/ha-acwd/compare/v1.0.22...v1.0.23
 [1.0.22]: https://github.com/funkadelic/ha-acwd/compare/v1.0.21...v1.0.22
 [1.0.21]: https://github.com/funkadelic/ha-acwd/compare/v1.0.20...v1.0.21
