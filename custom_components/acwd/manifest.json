@@ -10,7 +10,7 @@
   "issue_tracker": "https://github.com/funkadelic/ha-acwd/issues",
   "requirements": [
     "beautifulsoup4>=4.12.0",
-    "requests>=2.31.0"
+    "requests>=2.32.4"
   ],
   "version": "1.0.24"
 }
