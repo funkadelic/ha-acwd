@@ -6,3 +6,7 @@ pytest-mock>=3.10.0
 pytest-cov>=4.0.0
 freezegun>=1.2.0
 tzdata>=2024.1
+
+# HA core provides these at runtime; needed here for tests outside HA
+voluptuous>=0.13.0
+zipp>=3.19.1 # not directly required, pinned by Snyk to avoid a vulnerability
