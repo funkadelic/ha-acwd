@@ -256,6 +256,87 @@ class ACWDClient:
             _LOGGER.debug(f"Response text: {validate_response.text[:200]}")
             return False
 
+    def _discover_meter(self, headers):
+        """Discover the water meter number via the BindMultiMeter API.
+
+        Calls the BindMultiMeter endpoint to get available meters, preferring
+        an AMI-enabled water meter. Sets self._water_meter_number on success;
+        leaves it unchanged on failure.
+
+        Args:
+            headers: HTTP headers dict (must include CSRF token if available)
+        """
+        bind_meter_url = f"{self.base_url}Usages.aspx/BindMultiMeter"
+        bind_payload = {"MeterType": "W"}  # W for water
+
+        try:
+            bind_response = self.session.post(
+                bind_meter_url,
+                json=bind_payload,
+                headers=headers,
+                timeout=HTTP_TIMEOUT,
+            )
+
+            if bind_response.status_code == 200:
+                bind_result = bind_response.json()
+                try:
+                    bind_data = parse_api_response(
+                        bind_result, endpoint="BindMultiMeter"
+                    )
+                    if not isinstance(bind_data, dict):
+                        _LOGGER.warning(
+                            "Unexpected BindMultiMeter response type: %s",
+                            type(bind_data).__name__,
+                        )
+                        meter_details = None
+                    else:
+                        meter_details = bind_data.get("MeterDetails", [])
+                except ValueError as e:
+                    _LOGGER.warning("Failed to parse BindMultiMeter response: %s", e)
+                    meter_details = None
+
+                if meter_details is None:
+                    # Parse failed — leave existing meter number unchanged
+                    pass
+                elif not isinstance(meter_details, list) or any(
+                    not isinstance(m, dict) for m in meter_details
+                ):
+                    _LOGGER.warning(
+                        "Invalid MeterDetails format: expected list of dicts, got %s",
+                        type(meter_details).__name__,
+                    )
+                    # Leave existing self._water_meter_number unchanged
+                elif not meter_details:
+                    self._water_meter_number = ""
+                    _LOGGER.warning("No water meters found, using empty meter number")
+                else:
+                    # Find AMI-enabled meter (smart meter with hourly data)
+                    ami_meter = None
+                    for meter in meter_details:
+                        if meter.get("IsAMI") and meter.get("MeterType") == "W":
+                            ami_meter = meter.get("MeterNumber", "")
+                            _LOGGER.info(f"Found AMI water meter: {ami_meter}")
+                            break
+
+                    if ami_meter:
+                        self._water_meter_number = ami_meter
+                    else:
+                        self._water_meter_number = meter_details[0].get(
+                            "MeterNumber", ""
+                        )
+                        _LOGGER.info(
+                            f"No AMI meter found, using first meter: {self._water_meter_number}"
+                        )
+            else:
+                _LOGGER.debug(
+                    "BindMultiMeter returned status %d",
+                    bind_response.status_code,
+                )
+        except (requests.Timeout, requests.ConnectionError) as e:
+            _LOGGER.warning(LOG_NETWORK_ERROR, bind_meter_url, e)
+        except (ValueError, KeyError, TypeError):
+            _LOGGER.exception("Error fetching meter list")
+
     def get_usage_data(
         self, mode="B", date_from=None, date_to=None, str_date=None, hourly_type="H"
     ):
@@ -330,88 +411,9 @@ class ACWDClient:
         if self.csrf_token:
             headers["csrftoken"] = self.csrf_token
 
-        # Get water meter number
-        # The water meter number is not in the login response - it's loaded dynamically
-        # Call BindMultiMeter API to discover available meters and select AMI meter
-
-        # Try to discover the correct meter number if not cached
+        # Discover meter number if not cached
         if self._water_meter_number is None:
-            # Call BindMultiMeter endpoint to get list of available meters
-            bind_meter_url = f"{self.base_url}Usages.aspx/BindMultiMeter"
-            bind_payload = {"MeterType": "W"}  # W for water
-
-            try:
-                bind_response = self.session.post(
-                    bind_meter_url,
-                    json=bind_payload,
-                    headers=headers,
-                    timeout=HTTP_TIMEOUT,
-                )
-
-                if bind_response.status_code == 200:
-                    bind_result = bind_response.json()
-                    try:
-                        bind_data = parse_api_response(
-                            bind_result, endpoint="BindMultiMeter"
-                        )
-                        if not isinstance(bind_data, dict):
-                            _LOGGER.warning(
-                                "Unexpected BindMultiMeter response type: %s",
-                                type(bind_data).__name__,
-                            )
-                            meter_details = None
-                        else:
-                            meter_details = bind_data.get("MeterDetails", [])
-                    except ValueError as e:
-                        _LOGGER.warning(
-                            "Failed to parse BindMultiMeter response: %s", e
-                        )
-                        meter_details = None
-
-                    if meter_details is None:
-                        # Parse failed — leave existing meter number unchanged
-                        pass
-                    elif not isinstance(meter_details, list) or any(
-                        not isinstance(m, dict) for m in meter_details
-                    ):
-                        _LOGGER.warning(
-                            "Invalid MeterDetails format: expected list of dicts, "
-                            "got %s",
-                            type(meter_details).__name__,
-                        )
-                        # Leave existing self._water_meter_number unchanged
-                    elif not meter_details:
-                        self._water_meter_number = ""
-                        _LOGGER.warning(
-                            "No water meters found, using empty meter number"
-                        )
-                    else:
-                        # Find AMI-enabled meter (smart meter with hourly data)
-                        ami_meter = None
-                        for meter in meter_details:
-                            if meter.get("IsAMI") and meter.get("MeterType") == "W":
-                                ami_meter = meter.get("MeterNumber", "")
-                                _LOGGER.info(f"Found AMI water meter: {ami_meter}")
-                                break
-
-                        if ami_meter:
-                            self._water_meter_number = ami_meter
-                        else:
-                            self._water_meter_number = meter_details[0].get(
-                                "MeterNumber", ""
-                            )
-                            _LOGGER.info(
-                                f"No AMI meter found, using first meter: {self._water_meter_number}"
-                            )
-                else:
-                    _LOGGER.debug(
-                        "BindMultiMeter returned status %d",
-                        bind_response.status_code,
-                    )
-            except (requests.Timeout, requests.ConnectionError) as e:
-                _LOGGER.warning(LOG_NETWORK_ERROR, bind_meter_url, e)
-            except (ValueError, KeyError, TypeError):
-                _LOGGER.exception("Error fetching meter list")
+            self._discover_meter(headers)
 
         # Use cached meter number
         meter_number = (
