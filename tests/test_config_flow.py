@@ -1,4 +1,5 @@
 """Tests for config_flow.py - ACWD configuration flow."""
+
 import sys
 import types
 import importlib.util
@@ -6,6 +7,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import requests
 
 # Temporarily stub acwd_api during config_flow import, then restore.
 # This prevents importing the real requests-based client at module level,
@@ -42,6 +44,7 @@ CannotConnect = _flow_module.CannotConnect
 
 # -- Fixtures ----------------------------------------------------------------
 
+
 @pytest.fixture
 def mock_hass():
     """Create a mock HomeAssistant instance for config flow tests."""
@@ -50,10 +53,11 @@ def mock_hass():
     return hass
 
 
-USER_INPUT = {"username": "testuser", "password": "testpass"} # NOSONAR
+USER_INPUT = {"username": "testuser", "password": "testpass"}  # NOSONAR
 
 
 # -- validate_input tests ----------------------------------------------------
+
 
 @pytest.mark.unit
 @pytest.mark.asyncio
@@ -85,6 +89,7 @@ class TestValidateInput:
 
 
 # -- ConfigFlow.async_step_user tests ----------------------------------------
+
 
 @pytest.mark.unit
 @pytest.mark.asyncio
@@ -125,7 +130,10 @@ class TestConfigFlowAsyncStepUser:
         flow.hass = mock_hass
 
         with patch.object(
-            _flow_module, "validate_input", new_callable=AsyncMock, side_effect=InvalidAuth
+            _flow_module,
+            "validate_input",
+            new_callable=AsyncMock,
+            side_effect=InvalidAuth,
         ):
             result = await flow.async_step_user(user_input=USER_INPUT)
 
@@ -138,7 +146,10 @@ class TestConfigFlowAsyncStepUser:
         flow.hass = mock_hass
 
         with patch.object(
-            _flow_module, "validate_input", new_callable=AsyncMock, side_effect=CannotConnect
+            _flow_module,
+            "validate_input",
+            new_callable=AsyncMock,
+            side_effect=CannotConnect,
         ):
             result = await flow.async_step_user(user_input=USER_INPUT)
 
@@ -151,9 +162,44 @@ class TestConfigFlowAsyncStepUser:
         flow.hass = mock_hass
 
         with patch.object(
-            _flow_module, "validate_input", new_callable=AsyncMock, side_effect=RuntimeError("boom")
+            _flow_module,
+            "validate_input",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("boom"),
         ):
             result = await flow.async_step_user(user_input=USER_INPUT)
 
         assert result["type"] == "form"
         assert result["errors"] == {"base": "unknown"}
+
+    async def test_form_connection_timeout(self, mock_hass):
+        """Verify cannot_connect error when requests.Timeout is raised."""
+        flow = ConfigFlow()
+        flow.hass = mock_hass
+
+        with patch.object(
+            _flow_module,
+            "validate_input",
+            new_callable=AsyncMock,
+            side_effect=requests.Timeout("timed out"),
+        ):
+            result = await flow.async_step_user(user_input=USER_INPUT)
+
+        assert result["type"] == "form"
+        assert result["errors"] == {"base": "cannot_connect"}
+
+    async def test_form_connection_error(self, mock_hass):
+        """Verify cannot_connect error when requests.ConnectionError is raised."""
+        flow = ConfigFlow()
+        flow.hass = mock_hass
+
+        with patch.object(
+            _flow_module,
+            "validate_input",
+            new_callable=AsyncMock,
+            side_effect=requests.ConnectionError("connection refused"),
+        ):
+            result = await flow.async_step_user(user_input=USER_INPUT)
+
+        assert result["type"] == "form"
+        assert result["errors"] == {"base": "cannot_connect"}
