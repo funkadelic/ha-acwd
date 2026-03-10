@@ -280,7 +280,11 @@ class ACWDClient:
             )
             return None
 
-        meter_details = bind_data.get("MeterDetails", [])
+        if "MeterDetails" not in bind_data:
+            _LOGGER.warning("BindMultiMeter response missing MeterDetails key")
+            return None
+
+        meter_details = bind_data["MeterDetails"]
 
         if not isinstance(meter_details, list) or any(
             not isinstance(m, dict) for m in meter_details
