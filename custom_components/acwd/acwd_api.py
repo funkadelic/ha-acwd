@@ -386,6 +386,11 @@ class ACWDClient:
                             _LOGGER.info(
                                 f"No AMI meter found, using first meter: {self._water_meter_number}"
                             )
+                else:
+                    _LOGGER.debug(
+                        "BindMultiMeter returned status %d",
+                        bind_response.status_code,
+                    )
             except (requests.Timeout, requests.ConnectionError) as e:
                 _LOGGER.warning(LOG_NETWORK_ERROR, bind_meter_url, e)
             except (ValueError, KeyError, TypeError):

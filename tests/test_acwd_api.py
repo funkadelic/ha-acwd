@@ -701,6 +701,21 @@ class TestLogout:
         mock_close.assert_not_called()
         assert client.logged_in is False
 
+    def test_logout_clears_sensitive_state(self):
+        """logout() resets csrf_token, user_info, and _water_meter_number to initial values."""
+        client = _make_logged_in_client(meter_cached=True)
+        client.csrf_token = "active_csrf"
+        client.user_info = {"Name": "Test User", "AccountNumber": "123"}
+        client._water_meter_number = "230057301"
+
+        with patch.object(client.session, "close"):
+            client.logout()
+
+        assert client.logged_in is False
+        assert client.csrf_token is None
+        assert client.user_info == {}
+        assert client._water_meter_number is None
+
 
 # ---------------------------------------------------------------------------
 # Task 1: meter_number property
@@ -730,22 +745,3 @@ class TestMeterNumberProperty:
 # ---------------------------------------------------------------------------
 # Task 2: Tests for narrowed exception handling
 # ---------------------------------------------------------------------------
-
-
-class TestNarrowedExceptionHandling:
-    """Tests verifying specific exception types after narrowing broad handlers."""
-
-    def test_logout_clears_sensitive_state(self):
-        """logout() resets csrf_token, user_info, and _water_meter_number to initial values."""
-        client = _make_logged_in_client(meter_cached=True)
-        client.csrf_token = "active_csrf"
-        client.user_info = {"Name": "Test User", "AccountNumber": "123"}
-        client._water_meter_number = "230057301"
-
-        with patch.object(client.session, "close"):
-            client.logout()
-
-        assert client.logged_in is False
-        assert client.csrf_token is None
-        assert client.user_info == {}
-        assert client._water_meter_number is None

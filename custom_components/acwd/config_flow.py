@@ -47,9 +47,13 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     await hass.async_add_executor_job(client.logout)
 
     # Return info that you want to store in the config entry.
+    account_number = account_info.get("AccountNumber")
+    if not account_number:
+        raise CannotConnect("Unable to retrieve account number")
+
     return {
         "title": f"ACWD - {account_info.get('Name', 'Water Usage')}",
-        "account_number": account_info.get("AccountNumber"),
+        "account_number": account_number,
         "account_name": account_info.get("Name"),
     }
 
