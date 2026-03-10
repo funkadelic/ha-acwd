@@ -301,10 +301,22 @@ class ACWDClient:
                 elif not isinstance(meter_details, list) or any(
                     not isinstance(m, dict) for m in meter_details
                 ):
-                    _LOGGER.warning(
-                        "Invalid MeterDetails format: expected list of dicts, got %s",
-                        type(meter_details).__name__,
-                    )
+                    if isinstance(meter_details, list):
+                        bad_types = {
+                            type(m).__name__
+                            for m in meter_details
+                            if not isinstance(m, dict)
+                        }
+                        _LOGGER.warning(
+                            "Invalid MeterDetails format: expected list of dicts, "
+                            "got list containing %s",
+                            ", ".join(sorted(bad_types)),
+                        )
+                    else:
+                        _LOGGER.warning(
+                            "Invalid MeterDetails format: expected list of dicts, got %s",
+                            type(meter_details).__name__,
+                        )
                     # Leave existing self._water_meter_number unchanged
                 elif not meter_details:
                     self._water_meter_number = ""
