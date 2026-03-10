@@ -604,24 +604,30 @@ class TestGetUsageDataPaths:
         assert client._water_meter_number is None
 
     def test_bind_multi_meter_value_error_preserves_cached_meter(self):
-        """get_usage_data() preserves _water_meter_number when BindMultiMeter raises ValueError."""
+        """get_usage_data() preserves _water_meter_number when BindMultiMeter parse fails."""
         client = _make_logged_in_client(meter_cached=False)
+        # Seed a cached meter, then clear it to enter the discovery block
+        # This simulates: meter was discovered before, then cleared (e.g. by logout),
+        # and on re-discovery the parse fails — meter should stay None (unchanged).
+        client._water_meter_number = None
 
         usage_page = _usage_page_response()
+        # BindMultiMeter returns 200 but with invalid JSON in 'd' → parse_api_response raises ValueError
+        bad_bind = MagicMock()
+        bad_bind.status_code = 200
+        bad_bind.json.return_value = {"d": "NOT VALID JSON{{{"}
         load_resp = _load_water_usage_response()
 
-        call_count = {"n": 0}
-
-        def _post_side_effect(*_args, **_kwargs):
-            call_count["n"] += 1
-            if call_count["n"] == 1:
-                raise ValueError("unexpected parse failure")
-            return load_resp
-
         with patch.object(client.session, "get", return_value=usage_page):
-            with patch.object(client.session, "post", side_effect=_post_side_effect):
+            with patch.object(
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(bad_bind, load_resp),
+            ):
                 client.get_usage_data(mode="B")
 
+        # meter_details was set to None by the ValueError handler,
+        # so _water_meter_number is unchanged (still None)
         assert client._water_meter_number is None
 
     def test_load_water_usage_non_200_returns_none(self):
@@ -690,9 +696,13 @@ class TestLogout:
         assert client.logged_in is False
         mock_close.assert_called_once()
 
-    def test_logout_does_nothing_when_not_logged_in(self):
-        """logout() does nothing (no session.close()) when client is not logged in."""
+    def test_logout_clears_state_when_not_logged_in(self):
+        """logout() clears cached state even when client is not logged in (e.g. after failed login)."""
         client = _make_client()
+        # Simulate state left over from a failed login
+        client.csrf_token = "stale_token"
+        client.user_info = {"Name": "Partial"}
+        client._water_meter_number = "STALE_METER"
         assert client.logged_in is False
 
         with patch.object(client.session, "close") as mock_close:
@@ -700,6 +710,9 @@ class TestLogout:
 
         mock_close.assert_not_called()
         assert client.logged_in is False
+        assert client.csrf_token is None
+        assert client.user_info == {}
+        assert client._water_meter_number is None
 
     def test_logout_clears_sensitive_state(self):
         """logout() resets csrf_token, user_info, and _water_meter_number to initial values."""

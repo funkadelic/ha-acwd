@@ -31,6 +31,11 @@ def parse_api_response(result: dict, endpoint: str = "unknown") -> Any:
     Raises:
         ValueError: If 'd' is absent or its value is not valid JSON.
     """
+    if not isinstance(result, dict):
+        raise ValueError(
+            f"Unexpected API response from {endpoint}: "
+            f"expected dict envelope, got {type(result).__name__}"
+        )
     if KEY_D not in result:
         raise ValueError(
             f"Unexpected API response from {endpoint}: missing '{KEY_D}' property"

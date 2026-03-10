@@ -171,6 +171,12 @@ class ACWDClient:
             _LOGGER.debug("validateLogin response received")
 
             # Check for special cases before JSON parsing (not valid JSON)
+            if not isinstance(result, dict):
+                _LOGGER.error(
+                    "validateLogin returned non-dict JSON: %s", type(result).__name__
+                )
+                return False
+
             if result.get(KEY_D) == "Migrated User Found":
                 _LOGGER.error("Account requires migration")
                 return False
@@ -365,6 +371,15 @@ class ACWDClient:
                     if meter_details is None:
                         # Parse failed — leave existing meter number unchanged
                         pass
+                    elif not isinstance(meter_details, list) or any(
+                        not isinstance(m, dict) for m in meter_details
+                    ):
+                        _LOGGER.warning(
+                            "Invalid MeterDetails format: expected list of dicts, "
+                            "got %s",
+                            type(meter_details).__name__,
+                        )
+                        # Leave existing self._water_meter_number unchanged
                     elif not meter_details:
                         self._water_meter_number = ""
                         _LOGGER.warning(
@@ -446,10 +461,10 @@ class ACWDClient:
             _LOGGER.info("Logging out...")
             # ACWD portal uses session cookies; closing the session is sufficient for logout.
             self.session.close()
-            self.logged_in = False
-            self.csrf_token = None
-            self.user_info = {}
-            self._water_meter_number = None
+        self.logged_in = False
+        self.csrf_token = None
+        self.user_info = {}
+        self._water_meter_number = None
 
     @property
     def meter_number(self):
