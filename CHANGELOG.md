@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.25] - 2026-03-10
+
+### Changed
+
+- extract meter discovery into _discover_meter helper (#35)
+- narrow exception handling across API client and config flow (#34)
+- bump SonarSource/sonarqube-scan-action from 6 to 7 (#32)
+- split runtime deps into requirements.txt for Dependabot visibility (#33)
 ## [1.0.24] - 2026-03-06
 
 ### Changed
@@ -252,7 +260,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Five water usage sensors (current cycle, projected, last billing, average, highest)
 - 15-minute interval support via manual service
 
-[Unreleased]: https://github.com/funkadelic/ha-acwd/compare/v1.0.24...HEAD
+[Unreleased]: https://github.com/funkadelic/ha-acwd/compare/v1.0.25...HEAD
+[1.0.25]: https://github.com/funkadelic/ha-acwd/compare/v1.0.24...v1.0.25
 [1.0.24]: https://github.com/funkadelic/ha-acwd/compare/v1.0.23...v1.0.24
 [1.0.23]: https://github.com/funkadelic/ha-acwd/compare/v1.0.22...v1.0.23
 [1.0.22]: https://github.com/funkadelic/ha-acwd/compare/v1.0.21...v1.0.22
