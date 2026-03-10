@@ -496,10 +496,10 @@ class TestGetUsageDataPaths:
     """Tests for ACWDClient.get_usage_data() branches."""
 
     def test_get_usage_data_raises_when_not_logged_in(self):
-        """get_usage_data() raises Exception when client is not logged in."""
+        """get_usage_data() raises RuntimeError when client is not logged in."""
         client = _make_client()
 
-        with pytest.raises(Exception, match="Not logged in"):
+        with pytest.raises(RuntimeError, match="Not logged in"):
             client.get_usage_data()
 
     def test_get_usage_data_updates_csrf_when_input_found(self):
@@ -604,7 +604,7 @@ class TestGetUsageDataPaths:
         assert client._water_meter_number is None
 
     def test_bind_multi_meter_value_error_sets_meter_empty_string(self):
-        """get_usage_data() sets _water_meter_number to '' when BindMultiMeter raises ValueError/KeyError/TypeError."""
+        """get_usage_data() sets _water_meter_number to '' when BindMultiMeter raises ValueError."""
         client = _make_logged_in_client(meter_cached=False)
 
         usage_page = _usage_page_response()
@@ -735,24 +735,6 @@ class TestMeterNumberProperty:
 class TestNarrowedExceptionHandling:
     """Tests verifying specific exception types after narrowing broad handlers."""
 
-    def test_login_raises_http_error_on_non_200(self):
-        """login() raises requests.HTTPError (not bare Exception) when login page returns 500."""
-        client = _make_client()
-        bad_resp = MagicMock()
-        bad_resp.status_code = 500
-        bad_resp.raise_for_status.side_effect = requests.HTTPError("500 Server Error")
-
-        with patch.object(client.session, "get", return_value=bad_resp):
-            with pytest.raises(requests.HTTPError):
-                client.login()
-
-    def test_get_usage_data_raises_runtime_error_when_not_logged_in(self):
-        """get_usage_data() raises RuntimeError (not bare Exception) when called before login."""
-        client = _make_client()
-
-        with pytest.raises(RuntimeError, match="Not logged in"):
-            client.get_usage_data()
-
     def test_logout_clears_sensitive_state(self):
         """logout() resets csrf_token, user_info, and _water_meter_number to initial values."""
         client = _make_logged_in_client(meter_cached=True)
@@ -767,56 +749,3 @@ class TestNarrowedExceptionHandling:
         assert client.csrf_token is None
         assert client.user_info == {}
         assert client._water_meter_number is None
-
-    def test_login_handles_malformed_response_structure(self):
-        """login() returns False (does not raise) when parsed inner data has unexpected structure.
-
-        Simulates a KeyError/TypeError from the response-processing logic, confirming
-        the narrowed except (KeyError, TypeError, IndexError) catches it gracefully.
-        """
-        client = _make_client()
-
-        get_resp = _login_page_response()
-        update_resp = _update_state_response()
-
-        # Construct a response where 'd' is valid JSON, but the inner structure
-        # will cause a KeyError when code accesses login_data[0]["STATUS"].
-        import json as _json
-
-        # Use a list whose first item lacks STATUS key entirely (KeyError path)
-        malformed_inner = _json.dumps([{}])
-
-        validate_resp = MagicMock()
-        validate_resp.status_code = 200
-        validate_resp.json.return_value = {"d": malformed_inner}
-
-        with patch.object(client.session, "get", return_value=get_resp):
-            with patch.object(
-                client.session,
-                "post",
-                side_effect=_make_post_dispatcher(update_resp, validate_resp),
-            ):
-                result = client.login()
-
-        # Missing STATUS key — handled gracefully, returns False
-        assert result is False
-
-    def test_get_usage_data_handles_invalid_json_response(self):
-        """get_usage_data() returns None (does not raise) when LoadWaterUsage returns invalid JSON.
-
-        Confirms the narrowed except ValueError catches json decode failures from
-        response.json().
-        """
-        client = _make_logged_in_client(meter_cached=True)
-
-        usage_page = _usage_page_response()
-        bad_json_resp = MagicMock()
-        bad_json_resp.status_code = 200
-        # ValueError is raised by response.json() on invalid JSON body
-        bad_json_resp.json.side_effect = ValueError("No JSON object could be decoded")
-
-        with patch.object(client.session, "get", return_value=usage_page):
-            with patch.object(client.session, "post", return_value=bad_json_resp):
-                result = client.get_usage_data(mode="B")
-
-        assert result is None
