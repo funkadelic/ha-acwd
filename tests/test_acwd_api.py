@@ -603,8 +603,8 @@ class TestGetUsageDataPaths:
 
         assert client._water_meter_number is None
 
-    def test_bind_multi_meter_value_error_sets_meter_empty_string(self):
-        """get_usage_data() sets _water_meter_number to '' when BindMultiMeter raises ValueError."""
+    def test_bind_multi_meter_value_error_preserves_cached_meter(self):
+        """get_usage_data() preserves _water_meter_number when BindMultiMeter raises ValueError."""
         client = _make_logged_in_client(meter_cached=False)
 
         usage_page = _usage_page_response()
@@ -622,7 +622,7 @@ class TestGetUsageDataPaths:
             with patch.object(client.session, "post", side_effect=_post_side_effect):
                 client.get_usage_data(mode="B")
 
-        assert client._water_meter_number == ""
+        assert client._water_meter_number is None
 
     def test_load_water_usage_non_200_returns_none(self):
         """get_usage_data() returns None when LoadWaterUsage returns non-200 status."""

@@ -397,7 +397,6 @@ class ACWDClient:
                 _LOGGER.warning(LOG_NETWORK_ERROR, bind_meter_url, e)
             except (ValueError, KeyError, TypeError):
                 _LOGGER.exception("Error fetching meter list")
-                self._water_meter_number = ""
 
         # Use cached meter number
         meter_number = (
