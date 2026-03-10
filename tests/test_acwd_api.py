@@ -18,6 +18,7 @@ from unittest.mock import MagicMock, patch
 def _make_client():
     """Return a fresh ACWDClient instance."""
     from custom_components.acwd.acwd_api import ACWDClient
+
     return ACWDClient("user@example.com", "secret")
 
 
@@ -112,7 +113,9 @@ def _load_water_usage_response(inner_data=None):
     """Return a mock LoadWaterUsage POST response."""
     resp = MagicMock()
     resp.status_code = 200
-    data = inner_data if inner_data is not None else {"objUsageGenerationResultSetTwo": []}
+    data = (
+        inner_data if inner_data is not None else {"objUsageGenerationResultSetTwo": []}
+    )
     resp.json.return_value = {"d": json.dumps(data)}
     return resp
 
@@ -134,14 +137,15 @@ def _bind_meter_response(meter_details):
 class TestLoginPaths:
     """Tests for ACWDClient.login() branches."""
 
-    def test_login_raises_when_initial_get_returns_non_200(self):
-        """login() raises Exception when initial GET to base_url returns non-200."""
+    def test_login_raises_http_error_when_initial_get_returns_non_200(self):
+        """login() raises requests.HTTPError when initial GET to base_url returns non-200."""
         client = _make_client()
         bad_resp = MagicMock()
         bad_resp.status_code = 503
+        bad_resp.raise_for_status.side_effect = requests.HTTPError("503 Server Error")
 
         with patch.object(client.session, "get", return_value=bad_resp):
-            with pytest.raises(Exception, match="Failed to load login page"):
+            with pytest.raises(requests.HTTPError):
                 client.login()
 
     def test_login_returns_false_when_no_csrf_token(self):
@@ -171,8 +175,9 @@ class TestLoginPaths:
 
         with patch.object(client.session, "get", return_value=get_resp):
             with patch.object(
-                client.session, "post",
-                side_effect=_make_post_dispatcher(update_resp, validate_resp)
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(update_resp, validate_resp),
             ):
                 result = client.login()
 
@@ -191,8 +196,9 @@ class TestLoginPaths:
 
         with patch.object(client.session, "get", return_value=get_resp):
             with patch.object(
-                client.session, "post",
-                side_effect=_make_post_dispatcher(update_resp, validate_resp)
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(update_resp, validate_resp),
             ):
                 result = client.login()
 
@@ -210,8 +216,9 @@ class TestLoginPaths:
 
         with patch.object(client.session, "get", return_value=get_resp):
             with patch.object(
-                client.session, "post",
-                side_effect=_make_post_dispatcher(update_resp, validate_resp)
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(update_resp, validate_resp),
             ):
                 result = client.login()
 
@@ -223,14 +230,26 @@ class TestLoginPaths:
 
         get_resp = _login_page_response()
         update_resp = _update_state_response()
-        inner = [{"STATUS": "1", "DashboardOption": "2", "Name": "Test User", "AccountNumber": "99"}]
+        inner = [
+            {
+                "STATUS": "1",
+                "DashboardOption": "2",
+                "Name": "Test User",
+                "AccountNumber": "99",
+            }
+        ]
         validate_resp = _validate_login_response(inner)
         dashboard_resp = _dashboard_response()
 
-        with patch.object(client.session, "get", side_effect=_make_get_dispatcher(get_resp, dashboard_resp)):
+        with patch.object(
+            client.session,
+            "get",
+            side_effect=_make_get_dispatcher(get_resp, dashboard_resp),
+        ):
             with patch.object(
-                client.session, "post",
-                side_effect=_make_post_dispatcher(update_resp, validate_resp)
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(update_resp, validate_resp),
             ):
                 result = client.login()
 
@@ -243,14 +262,26 @@ class TestLoginPaths:
 
         get_resp = _login_page_response()
         update_resp = _update_state_response()
-        inner = [{"STATUS": "1", "DashboardOption": "3", "Name": "Test User", "AccountNumber": "99"}]
+        inner = [
+            {
+                "STATUS": "1",
+                "DashboardOption": "3",
+                "Name": "Test User",
+                "AccountNumber": "99",
+            }
+        ]
         validate_resp = _validate_login_response(inner)
         dashboard_resp = _dashboard_response()
 
-        with patch.object(client.session, "get", side_effect=_make_get_dispatcher(get_resp, dashboard_resp)):
+        with patch.object(
+            client.session,
+            "get",
+            side_effect=_make_get_dispatcher(get_resp, dashboard_resp),
+        ):
             with patch.object(
-                client.session, "post",
-                side_effect=_make_post_dispatcher(update_resp, validate_resp)
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(update_resp, validate_resp),
             ):
                 result = client.login()
 
@@ -263,14 +294,26 @@ class TestLoginPaths:
 
         get_resp = _login_page_response()
         update_resp = _update_state_response()
-        inner = [{"STATUS": "1", "DashboardOption": "1", "Name": "Test User", "AccountNumber": "99"}]
+        inner = [
+            {
+                "STATUS": "1",
+                "DashboardOption": "1",
+                "Name": "Test User",
+                "AccountNumber": "99",
+            }
+        ]
         validate_resp = _validate_login_response(inner)
         dashboard_resp = _dashboard_response()
 
-        with patch.object(client.session, "get", side_effect=_make_get_dispatcher(get_resp, dashboard_resp)):
+        with patch.object(
+            client.session,
+            "get",
+            side_effect=_make_get_dispatcher(get_resp, dashboard_resp),
+        ):
             with patch.object(
-                client.session, "post",
-                side_effect=_make_post_dispatcher(update_resp, validate_resp)
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(update_resp, validate_resp),
             ):
                 result = client.login()
 
@@ -283,14 +326,26 @@ class TestLoginPaths:
 
         get_resp = _login_page_response()
         update_resp = _update_state_response()
-        inner = [{"STATUS": "1", "DashboardOption": "1", "Name": "Test User", "AccountNumber": "99"}]
+        inner = [
+            {
+                "STATUS": "1",
+                "DashboardOption": "1",
+                "Name": "Test User",
+                "AccountNumber": "99",
+            }
+        ]
         validate_resp = _validate_login_response(inner)
         bad_dashboard_resp = _dashboard_response(status=500)
 
-        with patch.object(client.session, "get", side_effect=_make_get_dispatcher(get_resp, bad_dashboard_resp)):
+        with patch.object(
+            client.session,
+            "get",
+            side_effect=_make_get_dispatcher(get_resp, bad_dashboard_resp),
+        ):
             with patch.object(
-                client.session, "post",
-                side_effect=_make_post_dispatcher(update_resp, validate_resp)
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(update_resp, validate_resp),
             ):
                 result = client.login()
 
@@ -303,7 +358,14 @@ class TestLoginPaths:
 
         get_resp = _login_page_response()
         update_resp = _update_state_response()
-        inner = [{"STATUS": "1", "DashboardOption": "1", "Name": "Test User", "AccountNumber": "99"}]
+        inner = [
+            {
+                "STATUS": "1",
+                "DashboardOption": "1",
+                "Name": "Test User",
+                "AccountNumber": "99",
+            }
+        ]
         validate_resp = _validate_login_response(inner)
 
         call_count = {"n": 0}
@@ -316,8 +378,9 @@ class TestLoginPaths:
 
         with patch.object(client.session, "get", side_effect=_get_side_effect):
             with patch.object(
-                client.session, "post",
-                side_effect=_make_post_dispatcher(update_resp, validate_resp)
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(update_resp, validate_resp),
             ):
                 result = client.login()
 
@@ -335,8 +398,9 @@ class TestLoginPaths:
 
         with patch.object(client.session, "get", return_value=get_resp):
             with patch.object(
-                client.session, "post",
-                side_effect=_make_post_dispatcher(update_resp, validate_resp)
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(update_resp, validate_resp),
             ):
                 result = client.login()
 
@@ -353,8 +417,9 @@ class TestLoginPaths:
 
         with patch.object(client.session, "get", return_value=get_resp):
             with patch.object(
-                client.session, "post",
-                side_effect=_make_post_dispatcher(update_resp, validate_resp)
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(update_resp, validate_resp),
             ):
                 result = client.login()
 
@@ -374,15 +439,16 @@ class TestLoginPaths:
 
         with patch.object(client.session, "get", return_value=get_resp):
             with patch.object(
-                client.session, "post",
-                side_effect=_make_post_dispatcher(update_resp, bad_validate_resp)
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(update_resp, bad_validate_resp),
             ):
                 result = client.login()
 
         assert result is False
 
-    def test_login_returns_false_on_generic_exception_from_parse(self):
-        """login() returns False when response.json() raises a generic Exception."""
+    def test_login_propagates_runtime_error_from_json_parse(self):
+        """login() propagates RuntimeError from response.json() — not silently swallowed."""
         client = _make_client()
 
         get_resp = _login_page_response()
@@ -394,12 +460,12 @@ class TestLoginPaths:
 
         with patch.object(client.session, "get", return_value=get_resp):
             with patch.object(
-                client.session, "post",
-                side_effect=_make_post_dispatcher(update_resp, exc_validate_resp)
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(update_resp, exc_validate_resp),
             ):
-                result = client.login()
-
-        assert result is False
+                with pytest.raises(RuntimeError, match="unexpected error"):
+                    client.login()
 
     def test_login_returns_false_when_validate_status_not_200(self):
         """login() returns False when validateLogin endpoint returns non-200."""
@@ -412,8 +478,9 @@ class TestLoginPaths:
 
         with patch.object(client.session, "get", return_value=get_resp):
             with patch.object(
-                client.session, "post",
-                side_effect=_make_post_dispatcher(update_resp, bad_validate)
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(update_resp, bad_validate),
             ):
                 result = client.login()
 
@@ -482,15 +549,16 @@ class TestGetUsageDataPaths:
         client = _make_logged_in_client(meter_cached=False)
 
         usage_page = _usage_page_response()
-        bind_resp = _bind_meter_response([
-            {"IsAMI": True, "MeterType": "W", "MeterNumber": "AMI_METER_123"}
-        ])
+        bind_resp = _bind_meter_response(
+            [{"IsAMI": True, "MeterType": "W", "MeterNumber": "AMI_METER_123"}]
+        )
         load_resp = _load_water_usage_response()
 
         with patch.object(client.session, "get", return_value=usage_page):
             with patch.object(
-                client.session, "post",
-                side_effect=_make_post_dispatcher(bind_resp, load_resp)
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(bind_resp, load_resp),
             ):
                 client.get_usage_data(mode="B")
 
@@ -501,15 +569,16 @@ class TestGetUsageDataPaths:
         client = _make_logged_in_client(meter_cached=False)
 
         usage_page = _usage_page_response()
-        bind_resp = _bind_meter_response([
-            {"IsAMI": False, "MeterType": "W", "MeterNumber": "FIRST_METER_999"}
-        ])
+        bind_resp = _bind_meter_response(
+            [{"IsAMI": False, "MeterType": "W", "MeterNumber": "FIRST_METER_999"}]
+        )
         load_resp = _load_water_usage_response()
 
         with patch.object(client.session, "get", return_value=usage_page):
             with patch.object(
-                client.session, "post",
-                side_effect=_make_post_dispatcher(bind_resp, load_resp)
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(bind_resp, load_resp),
             ):
                 client.get_usage_data(mode="B")
 
@@ -526,15 +595,16 @@ class TestGetUsageDataPaths:
 
         with patch.object(client.session, "get", return_value=usage_page):
             with patch.object(
-                client.session, "post",
-                side_effect=_make_post_dispatcher(bad_bind, load_resp)
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(bad_bind, load_resp),
             ):
                 client.get_usage_data(mode="B")
 
         assert client._water_meter_number is None
 
-    def test_bind_multi_meter_generic_exception_sets_meter_empty_string(self):
-        """get_usage_data() sets _water_meter_number to '' when BindMultiMeter raises generic Exception."""
+    def test_bind_multi_meter_value_error_sets_meter_empty_string(self):
+        """get_usage_data() sets _water_meter_number to '' when BindMultiMeter raises ValueError/KeyError/TypeError."""
         client = _make_logged_in_client(meter_cached=False)
 
         usage_page = _usage_page_response()
@@ -545,7 +615,7 @@ class TestGetUsageDataPaths:
         def _post_side_effect(*_args, **_kwargs):
             call_count["n"] += 1
             if call_count["n"] == 1:
-                raise RuntimeError("unexpected bind failure")
+                raise ValueError("unexpected parse failure")
             return load_resp
 
         with patch.object(client.session, "get", return_value=usage_page):
