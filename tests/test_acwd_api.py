@@ -740,8 +740,3 @@ class TestMeterNumberProperty:
         client = _make_client()
         client._water_meter_number = "METER_XYZ"
         assert client.meter_number == "METER_XYZ"
-
-
-# ---------------------------------------------------------------------------
-# Task 2: Tests for narrowed exception handling
-# ---------------------------------------------------------------------------

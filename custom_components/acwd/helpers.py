@@ -38,7 +38,7 @@ def parse_api_response(result: dict, endpoint: str = "unknown") -> Any:
     raw = result[KEY_D]
     if not isinstance(raw, str):
         raise ValueError(
-            f"Unexpected API response from {endpoint}: 'd' is {type(raw).__name__}, expected str (got: {raw!r})"
+            f"Unexpected API response from {endpoint}: '{KEY_D}' is {type(raw).__name__}, expected str (got: {raw!r})"
         )
     try:
         return json.loads(raw)
