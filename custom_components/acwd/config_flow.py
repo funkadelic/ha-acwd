@@ -1,9 +1,11 @@
 """Config flow for ACWD Water Usage integration."""
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 
+import requests
 import voluptuous as vol
 
 from homeassistant import config_entries
@@ -47,8 +49,8 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     # Return info that you want to store in the config entry.
     return {
         "title": f"ACWD - {account_info.get('Name', 'Water Usage')}",
-        "account_number": account_info.get('AccountNumber'),
-        "account_name": account_info.get('Name'),
+        "account_number": account_info.get("AccountNumber"),
+        "account_name": account_info.get("Name"),
     }
 
 
@@ -72,7 +74,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
             except InvalidAuth:
                 errors["base"] = "invalid_auth"
-            except Exception:  # pylint: disable=broad-except
+            except (requests.Timeout, requests.ConnectionError) as err:
+                _LOGGER.warning("Connection error during setup: %s", err)
+                errors["base"] = "cannot_connect"
+            except Exception:  # pylint: disable=broad-except  # noqa: BLE001
+                # HA convention: broad except is the standard safety net for config flows
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
             else:
