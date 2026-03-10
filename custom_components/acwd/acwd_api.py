@@ -256,6 +256,75 @@ class ACWDClient:
             _LOGGER.debug(f"Response text: {validate_response.text[:200]}")
             return False
 
+    @staticmethod
+    def _parse_meter_response(bind_result):
+        """Parse and validate the BindMultiMeter API response.
+
+        Args:
+            bind_result: Raw JSON response from BindMultiMeter endpoint.
+
+        Returns:
+            list[dict] | None: List of meter dicts on success (may be empty),
+                or None on parse/validation error.
+        """
+        try:
+            bind_data = parse_api_response(bind_result, endpoint="BindMultiMeter")
+        except ValueError as e:
+            _LOGGER.warning("Failed to parse BindMultiMeter response: %s", e)
+            return None
+
+        if not isinstance(bind_data, dict):
+            _LOGGER.warning(
+                "Unexpected BindMultiMeter response type: %s",
+                type(bind_data).__name__,
+            )
+            return None
+
+        meter_details = bind_data.get("MeterDetails", [])
+
+        if not isinstance(meter_details, list) or any(
+            not isinstance(m, dict) for m in meter_details
+        ):
+            if isinstance(meter_details, list):
+                bad_types = {
+                    type(m).__name__ for m in meter_details if not isinstance(m, dict)
+                }
+                _LOGGER.warning(
+                    "Invalid MeterDetails format: expected list of dicts, "
+                    "got list containing %s",
+                    ", ".join(sorted(bad_types)),
+                )
+            else:
+                _LOGGER.warning(
+                    "Invalid MeterDetails format: expected list of dicts, got %s",
+                    type(meter_details).__name__,
+                )
+            return None
+
+        return meter_details
+
+    @staticmethod
+    def _select_meter(meter_details):
+        """Select the best meter from a list of meter dicts.
+
+        Prefers an AMI-enabled water meter; falls back to the first meter.
+
+        Args:
+            meter_details: Non-empty list of meter dicts.
+
+        Returns:
+            str: The chosen MeterNumber.
+        """
+        for meter in meter_details:
+            if meter.get("IsAMI") and meter.get("MeterType") == "W":
+                meter_number = meter.get("MeterNumber", "")
+                _LOGGER.info(f"Found AMI water meter: {meter_number}")
+                return meter_number
+
+        meter_number = meter_details[0].get("MeterNumber", "")
+        _LOGGER.info(f"No AMI meter found, using first meter: {meter_number}")
+        return meter_number
+
     def _discover_meter(self, headers):
         """Discover the water meter number via the BindMultiMeter API.
 
@@ -276,78 +345,33 @@ class ACWDClient:
                 headers=headers,
                 timeout=HTTP_TIMEOUT,
             )
-
-            if bind_response.status_code == 200:
-                bind_result = bind_response.json()
-                try:
-                    bind_data = parse_api_response(
-                        bind_result, endpoint="BindMultiMeter"
-                    )
-                    if not isinstance(bind_data, dict):
-                        _LOGGER.warning(
-                            "Unexpected BindMultiMeter response type: %s",
-                            type(bind_data).__name__,
-                        )
-                        meter_details = None
-                    else:
-                        meter_details = bind_data.get("MeterDetails", [])
-                except ValueError as e:
-                    _LOGGER.warning("Failed to parse BindMultiMeter response: %s", e)
-                    meter_details = None
-
-                if meter_details is None:
-                    # Parse failed — leave existing meter number unchanged
-                    pass
-                elif not isinstance(meter_details, list) or any(
-                    not isinstance(m, dict) for m in meter_details
-                ):
-                    if isinstance(meter_details, list):
-                        bad_types = {
-                            type(m).__name__
-                            for m in meter_details
-                            if not isinstance(m, dict)
-                        }
-                        _LOGGER.warning(
-                            "Invalid MeterDetails format: expected list of dicts, "
-                            "got list containing %s",
-                            ", ".join(sorted(bad_types)),
-                        )
-                    else:
-                        _LOGGER.warning(
-                            "Invalid MeterDetails format: expected list of dicts, got %s",
-                            type(meter_details).__name__,
-                        )
-                    # Leave existing self._water_meter_number unchanged
-                elif not meter_details:
-                    self._water_meter_number = ""
-                    _LOGGER.warning("No water meters found, using empty meter number")
-                else:
-                    # Find AMI-enabled meter (smart meter with hourly data)
-                    ami_meter = None
-                    for meter in meter_details:
-                        if meter.get("IsAMI") and meter.get("MeterType") == "W":
-                            ami_meter = meter.get("MeterNumber", "")
-                            _LOGGER.info(f"Found AMI water meter: {ami_meter}")
-                            break
-
-                    if ami_meter:
-                        self._water_meter_number = ami_meter
-                    else:
-                        self._water_meter_number = meter_details[0].get(
-                            "MeterNumber", ""
-                        )
-                        _LOGGER.info(
-                            f"No AMI meter found, using first meter: {self._water_meter_number}"
-                        )
-            else:
-                _LOGGER.debug(
-                    "BindMultiMeter returned status %d",
-                    bind_response.status_code,
-                )
         except (requests.Timeout, requests.ConnectionError) as e:
             _LOGGER.warning(LOG_NETWORK_ERROR, bind_meter_url, e)
+            return
         except (ValueError, KeyError, TypeError):
             _LOGGER.exception("Error fetching meter list")
+            return
+
+        if bind_response.status_code != 200:
+            _LOGGER.debug(
+                "BindMultiMeter returned status %d",
+                bind_response.status_code,
+            )
+            return
+
+        bind_result = bind_response.json()
+        meter_details = self._parse_meter_response(bind_result)
+
+        if meter_details is None:
+            # Parse/validation failed — leave existing meter number unchanged
+            return
+
+        if not meter_details:
+            self._water_meter_number = ""
+            _LOGGER.warning("No water meters found, using empty meter number")
+            return
+
+        self._water_meter_number = self._select_meter(meter_details)
 
     def get_usage_data(
         self, mode="B", date_from=None, date_to=None, str_date=None, hourly_type="H"
