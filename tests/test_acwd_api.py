@@ -781,11 +781,8 @@ class TestNarrowedExceptionHandling:
 
         # Construct a response where 'd' is valid JSON, but the inner structure
         # will cause a KeyError when code accesses login_data[0]["STATUS"].
-        # We use an object whose [] operator raises KeyError.
         import json as _json
 
-        # A list with a non-dict item triggers TypeError on .get() access
-        malformed_inner = _json.dumps([None])  # login_data[0] is None -> AttributeError
         # Use a list whose first item lacks STATUS key entirely (KeyError path)
         malformed_inner = _json.dumps([{}])
 

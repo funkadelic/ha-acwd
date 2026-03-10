@@ -240,12 +240,12 @@ class ACWDClient:
                 _LOGGER.error(f"Unexpected login response: {login_data}")
                 return False
 
-        except ValueError as e:
-            _LOGGER.error(f"Failed to parse login response JSON: {e}")
+        except ValueError:
+            _LOGGER.exception("Failed to parse login response JSON")
             return False
-        except (KeyError, TypeError, IndexError) as e:
-            _LOGGER.error(f"Error processing validateLogin response: {e}")
-            _LOGGER.error(f"Response text: {validate_response.text[:200]}")
+        except (KeyError, TypeError, IndexError):
+            _LOGGER.exception("Error processing validateLogin response")
+            _LOGGER.debug(f"Response text: {validate_response.text[:200]}")
             return False
 
     def get_usage_data(
@@ -388,8 +388,8 @@ class ACWDClient:
                             )
             except (requests.Timeout, requests.ConnectionError) as e:
                 _LOGGER.warning(LOG_NETWORK_ERROR, bind_meter_url, e)
-            except (ValueError, KeyError, TypeError) as e:
-                _LOGGER.error(f"Error fetching meter list: {e}")
+            except (ValueError, KeyError, TypeError):
+                _LOGGER.exception("Error fetching meter list")
                 self._water_meter_number = ""
 
         # Use cached meter number
