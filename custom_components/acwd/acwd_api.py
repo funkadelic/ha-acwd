@@ -18,7 +18,14 @@ import requests
 from bs4 import BeautifulSoup
 import logging
 
-from .const import DATE_FORMAT_LONG, HTTP_TIMEOUT, LOG_NETWORK_ERROR
+from .const import (
+    DATE_FORMAT_LONG,
+    HTTP_TIMEOUT,
+    KEY_D,
+    KEY_MESSAGE,
+    KEY_STATUS,
+    LOG_NETWORK_ERROR,
+)
 from .helpers import parse_api_response, parse_date_mdy
 
 _LOGGER = logging.getLogger(__name__)
@@ -33,14 +40,9 @@ HEADER_REFERER = "Referer"
 HEADER_CONTENT_TYPE = "Content-Type"
 VALUE_XML_HTTP_REQUEST = "XMLHttpRequest"
 
-# API response keys
-KEY_D = "d"
-KEY_STATUS = "STATUS"
-KEY_MESSAGE = "Message"
-
 # Parser constants
 PARSER_HTML = "html.parser"
-FIELD_CSRF_TOKEN = "hdnCSRFToken"
+FIELD_CSRF_TOKEN = "hdnCSRFToken"  # noqa: S105  # form field name, not a secret
 
 
 class ACWDClient:
@@ -169,7 +171,7 @@ class ACWDClient:
             _LOGGER.debug("validateLogin response received")
 
             # Check for special cases before JSON parsing (not valid JSON)
-            if result.get("d") == "Migrated User Found":
+            if result.get(KEY_D) == "Migrated User Found":
                 _LOGGER.error("Account requires migration")
                 return False
 
@@ -181,7 +183,7 @@ class ACWDClient:
             if isinstance(login_data, dict) and "dtResponse" in login_data:
                 error_info = login_data["dtResponse"][0]
                 _LOGGER.error(
-                    f"Login failed: {error_info.get('Message', 'Unknown error')}"
+                    f"Login failed: {error_info.get(KEY_MESSAGE, 'Unknown error')}"
                 )
                 return False
 
@@ -190,13 +192,13 @@ class ACWDClient:
                 main_table = login_data[0]
 
                 # Check STATUS field
-                if "STATUS" in main_table:
+                if KEY_STATUS in main_table:
                     status = str(
-                        main_table["STATUS"]
+                        main_table[KEY_STATUS]
                     )  # Convert to string for comparison
                     if status == "0":
                         _LOGGER.error(
-                            f"Login failed: {main_table.get('Message', 'Unknown error')}"
+                            f"Login failed: {main_table.get(KEY_MESSAGE, 'Unknown error')}"
                         )
                         return False
                     elif status == "1":

@@ -78,7 +78,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
             except InvalidAuth:
                 errors["base"] = "invalid_auth"
-            except (requests.Timeout, requests.ConnectionError) as err:
+            except (
+                requests.Timeout,
+                requests.ConnectionError,
+                requests.HTTPError,
+            ) as err:
                 _LOGGER.warning("Connection error during setup: %s", err)
                 errors["base"] = "cannot_connect"
             except Exception:  # pylint: disable=broad-except  # noqa: BLE001

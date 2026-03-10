@@ -22,10 +22,15 @@ DATE_FORMAT_SLASH_MDY = "%m/%d/%Y"
 DATE_FORMAT_LONG = "%B %d, %Y"
 TIME_FORMAT_12HR = "%I:%M %p"
 
+# -- API Response Keys -----------------------------------------------------
+KEY_D = "d"
+KEY_STATUS = "STATUS"
+KEY_MESSAGE = "Message"
+
 # -- Logging Messages ------------------------------------------------------
 LOG_NETWORK_ERROR = "Network error reaching %s: %s"
 
 # -- HTTP Timeouts ---------------------------------------------------------
-HTTP_CONNECT_TIMEOUT = 10   # seconds to establish connection
-HTTP_READ_TIMEOUT = 30      # seconds to receive response
+HTTP_CONNECT_TIMEOUT = 10  # seconds to establish connection
+HTTP_READ_TIMEOUT = 30  # seconds to receive response
 HTTP_TIMEOUT = (HTTP_CONNECT_TIMEOUT, HTTP_READ_TIMEOUT)

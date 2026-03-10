@@ -1,4 +1,5 @@
 """Shared utility functions for the ACWD Water Usage integration."""
+
 from __future__ import annotations
 
 import json
@@ -8,7 +9,7 @@ from typing import Any
 
 from homeassistant.util import dt as dt_util
 
-from .const import DATE_FORMAT_LONG, DATE_FORMAT_SLASH_MDY, TIME_FORMAT_12HR
+from .const import DATE_FORMAT_LONG, DATE_FORMAT_SLASH_MDY, KEY_D, TIME_FORMAT_12HR
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,11 +31,11 @@ def parse_api_response(result: dict, endpoint: str = "unknown") -> Any:
     Raises:
         ValueError: If 'd' is absent or its value is not valid JSON.
     """
-    if "d" not in result:
+    if KEY_D not in result:
         raise ValueError(
-            f"Unexpected API response from {endpoint}: missing 'd' property"
+            f"Unexpected API response from {endpoint}: missing '{KEY_D}' property"
         )
-    raw = result["d"]
+    raw = result[KEY_D]
     if not isinstance(raw, str):
         raise ValueError(
             f"Unexpected API response from {endpoint}: 'd' is {type(raw).__name__}, expected str (got: {raw!r})"
