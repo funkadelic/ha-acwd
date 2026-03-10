@@ -630,6 +630,29 @@ class TestGetUsageDataPaths:
         # so _water_meter_number is unchanged (still None)
         assert client._water_meter_number is None
 
+    def test_bind_multi_meter_json_decode_error_preserves_cached_meter(self):
+        """get_usage_data() preserves _water_meter_number when BindMultiMeter returns non-JSON body."""
+        client = _make_logged_in_client(meter_cached=False)
+
+        usage_page = _usage_page_response()
+        # BindMultiMeter returns 200 but response.json() raises ValueError (HTML body)
+        bad_bind = MagicMock()
+        bad_bind.status_code = 200
+        bad_bind.json.side_effect = requests.exceptions.JSONDecodeError(
+            "Expecting value", "", 0
+        )
+        load_resp = _load_water_usage_response()
+
+        with patch.object(client.session, "get", return_value=usage_page):
+            with patch.object(
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(bad_bind, load_resp),
+            ):
+                client.get_usage_data(mode="B")
+
+        assert client._water_meter_number is None
+
     def test_load_water_usage_non_200_returns_none(self):
         """get_usage_data() returns None when LoadWaterUsage returns non-200 status."""
         client = _make_logged_in_client(meter_cached=True)

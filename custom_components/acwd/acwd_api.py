@@ -359,7 +359,12 @@ class ACWDClient:
             )
             return
 
-        bind_result = bind_response.json()
+        try:
+            bind_result = bind_response.json()
+        except ValueError as e:
+            _LOGGER.warning("Failed to decode BindMultiMeter response JSON: %s", e)
+            return
+
         meter_details = self._parse_meter_response(bind_result)
 
         if meter_details is None:
