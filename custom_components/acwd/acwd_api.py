@@ -352,9 +352,6 @@ class ACWDClient:
         except (requests.Timeout, requests.ConnectionError) as e:
             _LOGGER.warning(LOG_NETWORK_ERROR, bind_meter_url, e)
             return
-        except (ValueError, KeyError, TypeError):
-            _LOGGER.exception("Error fetching meter list")
-            return
 
         if bind_response.status_code != 200:
             _LOGGER.debug(

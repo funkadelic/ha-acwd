@@ -831,32 +831,24 @@ class TestRefreshCsrfToken:
 class TestFormatApiDate:
     """Tests for ACWDClient._format_api_date()."""
 
-    def test_returns_empty_string_for_none(self):
-        from custom_components.acwd.acwd_api import ACWDClient
+    from custom_components.acwd.acwd_api import ACWDClient
 
-        assert ACWDClient._format_api_date(None) == ""
+    def test_returns_empty_string_for_none(self):
+        assert self.ACWDClient._format_api_date(None) == ""
 
     def test_returns_empty_string_for_empty(self):
-        from custom_components.acwd.acwd_api import ACWDClient
-
-        assert ACWDClient._format_api_date("") == ""
+        assert self.ACWDClient._format_api_date("") == ""
 
     def test_formats_valid_date(self):
-        from custom_components.acwd.acwd_api import ACWDClient
-
-        result = ACWDClient._format_api_date("12/04/2025")
+        result = self.ACWDClient._format_api_date("12/04/2025")
         assert result == "December 4, 2025"
 
     def test_formats_date_without_leading_zero(self):
-        from custom_components.acwd.acwd_api import ACWDClient
-
-        result = ACWDClient._format_api_date("01/01/2026")
+        result = self.ACWDClient._format_api_date("01/01/2026")
         assert result == "January 1, 2026"
 
     def test_returns_raw_value_on_parse_failure(self):
-        from custom_components.acwd.acwd_api import ACWDClient
-
-        result = ACWDClient._format_api_date("not-a-real-date")
+        result = self.ACWDClient._format_api_date("not-a-real-date")
         assert result == "not-a-real-date"
 
 
