@@ -373,6 +373,51 @@ class ACWDClient:
 
         self._water_meter_number = self._select_meter(meter_details)
 
+    def _refresh_csrf_token(self):
+        """Fetch the usage page and update self.csrf_token if a fresh token is found.
+
+        Non-fatal: logs warnings on network errors and continues silently
+        if no token is found.
+        """
+        usage_page_url = f"{self.base_url}usages.aspx?type=WU"
+        try:
+            page_response = self.session.get(usage_page_url, timeout=HTTP_TIMEOUT)
+        except (requests.Timeout, requests.ConnectionError) as e:
+            _LOGGER.warning(LOG_NETWORK_ERROR, usage_page_url, e)
+            return
+
+        if page_response.status_code != 200:
+            return
+
+        soup = BeautifulSoup(page_response.text, PARSER_HTML)
+        csrf_input = soup.find("input", {"id": FIELD_CSRF_TOKEN})
+        if csrf_input:
+            fresh_csrf = csrf_input.get("value", "")
+            if fresh_csrf:
+                self.csrf_token = fresh_csrf
+                _LOGGER.info("Got fresh CSRF token from usage page")
+
+    @staticmethod
+    def _format_api_date(str_date):
+        """Convert MM/DD/YYYY date string to "Month D, YYYY" format for the API.
+
+        Args:
+            str_date: Date string in MM/DD/YYYY format, or None.
+
+        Returns:
+            str: Formatted date string, or empty string if str_date is falsy.
+        """
+        if not str_date:
+            return ""
+
+        date_obj = parse_date_mdy(str_date)
+        if date_obj is not None:
+            # Format as "December 4, 2025" (no leading zero on day)
+            return date_obj.strftime(DATE_FORMAT_LONG).replace(" 0", " ")
+
+        _LOGGER.warning("Failed to parse date %r, using raw value", str_date)
+        return str(str_date)
+
     def get_usage_data(
         self, mode="B", date_from=None, date_to=None, str_date=None, hourly_type="H"
     ):
@@ -405,35 +450,11 @@ class ACWDClient:
 
         _LOGGER.info(f"Fetching usage data (mode={mode}, hourly_type={hourly_type})...")
 
-        # First, navigate to the usage page to get a fresh CSRF token
-        usage_page_url = f"{self.base_url}usages.aspx?type=WU"
-        try:
-            page_response = self.session.get(usage_page_url, timeout=HTTP_TIMEOUT)
+        self._refresh_csrf_token()
 
-            if page_response.status_code == 200:
-                soup = BeautifulSoup(page_response.text, PARSER_HTML)
-                csrf_input = soup.find("input", {"id": FIELD_CSRF_TOKEN})
-                if csrf_input:
-                    fresh_csrf = csrf_input.get("value", "")
-                    if fresh_csrf:
-                        self.csrf_token = fresh_csrf
-                        _LOGGER.info("Got fresh CSRF token from usage page")
-        except (requests.Timeout, requests.ConnectionError) as e:
-            _LOGGER.warning(LOG_NETWORK_ERROR, usage_page_url, e)
-            # Continue without fresh CSRF — get_usage_data() proceeds with existing session state
+        formatted_date = self._format_api_date(str_date)
 
         usage_url = f"{self.base_url}Usages.aspx/LoadWaterUsage"
-
-        # Convert MM/DD/YYYY date to "Month D, YYYY" format if provided
-        formatted_date = ""
-        if str_date:
-            date_obj = parse_date_mdy(str_date)
-            if date_obj is not None:
-                # Format as "December 4, 2025" (no leading zero on day)
-                formatted_date = date_obj.strftime(DATE_FORMAT_LONG).replace(" 0", " ")
-            else:
-                _LOGGER.warning("Failed to parse date %r, using raw value", str_date)
-                formatted_date = str(str_date) if str_date else ""
 
         # Set up headers for API requests
         headers = {
