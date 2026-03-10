@@ -630,6 +630,23 @@ class TestGetUsageDataPaths:
         # so _water_meter_number is unchanged (still None)
         assert client._water_meter_number is None
 
+    def test_bind_multi_meter_json_decode_error_preserves_cached_meter(self):
+        """_discover_meter() preserves pre-existing _water_meter_number when response.json() fails."""
+        client = _make_logged_in_client(meter_cached=True)  # seeded with "230057301"
+
+        # BindMultiMeter returns 200 but response.json() raises ValueError (HTML body)
+        bad_bind = MagicMock()
+        bad_bind.status_code = 200
+        bad_bind.json.side_effect = requests.exceptions.JSONDecodeError(
+            "Expecting value", "", 0
+        )
+
+        headers = {"Content-Type": "application/json"}
+        with patch.object(client.session, "post", return_value=bad_bind):
+            client._discover_meter(headers)
+
+        assert client._water_meter_number == "230057301"
+
     def test_load_water_usage_non_200_returns_none(self):
         """get_usage_data() returns None when LoadWaterUsage returns non-200 status."""
         client = _make_logged_in_client(meter_cached=True)
@@ -728,6 +745,111 @@ class TestLogout:
         assert client.csrf_token is None
         assert client.user_info == {}
         assert client._water_meter_number is None
+
+
+# ---------------------------------------------------------------------------
+# _refresh_csrf_token
+# ---------------------------------------------------------------------------
+
+
+class TestRefreshCsrfToken:
+    """Tests for ACWDClient._refresh_csrf_token()."""
+
+    def test_updates_csrf_when_token_found(self):
+        """_refresh_csrf_token() updates csrf_token when usage page has a fresh token."""
+        client = _make_logged_in_client()
+        client.csrf_token = "old_token"
+
+        usage_page = MagicMock()
+        usage_page.status_code = 200
+        usage_page.text = (
+            '<html><input id="hdnCSRFToken" value="new_fresh_token"/></html>'
+        )
+
+        with patch.object(client.session, "get", return_value=usage_page):
+            client._refresh_csrf_token()
+
+        assert client.csrf_token == "new_fresh_token"
+
+    def test_keeps_csrf_when_no_input_found(self):
+        """_refresh_csrf_token() leaves csrf_token unchanged when page has no token input."""
+        client = _make_logged_in_client()
+        client.csrf_token = "old_token"
+
+        usage_page = _usage_page_response()  # no CSRF input
+
+        with patch.object(client.session, "get", return_value=usage_page):
+            client._refresh_csrf_token()
+
+        assert client.csrf_token == "old_token"
+
+    def test_keeps_csrf_when_token_value_empty(self):
+        """_refresh_csrf_token() leaves csrf_token unchanged when token value is empty."""
+        client = _make_logged_in_client()
+        client.csrf_token = "old_token"
+
+        usage_page = MagicMock()
+        usage_page.status_code = 200
+        usage_page.text = '<html><input id="hdnCSRFToken" value=""/></html>'
+
+        with patch.object(client.session, "get", return_value=usage_page):
+            client._refresh_csrf_token()
+
+        assert client.csrf_token == "old_token"
+
+    def test_keeps_csrf_on_non_200(self):
+        """_refresh_csrf_token() leaves csrf_token unchanged on non-200 status."""
+        client = _make_logged_in_client()
+        client.csrf_token = "old_token"
+
+        bad_resp = MagicMock()
+        bad_resp.status_code = 500
+
+        with patch.object(client.session, "get", return_value=bad_resp):
+            client._refresh_csrf_token()
+
+        assert client.csrf_token == "old_token"
+
+    def test_keeps_csrf_on_network_error(self):
+        """_refresh_csrf_token() leaves csrf_token unchanged on network error."""
+        client = _make_logged_in_client()
+        client.csrf_token = "old_token"
+
+        with patch.object(
+            client.session, "get", side_effect=requests.ConnectionError("fail")
+        ):
+            client._refresh_csrf_token()
+
+        assert client.csrf_token == "old_token"
+
+
+# ---------------------------------------------------------------------------
+# _format_api_date
+# ---------------------------------------------------------------------------
+
+
+class TestFormatApiDate:
+    """Tests for ACWDClient._format_api_date()."""
+
+    from custom_components.acwd.acwd_api import ACWDClient
+
+    def test_returns_empty_string_for_none(self):
+        assert self.ACWDClient._format_api_date(None) == ""
+
+    def test_returns_empty_string_for_empty(self):
+        assert self.ACWDClient._format_api_date("") == ""
+
+    def test_formats_valid_date(self):
+        result = self.ACWDClient._format_api_date("12/04/2025")
+        assert result == "December 4, 2025"
+
+    def test_formats_date_without_leading_zero(self):
+        result = self.ACWDClient._format_api_date("01/01/2026")
+        assert result == "January 1, 2026"
+
+    def test_returns_raw_value_on_parse_failure(self):
+        result = self.ACWDClient._format_api_date("not-a-real-date")
+        assert result == "not-a-real-date"
 
 
 # ---------------------------------------------------------------------------
