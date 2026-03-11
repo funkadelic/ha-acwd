@@ -306,16 +306,23 @@ async def async_import_daily_statistics(
         unit_class="volume",
     )
 
-    # Get last statistics
-    last_stats = await get_instance(hass).async_add_executor_job(
-        get_last_statistics, hass, 1, statistic_id, True, {"sum"}
-    )
+    # Determine the earliest date in the import range so re-imports of the
+    # same range don't inflate cumulative sums (same protection as hourly).
+    earliest_date: datetime | None = None
+    for record in daily_data:
+        date_str = record.get("UsageDate")
+        if not date_str:
+            continue
+        date_obj = parse_date_long(date_str)
+        if date_obj is not None:
+            earliest_date = date_obj
+            break
 
-    last_sum = 0
-    if statistic_id in last_stats:
-        stats_list = last_stats[statistic_id]
-        if stats_list:
-            last_sum = stats_list[0].get("sum") or 0
+    if earliest_date is not None:
+        target_date_start = dt_util.as_utc(local_midnight(earliest_date.date()))
+        last_sum = await _get_baseline_sum(hass, statistic_id, target_date_start)
+    else:
+        last_sum = 0.0
 
     # Convert daily data to statistics
     statistics: list[StatisticData] = []
