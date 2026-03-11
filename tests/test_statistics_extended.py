@@ -617,7 +617,12 @@ class TestDailyStatistics:
         statistic_id = f"acwd:{meter_number}_daily_usage"
         prior_sum = 500.0
 
-        mock_get_last_stats = Mock(return_value={statistic_id: [{"sum": prior_sum}]})
+        # "start" must be before the earliest record date so _get_baseline_sum
+        # recognises it as a valid prior-day baseline.
+        nov30_utc = datetime(2025, 11, 30, 8, 0, tzinfo=dt_util.UTC)
+        mock_get_last_stats = Mock(
+            return_value={statistic_id: [{"sum": prior_sum, "start": nov30_utc}]}
+        )
 
         daily_records = [
             {"UsageDate": "December 1, 2025", "UsageValue": 100.0},
