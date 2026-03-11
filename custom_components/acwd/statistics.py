@@ -24,6 +24,40 @@ from .helpers import local_midnight, parse_date_long, parse_time_12hr
 _LOGGER = logging.getLogger(__name__)
 
 
+def _ensure_datetime(value: float | datetime | None) -> datetime | None:
+    """Coerce a possible Unix timestamp to a timezone-aware datetime."""
+    if value is None:
+        return None
+    if not isinstance(value, datetime):
+        return datetime.fromtimestamp(value, tz=dt_util.UTC)
+    return value
+
+
+def _find_baseline_in_stats(
+    stats: list[dict[str, Any]],
+    target_date_start: datetime,
+) -> float | None:
+    """Search a list of statistic records for the latest sum before target_date_start."""
+    _LOGGER.debug("Searching %d historical stats for baseline", len(stats))
+    for i, stat in enumerate(stats):
+        stat_time = _ensure_datetime(stat.get("start"))
+        stat_sum = stat.get("sum") or 0
+
+        _LOGGER.debug(
+            "  Stat %d: time=%s, sum=%s, before_target=%s",
+            i,
+            stat_time,
+            stat_sum,
+            stat_time < target_date_start if stat_time else None,
+        )
+
+        if stat_time and stat_time < target_date_start:
+            _LOGGER.debug("Found baseline sum %s from %s", stat_sum, stat_time)
+            return stat_sum
+
+    return None
+
+
 async def _get_baseline_sum(
     hass: HomeAssistant,
     statistic_id: str,
@@ -42,19 +76,12 @@ async def _get_baseline_sum(
         get_last_statistics, hass, 1, statistic_id, True, {"sum"}
     )
 
-    if statistic_id not in last_stats:
-        return 0.0
-
-    stats_list = last_stats[statistic_id]
+    stats_list = last_stats.get(statistic_id, [])
     if not stats_list:
         return 0.0
 
-    last_stat_time = stats_list[0].get("start")
+    last_stat_time = _ensure_datetime(stats_list[0].get("start"))
     last_stat_sum = stats_list[0].get("sum") or 0
-
-    # Ensure last_stat_time is a datetime object (might be float/Unix timestamp)
-    if last_stat_time and not isinstance(last_stat_time, datetime):
-        last_stat_time = datetime.fromtimestamp(last_stat_time, tz=dt_util.UTC)
 
     _LOGGER.debug(
         "Last statistic: time=%s, sum=%s, target_date_start=%s",
@@ -79,31 +106,12 @@ async def _get_baseline_sum(
     last_stats_extended = await get_instance(hass).async_add_executor_job(
         get_last_statistics, hass, extended_lookback, statistic_id, True, {"sum"}
     )
-    if statistic_id in last_stats_extended:
-        _LOGGER.debug(
-            "Searching %d historical stats for baseline",
-            len(last_stats_extended[statistic_id]),
-        )
-        for i, stat in enumerate(last_stats_extended[statistic_id]):
-            stat_time = stat.get("start")
-            stat_sum = stat.get("sum") or 0
-            # Ensure it's a datetime object
-            if stat_time and not isinstance(stat_time, datetime):
-                stat_time = datetime.fromtimestamp(stat_time, tz=dt_util.UTC)
+    extended_list = last_stats_extended.get(statistic_id, [])
+    if not extended_list:
+        return 0.0
 
-            _LOGGER.debug(
-                "  Stat %d: time=%s, sum=%s, before_target=%s",
-                i,
-                stat_time,
-                stat_sum,
-                stat_time < target_date_start if stat_time else None,
-            )
-
-            if stat_time and stat_time < target_date_start:
-                _LOGGER.debug("Found baseline sum %s from %s", stat_sum, stat_time)
-                return stat_sum
-
-    return 0.0
+    result = _find_baseline_in_stats(extended_list, target_date_start)
+    return result if result is not None else 0.0
 
 
 async def async_import_hourly_statistics(
