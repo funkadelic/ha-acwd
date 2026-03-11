@@ -486,6 +486,154 @@ class TestLoginPaths:
 
         assert result is False
 
+    def test_login_returns_false_when_json_is_not_dict(self):
+        """login() returns False when validateLogin JSON is a list, not a dict."""
+        client = _make_client()
+
+        get_resp = _login_page_response()
+        update_resp = _update_state_response()
+        # .json() returns a list instead of a dict
+        validate_resp = MagicMock()
+        validate_resp.status_code = 200
+        validate_resp.json.return_value = [1, 2, 3]
+
+        with patch.object(client.session, "get", return_value=get_resp):
+            with patch.object(
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(update_resp, validate_resp),
+            ):
+                result = client.login()
+
+        assert result is False
+
+    def test_login_returns_false_for_unexpected_status_value(self):
+        """login() returns False when STATUS is neither '0' nor '1'."""
+        client = _make_client()
+
+        get_resp = _login_page_response()
+        update_resp = _update_state_response()
+        validate_resp = _validate_login_response([{"STATUS": "99", "Message": "weird"}])
+
+        with patch.object(client.session, "get", return_value=get_resp):
+            with patch.object(
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(update_resp, validate_resp),
+            ):
+                result = client.login()
+
+        assert result is False
+
+    def test_login_returns_false_on_key_error_during_parse(self):
+        """login() returns False when KeyError/TypeError/IndexError occurs during parsing."""
+        client = _make_client()
+
+        get_resp = _login_page_response()
+        update_resp = _update_state_response()
+        # Craft a response where .json() returns a dict but dtResponse[0] raises IndexError
+        validate_resp = MagicMock()
+        validate_resp.status_code = 200
+        validate_resp.json.return_value = {"d": json.dumps({"dtResponse": []})}
+        validate_resp.text = "error"
+
+        with patch.object(client.session, "get", return_value=get_resp):
+            with patch.object(
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(update_resp, validate_resp),
+            ):
+                result = client.login()
+
+        assert result is False
+
+    def test_login_logs_warning_when_update_state_non_200(self):
+        """login() logs warning but continues when updateState returns non-200."""
+        client = _make_client()
+
+        get_resp = _login_page_response()
+        update_resp = _update_state_response(status=500)
+        validate_resp = _validate_login_response(
+            [{"STATUS": "1", "DashboardOption": "1", "Name": "Test"}]
+        )
+
+        with patch.object(
+            client.session,
+            "get",
+            side_effect=_make_get_dispatcher(get_resp, _dashboard_response()),
+        ):
+            with patch.object(
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(update_resp, validate_resp),
+            ):
+                result = client.login()
+
+        assert result is True
+
+
+# ---------------------------------------------------------------------------
+# _parse_meter_response paths
+# ---------------------------------------------------------------------------
+
+
+class TestParseMeterResponse:
+    """Tests for ACWDClient._parse_meter_response() branches."""
+
+    def test_returns_none_when_bind_data_is_not_dict(self):
+        """Returns None when parsed bind_data is a list instead of a dict."""
+        from custom_components.acwd.acwd_api import ACWDClient
+
+        result = ACWDClient._parse_meter_response({"d": json.dumps([1, 2, 3])})
+        assert result is None
+
+    def test_returns_none_when_meter_details_key_missing(self):
+        """Returns None when bind_data dict lacks MeterDetails key."""
+        from custom_components.acwd.acwd_api import ACWDClient
+
+        result = ACWDClient._parse_meter_response({"d": json.dumps({"other": "data"})})
+        assert result is None
+
+    def test_returns_none_when_meter_details_is_not_list(self):
+        """Returns None when MeterDetails is a string instead of a list."""
+        from custom_components.acwd.acwd_api import ACWDClient
+
+        result = ACWDClient._parse_meter_response(
+            {"d": json.dumps({"MeterDetails": "not-a-list"})}
+        )
+        assert result is None
+
+    def test_returns_none_when_meter_details_contains_non_dicts(self):
+        """Returns None when MeterDetails list contains non-dict items."""
+        from custom_components.acwd.acwd_api import ACWDClient
+
+        result = ACWDClient._parse_meter_response(
+            {"d": json.dumps({"MeterDetails": [{"ok": 1}, "bad", 42]})}
+        )
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# _discover_meter edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestDiscoverMeterEdgeCases:
+    """Tests for ACWDClient._discover_meter() edge cases."""
+
+    def test_empty_meter_details_sets_empty_string(self):
+        """_discover_meter() sets _water_meter_number to '' when MeterDetails is empty."""
+        client = _make_client()
+        client._water_meter_number = None
+
+        bind_resp = _bind_meter_response([])
+        headers = {"Content-Type": "application/json"}
+
+        with patch.object(client.session, "post", return_value=bind_resp):
+            client._discover_meter(headers)
+
+        assert client._water_meter_number == ""
+
 
 # ---------------------------------------------------------------------------
 # Task 1: get_usage_data paths

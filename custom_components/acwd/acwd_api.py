@@ -78,6 +78,113 @@ class ACWDClient:
 
         return hidden_fields
 
+    def _navigate_to_dashboard(self, main_table):
+        """Navigate to the appropriate dashboard URL after a successful login.
+
+        Reads DashboardOption from main_table to determine which dashboard
+        URL to request. Non-fatal: logs a warning on network error and returns
+        normally so login() can proceed.
+
+        Args:
+            main_table: The first element of the validateLogin response list,
+                        expected to contain a DashboardOption key.
+        """
+        dashboard_option = main_table.get("DashboardOption", "1")
+        if dashboard_option == "2":
+            dashboard_url = f"{self.base_url}DashboardCustom.aspx"
+        elif dashboard_option == "3":
+            dashboard_url = f"{self.base_url}DashboardCustom3_3.aspx"
+        else:
+            dashboard_url = f"{self.base_url}Dashboard.aspx"
+
+        _LOGGER.info(f"Navigating to {dashboard_url}...")
+        try:
+            dashboard_response = self.session.get(dashboard_url, timeout=HTTP_TIMEOUT)
+
+            if dashboard_response.status_code == 200:
+                _LOGGER.info("Successfully accessed Dashboard!")
+            else:
+                _LOGGER.warning(f"Dashboard returned {dashboard_response.status_code}")
+        except (requests.Timeout, requests.ConnectionError) as e:
+            _LOGGER.warning(LOG_NETWORK_ERROR, dashboard_url, e)
+
+    def _parse_validate_response(self, validate_response):
+        """Parse the validateLogin HTTP response and apply login logic.
+
+        Calls validate_response.json() — non-ValueError exceptions (e.g.
+        RuntimeError) propagate to the caller. On success, stores user_info
+        and calls _navigate_to_dashboard; returns True. Returns False for any
+        auth or parse failure.
+
+        Args:
+            validate_response: The requests.Response from the validateLogin POST.
+
+        Returns:
+            True on successful login, False on any auth/parse failure.
+        """
+        try:
+            result = validate_response.json()
+            _LOGGER.debug("validateLogin response received")
+
+            # Check for special cases before JSON parsing (not valid JSON)
+            if not isinstance(result, dict):
+                _LOGGER.error(
+                    "validateLogin returned non-dict JSON: %s", type(result).__name__
+                )
+                return False
+
+            if result.get(KEY_D) == "Migrated User Found":
+                _LOGGER.error("Account requires migration")
+                return False
+
+            # Parse the inner JSON (it's a JSON string inside 'd')
+            login_data = parse_api_response(result, endpoint="validateLogin")
+            _LOGGER.debug("Login response parsed successfully")
+
+            # Handle error response format (dtResponse)
+            if isinstance(login_data, dict) and "dtResponse" in login_data:
+                error_info = login_data["dtResponse"][0]
+                _LOGGER.error(
+                    f"Login failed: {error_info.get(KEY_MESSAGE, 'Unknown error')}"
+                )
+                return False
+
+            # Handle success response format (array with STATUS)
+            if not (isinstance(login_data, list) and len(login_data) > 0):
+                _LOGGER.error(f"Unexpected login response: {login_data}")
+                return False
+
+            main_table = login_data[0]
+
+            if KEY_STATUS not in main_table:
+                _LOGGER.error(f"Unexpected response structure: {main_table}")
+                return False
+
+            status = str(main_table[KEY_STATUS])  # Convert to string for comparison
+            if status == "0":
+                _LOGGER.error(
+                    f"Login failed: {main_table.get(KEY_MESSAGE, 'Unknown error')}"
+                )
+                return False
+
+            if status == "1":
+                _LOGGER.info("Login successful!")
+                self.user_info = main_table
+                _LOGGER.debug("User information stored")
+                self._navigate_to_dashboard(main_table)
+                return True
+
+            _LOGGER.error(f"Unexpected response structure: {main_table}")
+            return False
+
+        except ValueError:
+            _LOGGER.exception("Failed to parse login response JSON")
+            return False
+        except (KeyError, TypeError, IndexError):
+            _LOGGER.exception("Error processing validateLogin response")
+            _LOGGER.debug(f"Response text: {validate_response.text[:200]}")
+            return False
+
     def login(self):
         """Login to the ACWD portal"""
         _LOGGER.info("Fetching login page...")
@@ -165,96 +272,12 @@ class ACWDClient:
             )
             return False
 
-        # Step 5: Check the response from validateLogin
-        try:
-            result = validate_response.json()
-            _LOGGER.debug("validateLogin response received")
-
-            # Check for special cases before JSON parsing (not valid JSON)
-            if not isinstance(result, dict):
-                _LOGGER.error(
-                    "validateLogin returned non-dict JSON: %s", type(result).__name__
-                )
-                return False
-
-            if result.get(KEY_D) == "Migrated User Found":
-                _LOGGER.error("Account requires migration")
-                return False
-
-            # Parse the inner JSON (it's a JSON string inside 'd')
-            login_data = parse_api_response(result, endpoint="validateLogin")
-            _LOGGER.debug("Login response parsed successfully")
-
-            # Handle error response format (dtResponse)
-            if isinstance(login_data, dict) and "dtResponse" in login_data:
-                error_info = login_data["dtResponse"][0]
-                _LOGGER.error(
-                    f"Login failed: {error_info.get(KEY_MESSAGE, 'Unknown error')}"
-                )
-                return False
-
-            # Handle success response format (array with STATUS)
-            if isinstance(login_data, list) and len(login_data) > 0:
-                main_table = login_data[0]
-
-                # Check STATUS field
-                if KEY_STATUS in main_table:
-                    status = str(
-                        main_table[KEY_STATUS]
-                    )  # Convert to string for comparison
-                    if status == "0":
-                        _LOGGER.error(
-                            f"Login failed: {main_table.get(KEY_MESSAGE, 'Unknown error')}"
-                        )
-                        return False
-                    elif status == "1":
-                        _LOGGER.info("Login successful!")
-
-                        # Store user info
-                        self.user_info = main_table
-                        _LOGGER.debug("User information stored")
-
-                        # Determine which dashboard to use
-                        dashboard_option = main_table.get("DashboardOption", "1")
-                        if dashboard_option == "2":
-                            dashboard_url = f"{self.base_url}DashboardCustom.aspx"
-                        elif dashboard_option == "3":
-                            dashboard_url = f"{self.base_url}DashboardCustom3_3.aspx"
-                        else:
-                            dashboard_url = f"{self.base_url}Dashboard.aspx"
-
-                        # Navigate to the appropriate dashboard
-                        _LOGGER.info(f"Navigating to {dashboard_url}...")
-                        try:
-                            dashboard_response = self.session.get(
-                                dashboard_url, timeout=HTTP_TIMEOUT
-                            )
-
-                            if dashboard_response.status_code == 200:
-                                _LOGGER.info("Successfully accessed Dashboard!")
-                            else:
-                                _LOGGER.warning(
-                                    f"Dashboard returned {dashboard_response.status_code}"
-                                )
-                        except (requests.Timeout, requests.ConnectionError) as e:
-                            _LOGGER.warning(LOG_NETWORK_ERROR, dashboard_url, e)
-
-                        self.logged_in = True
-                        return True
-                else:
-                    _LOGGER.error(f"Unexpected response structure: {main_table}")
-                    return False
-            else:
-                _LOGGER.error(f"Unexpected login response: {login_data}")
-                return False
-
-        except ValueError:
-            _LOGGER.exception("Failed to parse login response JSON")
+        # Step 5: Parse validateLogin response and complete login
+        login_ok = self._parse_validate_response(validate_response)
+        if not login_ok:
             return False
-        except (KeyError, TypeError, IndexError):
-            _LOGGER.exception("Error processing validateLogin response")
-            _LOGGER.debug(f"Response text: {validate_response.text[:200]}")
-            return False
+        self.logged_in = True
+        return True
 
     @staticmethod
     def _parse_meter_response(bind_result):
