@@ -24,6 +24,8 @@ from homeassistant.util import dt as dt_util
 
 _stats_module = load_stats_module()
 async_import_hourly_statistics = _stats_module.async_import_hourly_statistics
+_ensure_datetime = _stats_module._ensure_datetime
+_find_baseline_in_stats = _stats_module._find_baseline_in_stats
 
 
 # ---------------------------------------------------------------------------
@@ -307,6 +309,90 @@ class TestBaselineCalculation:
         expected_first_cumulative = yesterday_final_sum + first_hour_usage
 
         assert statistics[0].sum == pytest.approx(expected_first_cumulative, rel=0.01)
+
+
+@pytest.mark.unit
+class TestEnsureDatetime:
+    """Tests for _ensure_datetime helper."""
+
+    def test_none_returns_none(self):
+        assert _ensure_datetime(None) is None
+
+    def test_float_returns_datetime(self):
+        ts = 1733828400.0  # 2024-12-10 07:00:00 UTC
+        result = _ensure_datetime(ts)
+        assert isinstance(result, datetime)
+        assert result.tzinfo == dt_util.UTC
+
+    def test_datetime_returned_unchanged(self):
+        dt = datetime(2025, 12, 10, 7, 0, 0, tzinfo=dt_util.UTC)
+        assert _ensure_datetime(dt) is dt
+
+
+@pytest.mark.unit
+class TestFindBaselineInStats:
+    """Tests for _find_baseline_in_stats helper."""
+
+    def test_no_stat_before_target_returns_none(self):
+        target = datetime(2025, 12, 10, 8, 0, 0, tzinfo=dt_util.UTC)
+        stats = [
+            {"start": datetime(2025, 12, 10, 9, 0, 0, tzinfo=dt_util.UTC), "sum": 100},
+            {"start": datetime(2025, 12, 10, 10, 0, 0, tzinfo=dt_util.UTC), "sum": 200},
+        ]
+        assert _find_baseline_in_stats(stats, target) is None
+
+    def test_returns_first_stat_before_target(self):
+        target = datetime(2025, 12, 10, 8, 0, 0, tzinfo=dt_util.UTC)
+        stats = [
+            {"start": datetime(2025, 12, 10, 9, 0, 0, tzinfo=dt_util.UTC), "sum": 200},
+            {"start": datetime(2025, 12, 10, 7, 0, 0, tzinfo=dt_util.UTC), "sum": 100},
+        ]
+        assert _find_baseline_in_stats(stats, target) == 100
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+class TestGetBaselineSum:
+    """Tests for _get_baseline_sum edge cases."""
+
+    async def test_extended_lookback_empty_returns_zero(
+        self,
+        mock_hass,
+        mock_get_instance,
+        mock_async_add_external_statistics,
+        statistic_id,
+        meter_number,
+        dec_10_2025,
+        pst_timezone,
+        sample_hourly_data_dec_10_partial,
+    ):
+        """When extended lookback returns empty, baseline falls back to 0."""
+        today_8am_utc = datetime(2025, 12, 10, 16, 0, 0, tzinfo=dt_util.UTC)
+
+        # First call returns today's stat; extended call returns empty
+        first_response = {statistic_id: [{"start": today_8am_utc, "sum": 950.0}]}
+        call_count = {"count": 0}
+
+        def get_last_stats_side_effect(*_args, **_kwargs):
+            call_count["count"] += 1
+            return first_response if call_count["count"] == 1 else {}
+
+        statistics = await _import_hourly_from_sample(
+            mock_hass,
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            get_last_stats_side_effect,
+            meter_number,
+            sample_hourly_data_dec_10_partial,
+            dec_10_2025,
+            pst_timezone,
+        )
+
+        # Baseline should be 0 since extended lookback was empty
+        first_hour_usage = sample_hourly_data_dec_10_partial[
+            "objUsageGenerationResultSetTwo"
+        ][0]["UsageValue"]
+        assert statistics[0].sum == pytest.approx(first_hour_usage, rel=0.01)
 
 
 @pytest.mark.unit
