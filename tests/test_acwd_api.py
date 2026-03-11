@@ -486,6 +486,67 @@ class TestLoginPaths:
 
         assert result is False
 
+    def test_login_returns_false_when_json_is_not_dict(self):
+        """login() returns False when validateLogin JSON is a list, not a dict."""
+        client = _make_client()
+
+        get_resp = _login_page_response()
+        update_resp = _update_state_response()
+        # .json() returns a list instead of a dict
+        validate_resp = MagicMock()
+        validate_resp.status_code = 200
+        validate_resp.json.return_value = [1, 2, 3]
+
+        with patch.object(client.session, "get", return_value=get_resp):
+            with patch.object(
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(update_resp, validate_resp),
+            ):
+                result = client.login()
+
+        assert result is False
+
+    def test_login_returns_false_for_unexpected_status_value(self):
+        """login() returns False when STATUS is neither '0' nor '1'."""
+        client = _make_client()
+
+        get_resp = _login_page_response()
+        update_resp = _update_state_response()
+        validate_resp = _validate_login_response([{"STATUS": "99", "Message": "weird"}])
+
+        with patch.object(client.session, "get", return_value=get_resp):
+            with patch.object(
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(update_resp, validate_resp),
+            ):
+                result = client.login()
+
+        assert result is False
+
+    def test_login_returns_false_on_key_error_during_parse(self):
+        """login() returns False when KeyError/TypeError/IndexError occurs during parsing."""
+        client = _make_client()
+
+        get_resp = _login_page_response()
+        update_resp = _update_state_response()
+        # Craft a response where .json() returns a dict but dtResponse[0] raises IndexError
+        validate_resp = MagicMock()
+        validate_resp.status_code = 200
+        validate_resp.json.return_value = {"d": json.dumps({"dtResponse": []})}
+        validate_resp.text = "error"
+
+        with patch.object(client.session, "get", return_value=get_resp):
+            with patch.object(
+                client.session,
+                "post",
+                side_effect=_make_post_dispatcher(update_resp, validate_resp),
+            ):
+                result = client.login()
+
+        assert result is False
+
 
 # ---------------------------------------------------------------------------
 # Task 1: get_usage_data paths
