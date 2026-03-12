@@ -4,11 +4,11 @@ Phase 01 introduced local_midnight() to replace duplicated 3-line timezone
 patterns across the integration. These tests verify the function returns
 correct timezone-aware midnight datetimes.
 """
+
 import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
-from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -255,3 +255,9 @@ class TestParseApiResponse:
         """Non-string 'd' values raise ValueError, not TypeError."""
         with pytest.raises(ValueError, match="expected str"):
             parse_api_response({"d": bad_value})
+
+    @pytest.mark.parametrize("bad_input", ["a string", None, [1, 2], 42])
+    def test_non_dict_input_raises_value_error(self, bad_input):
+        """Non-dict inputs raise ValueError with 'expected dict envelope'."""
+        with pytest.raises(ValueError, match="expected dict envelope"):
+            parse_api_response(bad_input)
