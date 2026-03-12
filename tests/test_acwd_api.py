@@ -1023,3 +1023,53 @@ class TestMeterNumberProperty:
         client = _make_client()
         client._water_meter_number = "METER_XYZ"
         assert client.meter_number == "METER_XYZ"
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: _get_hidden_fields, get_usage_data csrf
+# ---------------------------------------------------------------------------
+
+
+class TestGetHiddenFieldsSkipsNameless:
+    """Branch: _get_hidden_fields skips hidden inputs without a name attribute."""
+
+    def test_hidden_input_without_name_is_skipped(self):
+        """Hidden inputs missing the name attribute are excluded from the result."""
+        from bs4 import BeautifulSoup
+
+        html = (
+            "<html>"
+            '<input type="hidden" name="goodField" value="yes"/>'
+            '<input type="hidden" value="orphan"/>'
+            "</html>"
+        )
+        soup = BeautifulSoup(html, "html.parser")
+        client = _make_client()
+        fields = client._get_hidden_fields(soup)
+
+        assert fields == {"goodField": "yes"}
+
+
+class TestGetUsageDataWithoutCsrf:
+    """Branch: get_usage_data proceeds without csrftoken header when csrf_token is falsy."""
+
+    def test_no_csrf_token_omits_header(self):
+        """When csrf_token is None, the csrftoken header is not sent."""
+        client = _make_logged_in_client(meter_cached=True)
+        client.csrf_token = None
+
+        usage_page = _usage_page_response()
+        load_resp = _load_water_usage_response()
+
+        captured_headers = {}
+
+        def _post_capture(url, **kwargs):
+            if "LoadWaterUsage" in url:
+                captured_headers.update(kwargs.get("headers", {}))
+            return load_resp
+
+        with patch.object(client.session, "get", return_value=usage_page):
+            with patch.object(client.session, "post", side_effect=_post_capture):
+                client.get_usage_data(mode="B")
+
+        assert "csrftoken" not in captured_headers

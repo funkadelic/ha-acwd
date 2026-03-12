@@ -109,6 +109,21 @@ class TestServiceUnregistration:
         assert (DOMAIN, SERVICE_IMPORT_DAILY) in removed
         assert entry.entry_id not in hass.data.get(DOMAIN, {})
 
+    async def test_unload_failure_skips_cleanup(self):
+        """When platform unload fails, data and services are left untouched."""
+        hass = _make_mock_hass()
+        entry = _make_mock_entry("entry_a")
+        coordinator = _make_mock_coordinator(entry)
+
+        hass.data[DOMAIN] = {entry.entry_id: coordinator}
+        hass.config_entries.async_unload_platforms = AsyncMock(return_value=False)
+
+        result = await async_unload_entry(hass, entry)
+
+        assert result is False
+        assert entry.entry_id in hass.data[DOMAIN]
+        hass.services.async_remove.assert_not_called()
+
     async def test_non_last_entry_keeps_services(self):
         """When other entries remain, services are NOT unregistered."""
         hass = _make_mock_hass()
