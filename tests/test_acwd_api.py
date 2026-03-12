@@ -1072,4 +1072,5 @@ class TestGetUsageDataWithoutCsrf:
             with patch.object(client.session, "post", side_effect=_post_capture):
                 client.get_usage_data(mode="B")
 
+        assert captured_headers, "LoadWaterUsage POST was never captured"
         assert "csrftoken" not in captured_headers
