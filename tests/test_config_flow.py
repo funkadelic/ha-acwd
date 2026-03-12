@@ -78,6 +78,19 @@ class TestValidateInput:
         assert result["account_number"] == "12345"
         assert result["account_name"] == "Test User"
 
+    async def test_validate_input_missing_account_number(self, mock_hass):
+        """Verify CannotConnect raised when AccountNumber is missing from user_info."""
+        mock_client = MagicMock()
+        mock_client.login.return_value = True
+        mock_client.user_info = {"Name": "Test User"}
+        mock_client.logout.return_value = None
+
+        with patch.object(_flow_module, "ACWDClient", return_value=mock_client):
+            with pytest.raises(
+                CannotConnect, match="Unable to retrieve account number"
+            ):
+                await validate_input(mock_hass, USER_INPUT)
+
     async def test_validate_input_invalid_auth(self, mock_hass):
         """Verify failed login raises InvalidAuth."""
         mock_client = MagicMock()

@@ -1,4 +1,5 @@
 """Tests for sensor.py - ACWD sensor entities."""
+
 import sys
 import importlib.util
 from pathlib import Path
@@ -34,21 +35,25 @@ async_setup_entry = _sensor_module.async_setup_entry
 # -- Fixtures ----------------------------------------------------------------
 
 SAMPLE_COORDINATOR_DATA = {
-    "getTentativeData": [{
-        "SoFar": 5000.50,
-        "ExpectedUsage": 8000.75,
-        "Average": 6500.25,
-        "Highest": 12000.00,
-        "UsageDate": "01/15/2026",
-    }],
-    "objUsageGenerationResultSetTwo": [{
-        "UsageValue": 7500.00,
-        "FromDate": "11/01/2025",
-        "ToDate": "12/31/2025",
-        "UsageDate": "01/01/2026",
-        "ServiceCharge": 45.50,
-        "HighUsage": "No",
-    }],
+    "getTentativeData": [
+        {
+            "SoFar": 5000.50,
+            "ExpectedUsage": 8000.75,
+            "Average": 6500.25,
+            "Highest": 12000.00,
+            "UsageDate": "01/15/2026",
+        }
+    ],
+    "objUsageGenerationResultSetTwo": [
+        {
+            "UsageValue": 7500.00,
+            "FromDate": "11/01/2025",
+            "ToDate": "12/31/2025",
+            "UsageDate": "01/01/2026",
+            "ServiceCharge": 45.50,
+            "HighUsage": "No",
+        }
+    ],
 }
 
 
@@ -70,6 +75,7 @@ def mock_config_entry():
 
 
 # -- ACWDCurrentUsageSensor --------------------------------------------------
+
 
 @pytest.mark.unit
 class TestACWDCurrentUsageSensor:
@@ -106,12 +112,20 @@ class TestACWDCurrentUsageSensor:
         sensor = ACWDCurrentUsageSensor(mock_coordinator, mock_config_entry)
         assert sensor.extra_state_attributes == {}
 
+    def test_extra_state_attributes_empty_tentative(
+        self, mock_coordinator, mock_config_entry
+    ):
+        mock_coordinator.data = {"getTentativeData": []}
+        sensor = ACWDCurrentUsageSensor(mock_coordinator, mock_config_entry)
+        assert sensor.extra_state_attributes == {}
+
     def test_unique_id(self, mock_coordinator, mock_config_entry):
         sensor = ACWDCurrentUsageSensor(mock_coordinator, mock_config_entry)
         assert sensor.unique_id == "12345_current_usage"
 
 
 # -- ACWDCurrentCycleSensor --------------------------------------------------
+
 
 @pytest.mark.unit
 class TestACWDCurrentCycleSensor:
@@ -126,8 +140,14 @@ class TestACWDCurrentCycleSensor:
         sensor = ACWDCurrentCycleSensor(mock_coordinator, mock_config_entry)
         assert sensor.native_value is None
 
+    def test_native_value_empty_tentative(self, mock_coordinator, mock_config_entry):
+        mock_coordinator.data = {"getTentativeData": []}
+        sensor = ACWDCurrentCycleSensor(mock_coordinator, mock_config_entry)
+        assert sensor.native_value is None
+
 
 # -- ACWDLastBillingCycleSensor ----------------------------------------------
+
 
 @pytest.mark.unit
 class TestACWDLastBillingCycleSensor:
@@ -142,6 +162,13 @@ class TestACWDLastBillingCycleSensor:
         sensor = ACWDLastBillingCycleSensor(mock_coordinator, mock_config_entry)
         assert sensor.native_value is None
 
+    def test_native_value_empty_usage_records(
+        self, mock_coordinator, mock_config_entry
+    ):
+        mock_coordinator.data = {"objUsageGenerationResultSetTwo": []}
+        sensor = ACWDLastBillingCycleSensor(mock_coordinator, mock_config_entry)
+        assert sensor.native_value is None
+
     def test_extra_state_attributes(self, mock_coordinator, mock_config_entry):
         sensor = ACWDLastBillingCycleSensor(mock_coordinator, mock_config_entry)
         attrs = sensor.extra_state_attributes
@@ -152,8 +179,21 @@ class TestACWDLastBillingCycleSensor:
         assert "usage_hcf" in attrs
         assert attrs["high_usage_level"] == "No"
 
+    def test_extra_state_attributes_no_data(self, mock_coordinator, mock_config_entry):
+        mock_coordinator.data = None
+        sensor = ACWDLastBillingCycleSensor(mock_coordinator, mock_config_entry)
+        assert sensor.extra_state_attributes == {}
+
+    def test_extra_state_attributes_empty_usage_records(
+        self, mock_coordinator, mock_config_entry
+    ):
+        mock_coordinator.data = {"objUsageGenerationResultSetTwo": []}
+        sensor = ACWDLastBillingCycleSensor(mock_coordinator, mock_config_entry)
+        assert sensor.extra_state_attributes == {}
+
 
 # -- ACWDAverageSensor -------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestACWDAverageSensor:
@@ -168,8 +208,14 @@ class TestACWDAverageSensor:
         sensor = ACWDAverageSensor(mock_coordinator, mock_config_entry)
         assert sensor.native_value is None
 
+    def test_native_value_empty_tentative(self, mock_coordinator, mock_config_entry):
+        mock_coordinator.data = {"getTentativeData": []}
+        sensor = ACWDAverageSensor(mock_coordinator, mock_config_entry)
+        assert sensor.native_value is None
+
 
 # -- ACWDHighestSensor -------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestACWDHighestSensor:
@@ -184,8 +230,14 @@ class TestACWDHighestSensor:
         sensor = ACWDHighestSensor(mock_coordinator, mock_config_entry)
         assert sensor.native_value is None
 
+    def test_native_value_empty_tentative(self, mock_coordinator, mock_config_entry):
+        mock_coordinator.data = {"getTentativeData": []}
+        sensor = ACWDHighestSensor(mock_coordinator, mock_config_entry)
+        assert sensor.native_value is None
+
 
 # -- async_setup_entry -------------------------------------------------------
+
 
 @pytest.mark.unit
 @pytest.mark.asyncio
