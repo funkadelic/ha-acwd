@@ -1418,10 +1418,6 @@ class TestACWDDataUpdateCoordinatorInit:
         client = MagicMock()
         entry = MagicMock()
 
-        # ACWDDataUpdateCoordinator inherits from MagicMock (conftest stub for
-        # DataUpdateCoordinator). Calling the constructor directly works
-        # because MagicMock.__init__ accepts arbitrary args and MagicMock
-        # allows arbitrary attribute access/assignment.
         coordinator = ACWDDataUpdateCoordinator(hass, client, entry)
 
         assert coordinator.client is client
