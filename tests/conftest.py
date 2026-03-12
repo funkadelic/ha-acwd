@@ -285,7 +285,14 @@ def _setup_homeassistant_mocks():
     # Create helpers module
     helpers_mock = ModuleType("helpers")
     update_coordinator_mock = ModuleType("update_coordinator")
-    update_coordinator_mock.DataUpdateCoordinator = MagicMock
+
+    class _StubDataUpdateCoordinator:
+        """Stub for DataUpdateCoordinator that allows normal attribute assignment."""
+
+        def __init__(self, hass, logger, *, name, update_interval):
+            pass
+
+    update_coordinator_mock.DataUpdateCoordinator = _StubDataUpdateCoordinator
 
     class UpdateFailed(Exception):
         """Mock UpdateFailed — distinct type so tests don't accidentally catch unrelated errors."""

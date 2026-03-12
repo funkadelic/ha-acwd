@@ -1400,3 +1400,30 @@ class TestCoordinatorImportYesterdayCompleteData:
 
             # Should not raise
             await coord._import_yesterday_complete_data()
+
+
+# ---------------------------------------------------------------------------
+# ACWDDataUpdateCoordinator.__init__
+# ---------------------------------------------------------------------------
+
+
+class TestACWDDataUpdateCoordinatorInit:
+    """Tests for ACWDDataUpdateCoordinator constructor attribute assignments."""
+
+    def test_constructor_sets_attributes(self):
+        """Instantiating ACWDDataUpdateCoordinator sets client, entry, and _last_hourly_import_date."""
+        from custom_components.acwd import ACWDDataUpdateCoordinator
+
+        hass = _make_mock_hass()
+        client = MagicMock()
+        entry = MagicMock()
+
+        # ACWDDataUpdateCoordinator inherits from MagicMock (conftest stub for
+        # DataUpdateCoordinator). Calling the constructor directly works
+        # because MagicMock.__init__ accepts arbitrary args and MagicMock
+        # allows arbitrary attribute access/assignment.
+        coordinator = ACWDDataUpdateCoordinator(hass, client, entry)
+
+        assert coordinator.client is client
+        assert coordinator.entry is entry
+        assert coordinator._last_hourly_import_date is None
