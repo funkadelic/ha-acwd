@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.26] - 2026-03-17
+
+### Changed
+
+- bump test dependency minimum floors and drop zipp pin (#38)
+- reduce cognitive complexity of login() in acwd_api.py (#37)
+- extract _get_baseline_sum helper to reduce statistics complexity (#36)
+
+### Testing
+
+- achieve 100% code coverage (#39)
 ## [1.0.25] - 2026-03-10
 
 ### Changed
@@ -260,7 +271,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Five water usage sensors (current cycle, projected, last billing, average, highest)
 - 15-minute interval support via manual service
 
-[Unreleased]: https://github.com/funkadelic/ha-acwd/compare/v1.0.25...HEAD
+[Unreleased]: https://github.com/funkadelic/ha-acwd/compare/v1.0.26...HEAD
+[1.0.26]: https://github.com/funkadelic/ha-acwd/compare/v1.0.25...v1.0.26
 [1.0.25]: https://github.com/funkadelic/ha-acwd/compare/v1.0.24...v1.0.25
 [1.0.24]: https://github.com/funkadelic/ha-acwd/compare/v1.0.23...v1.0.24
 [1.0.23]: https://github.com/funkadelic/ha-acwd/compare/v1.0.22...v1.0.23
