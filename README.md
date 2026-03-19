@@ -1,15 +1,22 @@
-# ACWD Water Usage Integration for Home Assistant
-
 [![Build][build-badge]][build-link]
 [![Codecov][coverage-badge]][coverage-link]
 [![Release][release-badge]][release-link]
 [![HACS][hacs-badge]][hacs-link]
 [![Home Assistant][ha-badge]][ha-link]
 
-A **HACS-compatible custom integration** that brings your ACWD (Alameda County Water District) water usage data directly into Home Assistant, with full support for the **Home Assistant Energy Dashboard**. ACWD services the cities of Fremont, Newark, and Union City, CA.
+# ha-acwd
+ACWD Water Usage Integration for Home Assistant
+
+**ha-acwd** is an open-source Python integration that imports water usage data from Alameda County Water District into Home Assistant for use in automation and monitoring.
+
+It is distributed as a HACS-compatible custom integration and supports the Home Assistant Energy Dashboard.
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=funkadelic&repository=ha-acwd&category=integration)
 
+## How it works
+
+The integration periodically fetches and normalizes usage data from the ACWD portal, exposing it as Home Assistant entities for automation and monitoring.
+  
 ## Background
 
 After ACWD deployed [AMI (Advanced Metering Infrastructure) smart meters](https://en.wikipedia.org/wiki/Smart_meter#Advanced_metering_infrastructure), third-party solutions like Flume Water lost direct access to real-time water usage data. This integration bridges that gap by importing hourly water usage directly from the ACWD portal into Home Assistant.
