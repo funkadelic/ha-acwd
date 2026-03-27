@@ -175,7 +175,7 @@ async def handle_import_hourly(call: ServiceCall) -> None:
                 hass, meter_number, hourly_records, date_dt
             )
 
-        _LOGGER.info(f"Successfully imported {granularity} data for {date}")
+        _LOGGER.info("Successfully imported %s data for %s", granularity, date)
 
     except (requests.Timeout, requests.ConnectionError) as err:
         raise HomeAssistantError(
@@ -251,7 +251,7 @@ async def handle_import_daily(call: ServiceCall) -> None:
         await async_import_daily_statistics(hass, str(account_number), daily_records)
 
         _LOGGER.info(
-            f"Successfully imported daily data from {start_date} to {end_date}"
+            "Successfully imported daily data from %s to %s", start_date, end_date
         )
 
     except (requests.Timeout, requests.ConnectionError) as err:
@@ -468,7 +468,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
         today = dt_util.now().date()
 
         try:
-            _LOGGER.debug(f"Checking for hourly data for {today}")
+            _LOGGER.debug("Checking for hourly data for %s", today)
 
             # Format date for API
             date_str = today.strftime(DATE_FORMAT_SLASH_MDY)
@@ -484,7 +484,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             )
 
             if not data:
-                _LOGGER.debug(f"No hourly data returned for {today}")
+                _LOGGER.debug("No hourly data returned for %s", today)
                 return
 
             # Get meter number from client
@@ -497,7 +497,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             hourly_records = data.get("objUsageGenerationResultSetTwo", [])
 
             if not hourly_records:
-                _LOGGER.debug(f"No hourly records available for {today}")
+                _LOGGER.debug("No hourly records available for %s", today)
                 return
 
             # Find last hour with usage > 0 to determine actual data availability
@@ -512,10 +512,13 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
 
             if last_nonzero_hour:
                 _LOGGER.info(
-                    f"Latest available data for {today}: {last_nonzero_hour} ({last_nonzero_index + 1} hours)"
+                    "Latest available data for %s: %s (%s hours)",
+                    today,
+                    last_nonzero_hour,
+                    last_nonzero_index + 1,
                 )
             else:
-                _LOGGER.debug(f"No non-zero usage found for {today}")
+                _LOGGER.debug("No non-zero usage found for %s", today)
 
             # Import into statistics (duplicates are automatically handled)
             date_dt = local_midnight(
@@ -525,10 +528,12 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
                 self.hass, meter_number, hourly_records, date_dt
             )
 
-            _LOGGER.info(f"Imported {len(hourly_records)} hourly records for {today}")
+            _LOGGER.info(
+                "Imported %s hourly records for %s", len(hourly_records), today
+            )
 
         except Exception as err:
-            _LOGGER.warning(f"Failed to auto-import hourly data for {today}: {err}")
+            _LOGGER.warning("Failed to auto-import hourly data for %s: %s", today, err)
 
     async def _import_yesterday_complete_data(self) -> None:
         """Import yesterday's complete data during morning hours (0-12 PM).
@@ -548,7 +553,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
 
         try:
             _LOGGER.debug(
-                f"Early morning check: Importing complete data for {yesterday}"
+                "Early morning check: Importing complete data for %s", yesterday
             )
 
             # Format date for API
@@ -565,7 +570,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             )
 
             if not data:
-                _LOGGER.debug(f"No hourly data returned for {yesterday}")
+                _LOGGER.debug("No hourly data returned for %s", yesterday)
                 return
 
             # Get meter number from client
@@ -578,7 +583,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             hourly_records = data.get("objUsageGenerationResultSetTwo", [])
 
             if not hourly_records:
-                _LOGGER.debug(f"No hourly records available for {yesterday}")
+                _LOGGER.debug("No hourly records available for %s", yesterday)
                 return
 
             # Import into statistics (duplicates are automatically handled)
@@ -590,10 +595,12 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             )
 
             _LOGGER.info(
-                f"Early morning import: Updated {len(hourly_records)} hourly records for {yesterday}"
+                "Early morning import: Updated %s hourly records for %s",
+                len(hourly_records),
+                yesterday,
             )
 
         except Exception as err:
             _LOGGER.warning(
-                f"Failed to import complete yesterday data for {yesterday}: {err}"
+                "Failed to import complete yesterday data for %s: %s", yesterday, err
             )
