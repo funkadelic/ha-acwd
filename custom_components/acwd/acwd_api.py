@@ -97,14 +97,14 @@ class ACWDClient:
         else:
             dashboard_url = f"{self.base_url}Dashboard.aspx"
 
-        _LOGGER.info(f"Navigating to {dashboard_url}...")
+        _LOGGER.info("Navigating to %s...", dashboard_url)
         try:
             dashboard_response = self.session.get(dashboard_url, timeout=HTTP_TIMEOUT)
 
             if dashboard_response.status_code == 200:
                 _LOGGER.info("Successfully accessed Dashboard!")
             else:
-                _LOGGER.warning(f"Dashboard returned {dashboard_response.status_code}")
+                _LOGGER.warning("Dashboard returned %s", dashboard_response.status_code)
         except (requests.Timeout, requests.ConnectionError) as e:
             _LOGGER.warning(LOG_NETWORK_ERROR, dashboard_url, e)
 
@@ -145,25 +145,25 @@ class ACWDClient:
             if isinstance(login_data, dict) and "dtResponse" in login_data:
                 error_info = login_data["dtResponse"][0]
                 _LOGGER.error(
-                    f"Login failed: {error_info.get(KEY_MESSAGE, 'Unknown error')}"
+                    "Login failed: %s", error_info.get(KEY_MESSAGE, "Unknown error")
                 )
                 return False
 
             # Handle success response format (array with STATUS)
             if not (isinstance(login_data, list) and len(login_data) > 0):
-                _LOGGER.error(f"Unexpected login response: {login_data}")
+                _LOGGER.error("Unexpected login response: %s", login_data)
                 return False
 
             main_table = login_data[0]
 
             if KEY_STATUS not in main_table:
-                _LOGGER.error(f"Unexpected response structure: {main_table}")
+                _LOGGER.error("Unexpected response structure: %s", main_table)
                 return False
 
             status = str(main_table[KEY_STATUS])  # Convert to string for comparison
             if status == "0":
                 _LOGGER.error(
-                    f"Login failed: {main_table.get(KEY_MESSAGE, 'Unknown error')}"
+                    "Login failed: %s", main_table.get(KEY_MESSAGE, "Unknown error")
                 )
                 return False
 
@@ -174,7 +174,7 @@ class ACWDClient:
                 self._navigate_to_dashboard(main_table)
                 return True
 
-            _LOGGER.error(f"Unexpected response structure: {main_table}")
+            _LOGGER.error("Unexpected response structure: %s", main_table)
             return False
 
         except ValueError:
@@ -182,7 +182,7 @@ class ACWDClient:
             return False
         except (KeyError, TypeError, IndexError):
             _LOGGER.exception("Error processing validateLogin response")
-            _LOGGER.debug(f"Response text: {validate_response.text[:200]}")
+            _LOGGER.debug("Response text: %s", validate_response.text[:200])
             return False
 
     def login(self):
@@ -202,7 +202,7 @@ class ACWDClient:
 
         # Step 2: Extract hidden fields (CSRF token, etc.)
         hidden_fields = self._get_hidden_fields(soup)
-        _LOGGER.info(f"Extracted {len(hidden_fields)} hidden fields")
+        _LOGGER.info("Extracted %s hidden fields", len(hidden_fields))
 
         # Get the CSRF token
         csrf_token = hidden_fields.get(FIELD_CSRF_TOKEN, "")
@@ -232,7 +232,9 @@ class ACWDClient:
         )
 
         if update_state_response.status_code != 200:
-            _LOGGER.warning(f"updateState returned {update_state_response.status_code}")
+            _LOGGER.warning(
+                "updateState returned %s", update_state_response.status_code
+            )
 
         # Step 4: Call validateLogin endpoint (actual login validation)
         _LOGGER.info("Calling validateLogin endpoint...")
@@ -268,7 +270,8 @@ class ACWDClient:
 
         if validate_response.status_code != 200:
             _LOGGER.error(
-                f"validateLogin failed with status code: {validate_response.status_code}"
+                "validateLogin failed with status code: %s",
+                validate_response.status_code,
             )
             return False
 
@@ -345,11 +348,11 @@ class ACWDClient:
         for meter in meter_details:
             if meter.get("IsAMI") and meter.get("MeterType") == "W":
                 meter_number = meter.get("MeterNumber", "")
-                _LOGGER.info(f"Found AMI water meter: {meter_number}")
+                _LOGGER.info("Found AMI water meter: %s", meter_number)
                 return meter_number
 
         meter_number = meter_details[0].get("MeterNumber", "")
-        _LOGGER.info(f"No AMI meter found, using first meter: {meter_number}")
+        _LOGGER.info("No AMI meter found, using first meter: %s", meter_number)
         return meter_number
 
     def _discover_meter(self, headers):
@@ -477,7 +480,9 @@ class ACWDClient:
         if not self.logged_in:
             raise RuntimeError("Not logged in. Call login() first.")
 
-        _LOGGER.info(f"Fetching usage data (mode={mode}, hourly_type={hourly_type})...")
+        _LOGGER.info(
+            "Fetching usage data (mode=%s, hourly_type=%s)...", mode, hourly_type
+        )
 
         self._refresh_csrf_token()
 
@@ -526,7 +531,7 @@ class ACWDClient:
         )
 
         if response.status_code != 200:
-            _LOGGER.error(f"Failed to fetch usage data: {response.status_code}")
+            _LOGGER.error("Failed to fetch usage data: %s", response.status_code)
             return None
 
         try:
