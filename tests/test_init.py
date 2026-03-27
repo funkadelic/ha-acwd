@@ -989,6 +989,184 @@ class TestAsyncImportInitialYesterdayData:
             # Should not raise
             await _async_import_initial_yesterday_data(hass, coordinator)
 
+    async def test_logout_called_on_exception(self):
+        """Logout is called via finally even when login raises RuntimeError."""
+        from custom_components.acwd import _async_import_initial_yesterday_data
+
+        hass = _make_mock_hass()
+        entry = _make_mock_entry()
+        coordinator = _make_mock_coordinator(entry)
+
+        mock_client = MagicMock()
+        mock_client.login.side_effect = RuntimeError("boom")
+        mock_client.logout.return_value = None
+
+        with (
+            patch(
+                "custom_components.acwd.acwd_api.ACWDClient",
+                return_value=mock_client,
+            ),
+            patch("custom_components.acwd.dt_util") as mock_dt_util,
+        ):
+            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
+
+            await _async_import_initial_yesterday_data(hass, coordinator)
+
+            mock_client.logout.assert_called_once()
+
+    async def test_logout_called_on_happy_path(self):
+        """Logout is called via finally on the happy path."""
+        from custom_components.acwd import _async_import_initial_yesterday_data
+
+        hass = _make_mock_hass()
+        entry = _make_mock_entry()
+        coordinator = _make_mock_coordinator(entry)
+
+        mock_client = MagicMock()
+        mock_client.login.return_value = True
+        mock_client.get_usage_data.return_value = {
+            "objUsageGenerationResultSetTwo": [
+                {"Hourly": "12:00 AM", "UsageValue": 2.0},
+            ]
+        }
+        mock_client.meter_number = "230057301"
+        mock_client.logout.return_value = None
+
+        with (
+            patch(
+                "custom_components.acwd.acwd_api.ACWDClient",
+                return_value=mock_client,
+            ),
+            patch(
+                "custom_components.acwd.async_import_hourly_statistics",
+                new_callable=AsyncMock,
+            ),
+            patch("custom_components.acwd.dt_util") as mock_dt_util,
+            patch("custom_components.acwd.local_midnight") as mock_midnight,
+        ):
+            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
+            mock_midnight.return_value = datetime.datetime(2025, 12, 9, 0, 0, 0)
+
+            await _async_import_initial_yesterday_data(hass, coordinator)
+
+            assert mock_client.logout.call_count == 1
+
+    async def test_logout_called_when_get_usage_data_fails(self):
+        """Logout is called via finally when get_usage_data raises RuntimeError."""
+        from custom_components.acwd import _async_import_initial_yesterday_data
+
+        hass = _make_mock_hass()
+        entry = _make_mock_entry()
+        coordinator = _make_mock_coordinator(entry)
+
+        mock_client = MagicMock()
+        mock_client.login.return_value = True
+        mock_client.get_usage_data.side_effect = RuntimeError("api error")
+        mock_client.logout.return_value = None
+
+        with (
+            patch(
+                "custom_components.acwd.acwd_api.ACWDClient",
+                return_value=mock_client,
+            ),
+            patch("custom_components.acwd.dt_util") as mock_dt_util,
+        ):
+            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
+
+            await _async_import_initial_yesterday_data(hass, coordinator)
+
+            mock_client.logout.assert_called_once()
+
+    async def test_transient_timeout_logs_network_warning(self):
+        """requests.Timeout logs warning with 'Network error' and 'retried on the next update cycle'."""
+        from custom_components.acwd import _async_import_initial_yesterday_data
+
+        hass = _make_mock_hass()
+        entry = _make_mock_entry()
+        coordinator = _make_mock_coordinator(entry)
+
+        mock_client = MagicMock()
+        mock_client.login.side_effect = requests.Timeout("timed out")
+        mock_client.logout.return_value = None
+
+        with (
+            patch(
+                "custom_components.acwd.acwd_api.ACWDClient",
+                return_value=mock_client,
+            ),
+            patch("custom_components.acwd.dt_util") as mock_dt_util,
+            patch("custom_components.acwd._LOGGER") as mock_logger,
+        ):
+            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
+
+            await _async_import_initial_yesterday_data(hass, coordinator)
+
+            warning_calls = mock_logger.warning.call_args_list
+            assert any(
+                "Network error" in str(call)
+                and "retried on the next update cycle" in str(call)
+                for call in warning_calls
+            ), f"Expected network warning not found. Calls: {warning_calls}"
+            mock_client.logout.assert_called_once()
+
+    async def test_transient_connection_error_logs_network_warning(self):
+        """requests.ConnectionError logs warning with 'Network error' and 'retried on the next update cycle'."""
+        from custom_components.acwd import _async_import_initial_yesterday_data
+
+        hass = _make_mock_hass()
+        entry = _make_mock_entry()
+        coordinator = _make_mock_coordinator(entry)
+
+        mock_client = MagicMock()
+        mock_client.login.side_effect = requests.ConnectionError("refused")
+        mock_client.logout.return_value = None
+
+        with (
+            patch(
+                "custom_components.acwd.acwd_api.ACWDClient",
+                return_value=mock_client,
+            ),
+            patch("custom_components.acwd.dt_util") as mock_dt_util,
+            patch("custom_components.acwd._LOGGER") as mock_logger,
+        ):
+            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
+
+            await _async_import_initial_yesterday_data(hass, coordinator)
+
+            warning_calls = mock_logger.warning.call_args_list
+            assert any(
+                "Network error" in str(call)
+                and "retried on the next update cycle" in str(call)
+                for call in warning_calls
+            ), f"Expected network warning not found. Calls: {warning_calls}"
+            mock_client.logout.assert_called_once()
+
+    async def test_logout_failure_in_finally_is_silenced(self):
+        """Logout failure in finally block is logged at debug level and does not propagate."""
+        from custom_components.acwd import _async_import_initial_yesterday_data
+
+        hass = _make_mock_hass()
+        entry = _make_mock_entry()
+        coordinator = _make_mock_coordinator(entry)
+
+        mock_client = MagicMock()
+        mock_client.login.side_effect = RuntimeError("boom")
+        mock_client.logout.side_effect = RuntimeError("logout failed")
+
+        with (
+            patch(
+                "custom_components.acwd.acwd_api.ACWDClient",
+                return_value=mock_client,
+            ),
+            patch("custom_components.acwd.dt_util") as mock_dt_util,
+        ):
+            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
+
+            # Must not raise despite both login and logout failing
+            await _async_import_initial_yesterday_data(hass, coordinator)
+
+            mock_client.logout.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # ACWDDataUpdateCoordinator._async_update_data
@@ -1066,24 +1244,28 @@ class TestCoordinatorAsyncUpdateData:
             await coord._async_update_data()
 
     async def test_requests_timeout_raises_update_failed(self):
-        """requests.Timeout raises UpdateFailed with network error message."""
+        """requests.Timeout raises UpdateFailed with network error message and retry_after=300."""
         from homeassistant.helpers.update_coordinator import UpdateFailed
 
         coord = self._make_coordinator()
         coord.client.login.side_effect = requests.Timeout("timed out")
 
-        with pytest.raises(UpdateFailed, match="Network error"):
+        with pytest.raises(UpdateFailed, match="Network error") as exc_info:
             await coord._async_update_data()
 
+        assert exc_info.value.retry_after == 300
+
     async def test_requests_connection_error_raises_update_failed(self):
-        """requests.ConnectionError raises UpdateFailed with network error message."""
+        """requests.ConnectionError raises UpdateFailed with network error message and retry_after=300."""
         from homeassistant.helpers.update_coordinator import UpdateFailed
 
         coord = self._make_coordinator()
         coord.client.login.side_effect = requests.ConnectionError("refused")
 
-        with pytest.raises(UpdateFailed, match="Network error"):
+        with pytest.raises(UpdateFailed, match="Network error") as exc_info:
             await coord._async_update_data()
+
+        assert exc_info.value.retry_after == 300
 
     async def test_generic_exception_raises_update_failed(self):
         """A generic exception raises UpdateFailed."""
@@ -1094,6 +1276,115 @@ class TestCoordinatorAsyncUpdateData:
 
         with pytest.raises(UpdateFailed, match="Error communicating with ACWD"):
             await coord._async_update_data()
+
+    async def test_logout_called_on_happy_path(self):
+        """Logout is called via finally on the happy path."""
+        coord = self._make_coordinator()
+        coord.client.login.return_value = True
+        coord.client.get_usage_data.return_value = {"summary": "data"}
+        coord.client.logout.return_value = None
+
+        coord._import_today_hourly_data = AsyncMock()
+        coord._import_yesterday_complete_data = AsyncMock()
+
+        await coord._async_update_data()
+
+        assert coord.client.logout.call_count == 1
+
+    async def test_logout_called_on_login_exception(self):
+        """Logout is called via finally even when login raises RuntimeError."""
+        from homeassistant.helpers.update_coordinator import UpdateFailed
+
+        coord = self._make_coordinator()
+        coord.client.login.side_effect = RuntimeError("boom")
+        coord.client.logout.return_value = None
+
+        with pytest.raises(UpdateFailed):
+            await coord._async_update_data()
+
+        coord.client.logout.assert_called_once()
+
+    async def test_logout_called_on_sub_import_exception(self):
+        """Logout is called via finally when a sub-import raises."""
+        from homeassistant.helpers.update_coordinator import UpdateFailed
+
+        coord = self._make_coordinator()
+        coord.client.login.return_value = True
+        coord.client.get_usage_data.return_value = {"summary": "data"}
+        coord.client.logout.return_value = None
+
+        coord._import_today_hourly_data = AsyncMock(
+            side_effect=RuntimeError("sub error")
+        )
+        coord._import_yesterday_complete_data = AsyncMock()
+
+        with pytest.raises(UpdateFailed):
+            await coord._async_update_data()
+
+        coord.client.logout.assert_called_once()
+
+    async def test_requests_timeout_has_retry_after_300(self):
+        """requests.Timeout raises UpdateFailed with retry_after=300."""
+        from homeassistant.helpers.update_coordinator import UpdateFailed
+
+        coord = self._make_coordinator()
+        coord.client.login.side_effect = requests.Timeout("timed out")
+
+        with pytest.raises(UpdateFailed) as exc_info:
+            await coord._async_update_data()
+
+        assert exc_info.value.retry_after == 300
+
+    async def test_requests_connection_error_has_retry_after_300(self):
+        """requests.ConnectionError raises UpdateFailed with retry_after=300."""
+        from homeassistant.helpers.update_coordinator import UpdateFailed
+
+        coord = self._make_coordinator()
+        coord.client.login.side_effect = requests.ConnectionError("refused")
+
+        with pytest.raises(UpdateFailed) as exc_info:
+            await coord._async_update_data()
+
+        assert exc_info.value.retry_after == 300
+
+    async def test_generic_exception_has_no_retry_after(self):
+        """A generic exception raises UpdateFailed without retry_after."""
+        from homeassistant.helpers.update_coordinator import UpdateFailed
+
+        coord = self._make_coordinator()
+        coord.client.login.side_effect = RuntimeError("unexpected")
+
+        with pytest.raises(UpdateFailed) as exc_info:
+            await coord._async_update_data()
+
+        assert exc_info.value.retry_after is None
+
+    async def test_login_failure_update_failed_has_no_retry_after(self):
+        """Login returning False raises UpdateFailed without retry_after."""
+        from homeassistant.helpers.update_coordinator import UpdateFailed
+
+        coord = self._make_coordinator()
+        coord.client.login.return_value = False
+
+        with pytest.raises(UpdateFailed) as exc_info:
+            await coord._async_update_data()
+
+        assert exc_info.value.retry_after is None
+
+    async def test_logout_failure_in_finally_is_silenced(self):
+        """Coordinator logout failure in finally block does not propagate."""
+        coord = self._make_coordinator()
+        coord.client.login.return_value = True
+        coord.client.get_usage_data.return_value = {"summary": "data"}
+        coord.client.logout.side_effect = RuntimeError("logout failed")
+
+        coord._import_today_hourly_data = AsyncMock()
+        coord._import_yesterday_complete_data = AsyncMock()
+
+        # Should not raise despite logout failure
+        result = await coord._async_update_data()
+        assert result == {"summary": "data"}
+        coord.client.logout.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
