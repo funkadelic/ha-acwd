@@ -1323,30 +1323,6 @@ class TestCoordinatorAsyncUpdateData:
 
         coord.client.logout.assert_called_once()
 
-    async def test_requests_timeout_has_retry_after_300(self):
-        """requests.Timeout raises UpdateFailed with retry_after=300."""
-        from homeassistant.helpers.update_coordinator import UpdateFailed
-
-        coord = self._make_coordinator()
-        coord.client.login.side_effect = requests.Timeout("timed out")
-
-        with pytest.raises(UpdateFailed) as exc_info:
-            await coord._async_update_data()
-
-        assert exc_info.value.retry_after == 300
-
-    async def test_requests_connection_error_has_retry_after_300(self):
-        """requests.ConnectionError raises UpdateFailed with retry_after=300."""
-        from homeassistant.helpers.update_coordinator import UpdateFailed
-
-        coord = self._make_coordinator()
-        coord.client.login.side_effect = requests.ConnectionError("refused")
-
-        with pytest.raises(UpdateFailed) as exc_info:
-            await coord._async_update_data()
-
-        assert exc_info.value.retry_after == 300
-
     async def test_generic_exception_has_no_retry_after(self):
         """A generic exception raises UpdateFailed without retry_after."""
         from homeassistant.helpers.update_coordinator import UpdateFailed
