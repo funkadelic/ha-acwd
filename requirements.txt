@@ -1,4 +1,4 @@
 # Runtime dependencies for ACWD Home Assistant Integration
 # Keep in sync with custom_components/acwd/manifest.json
-beautifulsoup4>=4.12.0
-requests>=2.32.4
+beautifulsoup4>=4.14.3
+requests>=2.33.0
