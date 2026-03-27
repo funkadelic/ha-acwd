@@ -1,4 +1,5 @@
 """The ACWD Water Usage integration."""
+
 from __future__ import annotations
 
 import logging
@@ -42,17 +43,23 @@ ERROR_LOGIN_FAILED = "Failed to login to ACWD portal"
 MORNING_IMPORT_END_HOUR = 12  # Only import yesterday's data before noon
 
 # Service schemas
-SERVICE_IMPORT_HOURLY_SCHEMA = vol.Schema({
-    vol.Required("date"): cv.date,
-    vol.Optional("granularity", default="hourly"): vol.In(["hourly", "quarter_hourly"]),
-    vol.Optional("entry_id"): str,
-})
+SERVICE_IMPORT_HOURLY_SCHEMA = vol.Schema(
+    {
+        vol.Required("date"): cv.date,
+        vol.Optional("granularity", default="hourly"): vol.In(
+            ["hourly", "quarter_hourly"]
+        ),
+        vol.Optional("entry_id"): str,
+    }
+)
 
-SERVICE_IMPORT_DAILY_SCHEMA = vol.Schema({
-    vol.Required("start_date"): cv.date,
-    vol.Required("end_date"): cv.date,
-    vol.Optional("entry_id"): str,
-})
+SERVICE_IMPORT_DAILY_SCHEMA = vol.Schema(
+    {
+        vol.Required("start_date"): cv.date,
+        vol.Required("end_date"): cv.date,
+        vol.Optional("entry_id"): str,
+    }
+)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -133,14 +140,14 @@ async def handle_import_hourly(call: ServiceCall) -> None:
         date_str = date.strftime(DATE_FORMAT_SLASH_MDY)
 
         # Fetch hourly data
-        hourly_type = 'Q' if granularity == "quarter_hourly" else 'H'
+        hourly_type = "Q" if granularity == "quarter_hourly" else "H"
         data = await hass.async_add_executor_job(
             service_client.get_usage_data,
-            'H',  # mode
+            "H",  # mode
             None,  # date_from
             None,  # date_to
             date_str,  # str_date
-            hourly_type  # hourly_type
+            hourly_type,  # hourly_type
         )
 
         if not data:
@@ -226,7 +233,7 @@ async def handle_import_daily(call: ServiceCall) -> None:
         # Fetch daily data
         data = await hass.async_add_executor_job(
             service_client.get_usage_data,
-            'D',  # mode
+            "D",  # mode
             start_str,  # date_from
             end_str,  # date_to
         )
@@ -241,9 +248,7 @@ async def handle_import_daily(call: ServiceCall) -> None:
             raise HomeAssistantError("No daily data available for date range")
 
         # Import into statistics
-        await async_import_daily_statistics(
-            hass, str(account_number), daily_records
-        )
+        await async_import_daily_statistics(hass, str(account_number), daily_records)
 
         _LOGGER.info(
             f"Successfully imported daily data from {start_date} to {end_date}"
@@ -269,10 +274,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
 
     # Create ACWD client
-    client = ACWDClient(
-        entry.data[CONF_USERNAME],
-        entry.data[CONF_PASSWORD]
-    )
+    client = ACWDClient(entry.data[CONF_USERNAME], entry.data[CONF_PASSWORD])
 
     # Create update coordinator
     coordinator = ACWDDataUpdateCoordinator(hass, client, entry)
@@ -292,48 +294,44 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def _async_import_initial_yesterday_data(
-    hass: HomeAssistant,
-    coordinator: "ACWDDataUpdateCoordinator"
+    hass: HomeAssistant, coordinator: "ACWDDataUpdateCoordinator"
 ) -> None:
     """Import yesterday's data on first setup to provide immediate feedback to users.
 
     This is a one-time import that runs when the integration is first installed.
     It gives users immediate data to see in the Energy Dashboard.
     """
+    from .acwd_api import ACWDClient
+
+    username = coordinator.entry.data.get(CONF_USERNAME)
+    password = coordinator.entry.data.get(CONF_PASSWORD)
+    fresh_client = ACWDClient(username, password)
+
     try:
         yesterday = (dt_util.now() - timedelta(days=1)).date()
-        _LOGGER.info(f"Initial setup: Importing yesterday's data ({yesterday})")
-
-        # Create a fresh client instance to avoid session conflicts
-        from .acwd_api import ACWDClient
-        username = coordinator.entry.data.get(CONF_USERNAME)
-        password = coordinator.entry.data.get(CONF_PASSWORD)
-        fresh_client = ACWDClient(username, password)
-
-        # Format date for API
-        date_str = yesterday.strftime(DATE_FORMAT_SLASH_MDY)
+        _LOGGER.info("Initial setup: Importing yesterday's data (%s)", yesterday)
 
         # Login
         logged_in = await hass.async_add_executor_job(fresh_client.login)
         if not logged_in:
-            _LOGGER.warning(f"Initial import: {ERROR_LOGIN_FAILED}")
+            _LOGGER.warning("Initial import: %s", ERROR_LOGIN_FAILED)
             return
+
+        # Format date for API
+        date_str = yesterday.strftime(DATE_FORMAT_SLASH_MDY)
 
         # Fetch hourly data
         data = await hass.async_add_executor_job(
             fresh_client.get_usage_data,
-            'H',  # mode
+            "H",  # mode
             None,  # date_from
             None,  # date_to
             date_str,  # str_date
-            'H'  # hourly_type
+            "H",  # hourly_type
         )
 
-        # Logout
-        await hass.async_add_executor_job(fresh_client.logout)
-
         if not data:
-            _LOGGER.debug(f"Initial import: No data returned for {yesterday}")
+            _LOGGER.debug("Initial import: No data returned for %s", yesterday)
             return
 
         # Get meter number
@@ -346,19 +344,36 @@ async def _async_import_initial_yesterday_data(
         hourly_records = data.get("objUsageGenerationResultSetTwo", [])
 
         if not hourly_records:
-            _LOGGER.debug(f"Initial import: No hourly records for {yesterday}")
+            _LOGGER.debug("Initial import: No hourly records for %s", yesterday)
             return
 
         # Import into statistics
-        date_dt = local_midnight(yesterday)  # timezone-aware to prevent UTC baseline bugs
+        date_dt = local_midnight(
+            yesterday
+        )  # timezone-aware to prevent UTC baseline bugs
         await async_import_hourly_statistics(
             hass, meter_number, hourly_records, date_dt
         )
 
-        _LOGGER.info(f"Initial setup: Successfully imported {len(hourly_records)} hours for {yesterday}")
+        _LOGGER.info(
+            "Initial setup: Successfully imported %d hours for %s",
+            len(hourly_records),
+            yesterday,
+        )
 
+    except (requests.Timeout, requests.ConnectionError) as err:
+        _LOGGER.warning(
+            "Initial import: Network error communicating with ACWD portal: %s "
+            "(will be retried on the next update cycle)",
+            err,
+        )
     except Exception as err:
-        _LOGGER.warning(f"Initial import failed (non-critical): {err}")
+        _LOGGER.warning("Initial import failed (non-critical): %s", err)
+    finally:
+        try:
+            await hass.async_add_executor_job(fresh_client.logout)
+        except Exception as logout_err:
+            _LOGGER.debug("Logout failed after initial import: %s", logout_err)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -382,7 +397,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching ACWD data."""
 
-    def __init__(self, hass: HomeAssistant, client: ACWDClient, entry: ConfigEntry) -> None:
+    def __init__(
+        self, hass: HomeAssistant, client: ACWDClient, entry: ConfigEntry
+    ) -> None:
         """Initialize."""
         self.client = client
         self.entry = entry
@@ -410,7 +427,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
 
             # Get billing cycle data (mode='B' for complete summary data)
             data = await self.hass.async_add_executor_job(
-                self.client.get_usage_data, 'B'
+                self.client.get_usage_data, "B"
             )
 
             if not data:
@@ -419,21 +436,26 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             # Automatically import today's hourly data
             await self._import_today_hourly_data()
 
-            # Also import yesterday's data during early morning hours (0-6 AM)
+            # Also import yesterday's data during early morning hours (0-12 PM)
             # to catch the last few hours that become available overnight
             await self._import_yesterday_complete_data()
-
-            # Logout
-            await self.hass.async_add_executor_job(self.client.logout)
 
             return data
 
         except (requests.Timeout, requests.ConnectionError) as err:
             raise UpdateFailed(
-                f"Network error communicating with ACWD portal: {err}"
+                f"Network error communicating with ACWD portal: {err}",
+                retry_after=300,
             ) from err
+        except UpdateFailed:
+            raise
         except Exception as err:
             raise UpdateFailed(f"Error communicating with ACWD: {err}") from err
+        finally:
+            try:
+                await self.hass.async_add_executor_job(self.client.logout)
+            except Exception as logout_err:
+                _LOGGER.debug("Logout failed after coordinator update: %s", logout_err)
 
     async def _import_today_hourly_data(self) -> None:
         """Automatically import today's hourly data into statistics.
@@ -454,11 +476,11 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             # Fetch hourly data (already logged in)
             data = await self.hass.async_add_executor_job(
                 self.client.get_usage_data,
-                'H',  # mode
+                "H",  # mode
                 None,  # date_from
                 None,  # date_to
                 date_str,  # str_date
-                'H'  # hourly_type (hourly, not quarter-hourly)
+                "H",  # hourly_type (hourly, not quarter-hourly)
             )
 
             if not data:
@@ -489,12 +511,16 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
                     break
 
             if last_nonzero_hour:
-                _LOGGER.info(f"Latest available data for {today}: {last_nonzero_hour} ({last_nonzero_index + 1} hours)")
+                _LOGGER.info(
+                    f"Latest available data for {today}: {last_nonzero_hour} ({last_nonzero_index + 1} hours)"
+                )
             else:
                 _LOGGER.debug(f"No non-zero usage found for {today}")
 
             # Import into statistics (duplicates are automatically handled)
-            date_dt = local_midnight(today)  # timezone-aware to prevent UTC baseline bugs
+            date_dt = local_midnight(
+                today
+            )  # timezone-aware to prevent UTC baseline bugs
             await async_import_hourly_statistics(
                 self.hass, meter_number, hourly_records, date_dt
             )
@@ -521,7 +547,9 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
         yesterday = (dt_util.now() - timedelta(days=1)).date()
 
         try:
-            _LOGGER.debug(f"Early morning check: Importing complete data for {yesterday}")
+            _LOGGER.debug(
+                f"Early morning check: Importing complete data for {yesterday}"
+            )
 
             # Format date for API
             date_str = yesterday.strftime(DATE_FORMAT_SLASH_MDY)
@@ -529,11 +557,11 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             # Fetch hourly data (already logged in)
             data = await self.hass.async_add_executor_job(
                 self.client.get_usage_data,
-                'H',  # mode
+                "H",  # mode
                 None,  # date_from
                 None,  # date_to
                 date_str,  # str_date
-                'H'  # hourly_type (hourly, not quarter-hourly)
+                "H",  # hourly_type (hourly, not quarter-hourly)
             )
 
             if not data:
@@ -554,12 +582,18 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
                 return
 
             # Import into statistics (duplicates are automatically handled)
-            date_dt = local_midnight(yesterday)  # timezone-aware to prevent UTC baseline bugs
+            date_dt = local_midnight(
+                yesterday
+            )  # timezone-aware to prevent UTC baseline bugs
             await async_import_hourly_statistics(
                 self.hass, meter_number, hourly_records, date_dt
             )
 
-            _LOGGER.info(f"Early morning import: Updated {len(hourly_records)} hourly records for {yesterday}")
+            _LOGGER.info(
+                f"Early morning import: Updated {len(hourly_records)} hourly records for {yesterday}"
+            )
 
         except Exception as err:
-            _LOGGER.warning(f"Failed to import complete yesterday data for {yesterday}: {err}")
+            _LOGGER.warning(
+                f"Failed to import complete yesterday data for {yesterday}: {err}"
+            )

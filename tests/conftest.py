@@ -297,6 +297,10 @@ def _setup_homeassistant_mocks():
     class UpdateFailed(Exception):
         """Mock UpdateFailed — distinct type so tests don't accidentally catch unrelated errors."""
 
+        def __init__(self, message: str = "", *, retry_after: float | None = None) -> None:
+            super().__init__(message)
+            self.retry_after = retry_after
+
     update_coordinator_mock.UpdateFailed = UpdateFailed
 
     # CoordinatorEntity base class for sensor tests
