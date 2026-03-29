@@ -40,7 +40,7 @@ jobs:
           SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: ./coverage.xml
           flags: unittests
@@ -50,7 +50,7 @@ jobs:
 
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: ./junit.xml
           report_type: test_results
