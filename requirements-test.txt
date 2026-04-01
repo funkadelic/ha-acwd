@@ -1,12 +1,5 @@
 # Testing dependencies for ACWD Home Assistant Integration
--r requirements.txt
-pytest>=9.0.0
-pytest-asyncio>=1.0.0
+pytest-homeassistant-custom-component>=0.13.310
 pytest-mock>=3.10.0
-pytest-cov>=6.0.0
 freezegun>=1.2.0
-tzdata>=2024.1
-
-# HA core provides these at runtime; needed here for tests outside HA
-requests>=2.33.0
-voluptuous>=0.13.0
+beautifulsoup4>=4.14.3

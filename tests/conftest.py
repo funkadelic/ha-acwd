@@ -1,95 +1,18 @@
 """Shared pytest fixtures and configuration for ACWD tests."""
 
-import sys
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, Mock
+from datetime import datetime
+from unittest.mock import MagicMock, Mock
 from zoneinfo import ZoneInfo
 
 import pytest
 
-# Export mock classes for use in test files
-__all__ = [
-    "StatisticData",
-    "StatisticMeanType",
-    "StatisticMetaData",
-    "UnitOfVolume",
-    "dt_util",
-]
-
-
-# Mock Home Assistant classes and utilities
-@dataclass
-class StatisticData:
-    """Mock StatisticData from Home Assistant recorder."""
-
-    start: datetime
-    state: float | None = None
-    sum: float | None = None
-
-
-@dataclass
-class StatisticMetaData:
-    """Mock StatisticMetaData from Home Assistant recorder."""
-
-    has_mean: bool
-    has_sum: bool
-    name: str | None
-    source: str
-    statistic_id: str
-    unit_of_measurement: str | None
-    unit_class: str | None = None
-    mean_type: str | None = None
-
-
-class StatisticMeanType:
-    """Mock StatisticMeanType enum from Home Assistant recorder."""
-
-    NONE = "none"
-
-
-class _GallonsUnit:
-    """Mock gallons unit with value attribute."""
-
-    value = "gal"
-
-
-class UnitOfVolume:
-    """Mock UnitOfVolume from Home Assistant."""
-
-    GALLONS = _GallonsUnit()
-
-
-class dt_util:
-    """Mock dt_util from Home Assistant."""
-
-    UTC = timezone.utc
-
-    @staticmethod
-    def now() -> datetime:
-        """Return current time in HA's configured timezone."""
-        tz = dt_util.get_default_time_zone()
-        return datetime.now(tz)
-
-    @staticmethod
-    def get_default_time_zone():
-        """Return default timezone (PST by default for tests)."""
-        return ZoneInfo("America/Los_Angeles")
-
-    @staticmethod
-    def as_utc(dt: datetime) -> datetime:
-        """Convert datetime to UTC. Naive datetimes are assumed to be UTC."""
-        if dt.tzinfo is None:
-            return dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
+from tests.helpers import make_mock_hass
 
 
 @pytest.fixture
 def mock_hass():
     """Create a mocked HomeAssistant instance."""
-    hass = MagicMock()
-    hass.async_add_executor_job = AsyncMock(side_effect=lambda func, *args: func(*args))
-    return hass
+    return make_mock_hass()
 
 
 @pytest.fixture
@@ -115,7 +38,6 @@ def mock_recorder_instance():
     """Create a mocked recorder instance."""
     instance = MagicMock()
 
-    # async_add_executor_job executes a sync function in an executor and returns the result
     async def _async_executor(func, *args, **kwargs):
         return func(*args, **kwargs)
 
@@ -143,7 +65,7 @@ def mock_get_last_statistics():
 @pytest.fixture
 def mock_async_add_external_statistics():
     """Mock homeassistant.components.recorder.async_add_external_statistics."""
-    return AsyncMock()
+    return Mock()
 
 
 @pytest.fixture
@@ -237,241 +159,3 @@ def expected_dec_10_partial_total(sample_hourly_data_dec_10_partial):
     """Calculate expected total for Dec 10 partial data."""
     records = sample_hourly_data_dec_10_partial["objUsageGenerationResultSetTwo"]
     return sum(r["UsageValue"] for r in records)
-
-
-# Mock the homeassistant module before any tests import it
-def _setup_homeassistant_mocks():
-    """Set up mock homeassistant module for imports."""
-    # Create mock homeassistant module structure
-    ha_mock = MagicMock()
-
-    # Create proper module mocks (not MagicMock) for nested imports
-    from types import ModuleType
-
-    # Create recorder module
-    recorder_mock = ModuleType("recorder")
-    recorder_mock.StatisticData = StatisticData
-    recorder_mock.StatisticMetaData = StatisticMetaData
-    recorder_mock.StatisticMeanType = StatisticMeanType
-    recorder_mock.get_instance = Mock()
-    recorder_mock.get_last_statistics = Mock()
-    recorder_mock.async_add_external_statistics = AsyncMock()
-    recorder_mock.statistics_during_period = Mock()
-
-    # Create recorder.statistics submodule
-    recorder_statistics_mock = ModuleType("statistics")
-    recorder_statistics_mock.StatisticData = StatisticData
-    recorder_statistics_mock.StatisticMetaData = StatisticMetaData
-    recorder_statistics_mock.StatisticMeanType = StatisticMeanType
-    recorder_statistics_mock.get_last_statistics = Mock()
-    recorder_statistics_mock.async_add_external_statistics = AsyncMock()
-    recorder_statistics_mock.statistics_during_period = Mock()
-
-    # Create components module
-    components_mock = ModuleType("components")
-    components_mock.recorder = recorder_mock
-
-    # Create const module
-    const_mock = ModuleType("const")
-    const_mock.UnitOfVolume = UnitOfVolume
-    const_mock.CONF_PASSWORD = "password"
-    const_mock.CONF_USERNAME = "username"
-    const_mock.Platform = MagicMock()
-
-    # Create util module
-    util_mock = ModuleType("util")
-    util_mock.dt = dt_util
-
-    # Create helpers module
-    helpers_mock = ModuleType("helpers")
-    update_coordinator_mock = ModuleType("update_coordinator")
-
-    class _StubDataUpdateCoordinator:
-        """Stub for DataUpdateCoordinator that allows normal attribute assignment."""
-
-        def __init__(self, hass, logger, *, name, update_interval):
-            pass
-
-    update_coordinator_mock.DataUpdateCoordinator = _StubDataUpdateCoordinator
-
-    class UpdateFailed(Exception):
-        """Mock UpdateFailed — distinct type so tests don't accidentally catch unrelated errors."""
-
-        def __init__(self, message: str = "", *, retry_after: float | None = None) -> None:
-            super().__init__(message)
-            self.retry_after = retry_after
-
-    update_coordinator_mock.UpdateFailed = UpdateFailed
-
-    # CoordinatorEntity base class for sensor tests
-    class CoordinatorEntity:
-        """Mock CoordinatorEntity that stores coordinator reference."""
-
-        def __init__(self, coordinator):
-            self.coordinator = coordinator
-
-        @property
-        def unique_id(self):
-            return getattr(self, "_attr_unique_id", None)
-
-    update_coordinator_mock.CoordinatorEntity = CoordinatorEntity
-    helpers_mock.update_coordinator = update_coordinator_mock
-
-    # Create sensor module mock
-    sensor_mock = ModuleType("sensor")
-
-    class SensorDeviceClass:
-        WATER = "water"
-
-    class SensorEntity:
-        pass
-
-    sensor_mock.SensorDeviceClass = SensorDeviceClass
-    sensor_mock.SensorEntity = SensorEntity
-
-    # Create helpers.entity module mock
-    entity_mock = ModuleType("entity")
-
-    class DeviceInfo(dict):
-        """Mock DeviceInfo that accepts kwargs."""
-
-        def __init__(self, **kwargs):
-            super().__init__(**kwargs)
-            for k, v in kwargs.items():
-                setattr(self, k, v)
-
-    entity_mock.DeviceInfo = DeviceInfo
-
-    # Create helpers.entity_platform module mock
-    entity_platform_mock = ModuleType("entity_platform")
-    entity_platform_mock.AddEntitiesCallback = lambda *args, **kwargs: None
-
-    # Create data_entry_flow module mock
-    data_entry_flow_mock = ModuleType("data_entry_flow")
-    data_entry_flow_mock.FlowResult = dict
-
-    # Create exceptions module with real exception classes (must be raisable/catchable)
-    exceptions_mock = ModuleType("exceptions")
-
-    class ServiceValidationError(Exception):
-        pass
-
-    class HomeAssistantError(Exception):
-        pass
-
-    exceptions_mock.ServiceValidationError = ServiceValidationError
-    exceptions_mock.HomeAssistantError = HomeAssistantError
-
-    # Create config_validation mock (cv.date is a passthrough for tests)
-    config_validation_mock = ModuleType("config_validation")
-    config_validation_mock.date = lambda v: v
-    config_validation_mock.config_entry_only_config_schema = lambda domain: {}
-
-    # Create helpers.typing mock
-    helpers_typing_mock = ModuleType("typing")
-    helpers_typing_mock.ConfigType = dict
-
-    # Attach new mocks to helpers
-    helpers_mock.config_validation = config_validation_mock
-    helpers_mock.typing = helpers_typing_mock
-
-    # Create core module
-    core_mock = ModuleType("core")
-    core_mock.HomeAssistant = MagicMock
-    core_mock.ServiceCall = MagicMock
-    core_mock.callback = lambda func: func
-
-    # Create config_entries module with ConfigFlow base class
-    config_entries_mock = ModuleType("config_entries")
-    config_entries_mock.ConfigEntry = MagicMock
-
-    class _ConfigFlowBase:
-        """Mock ConfigFlow base class."""
-
-        def __init_subclass__(cls, domain=None, **kwargs):
-            super().__init_subclass__(**kwargs)
-            if domain:
-                cls.DOMAIN = domain
-
-        async def async_set_unique_id(self, uid):
-            # No-op: real HA checks config entry registry; tests don't need deduplication
-            pass
-
-        def _abort_if_unique_id_configured(self):
-            # No-op: real HA aborts if unique ID exists; tests skip this validation
-            pass
-
-        def async_create_entry(self, *, title, data):
-            return {"type": "create_entry", "title": title, "data": data}
-
-        def async_show_form(
-            self,
-            *,
-            step_id,
-            data_schema=None,
-            errors=None,
-            description_placeholders=None,
-        ):
-            return {
-                "type": "form",
-                "step_id": step_id,
-                "errors": errors or {},
-                "data_schema": data_schema,
-                "description_placeholders": description_placeholders,
-            }
-
-    config_entries_mock.ConfigFlow = _ConfigFlowBase
-
-    # Add sensor to components
-    components_mock.sensor = sensor_mock
-
-    # Set up main homeassistant module
-    ha_mock.components = components_mock
-    ha_mock.const = const_mock
-    ha_mock.util = util_mock
-    ha_mock.helpers = helpers_mock
-    ha_mock.core = core_mock
-    ha_mock.config_entries = config_entries_mock
-    ha_mock.exceptions = exceptions_mock
-    ha_mock.data_entry_flow = data_entry_flow_mock
-
-    # Install all mocks in sys.modules
-    sys.modules["homeassistant"] = ha_mock
-    sys.modules["homeassistant.components"] = components_mock
-    sys.modules["homeassistant.components.recorder"] = recorder_mock
-    sys.modules["homeassistant.components.recorder.statistics"] = (
-        recorder_statistics_mock
-    )
-    sys.modules["homeassistant.components.sensor"] = sensor_mock
-    sys.modules["homeassistant.const"] = const_mock
-    sys.modules["homeassistant.util"] = util_mock
-    sys.modules["homeassistant.helpers"] = helpers_mock
-    sys.modules["homeassistant.helpers.entity"] = entity_mock
-    sys.modules["homeassistant.helpers.entity_platform"] = entity_platform_mock
-    sys.modules["homeassistant.helpers.update_coordinator"] = update_coordinator_mock
-    sys.modules["homeassistant.helpers.config_validation"] = config_validation_mock
-    sys.modules["homeassistant.helpers.typing"] = helpers_typing_mock
-    sys.modules["homeassistant.core"] = core_mock
-    sys.modules["homeassistant.config_entries"] = config_entries_mock
-    sys.modules["homeassistant.exceptions"] = exceptions_mock
-    sys.modules["homeassistant.data_entry_flow"] = data_entry_flow_mock
-
-
-# Set up mocks before pytest collects tests
-_setup_homeassistant_mocks()
-
-
-def _setup_custom_components_package():
-    """Add repo root to sys.path so `custom_components.acwd` is importable.
-
-    This must run after HA mocks are in place but before any test file tries
-    to import from custom_components.acwd so that collection order doesn't matter.
-    """
-    from pathlib import Path
-
-    repo_root = str(Path(__file__).parent.parent)
-    if repo_root not in sys.path:
-        sys.path.insert(0, repo_root)
-
-
-_setup_custom_components_package()

@@ -207,7 +207,7 @@ This indicates a problem with the ACWD portal login page structure. The integrat
 
 ## Unit Tests (pytest)
 
-The integration includes unit tests to prevent regressions of critical bugs.
+The integration uses [pytest-homeassistant-custom-component](https://github.com/MatthewFlamworker/pytest-homeassistant-custom-component) for testing against real Home Assistant types and fixtures. **255 tests** with **100% line and branch coverage**.
 
 ### Running Unit Tests
 
@@ -223,66 +223,42 @@ pip install -r requirements-test.txt
 pytest
 ```
 
-**Run with verbose output:**
-
-```bash
-pytest -v
-```
-
-**Run with coverage report:**
-
-```bash
-pytest --cov=custom_components.acwd --cov-report=term-missing
-```
+All configuration (coverage, markers, test paths) is in `pyproject.toml` — no extra flags needed.
 
 **Run specific test file:**
 
 ```bash
-pytest tests/test_coordinator.py -v
+pytest tests/test_acwd_api.py -v
 ```
 
-### Test Coverage
+### Test Suite Overview
 
-The unit test suite currently covers:
+| File | Tests | Covers |
+|------|------:|--------|
+| `test_init.py` | 70 | Coordinator, services, setup/unload, auto-import logic |
+| `test_acwd_api.py` | 53 | Login paths, get_usage_data, logout, meter discovery |
+| `test_helpers.py` | 39 | Date/time parsing, API response parsing, timezone helpers |
+| `test_sensor.py` | 23 | Sensor entities, billing cycle data, device info |
+| `test_http_reliability.py` | 23 | HTTP timeouts, network error handling, CSRF resilience |
+| `test_statistics_extended.py` | 19 | Quarter-hourly, daily statistics, edge cases |
+| `test_statistics.py` | 18 | Hourly statistics import, baseline calculations |
+| `test_config_flow.py` | 10 | Config UI flow, validation, error handling |
 
-**Coordinator Logic (8 tests)** - Validates early morning import timing and data handling
-
-- Early morning import timing (3 tests)
-  - Import runs during 0-6 AM window
-  - Import correctly skips outside this window
-- DateTime creation with timezones (2 tests)
-  - PST timezone handling
-  - EST timezone handling
-- Data availability edge cases (3 tests)
-  - Handles no data returned
-  - Handles empty record sets
-
-### Expected Output
+### Custom Markers
 
 ```bash
-$ pytest tests/test_coordinator.py -v
-========================== test session starts ==========================
-collected 8 items
-
-tests/test_coordinator.py::TestEarlyMorningImport::test_early_morning_import_at_midnight PASSED
-tests/test_coordinator.py::TestEarlyMorningImport::test_early_morning_import_at_5am PASSED
-tests/test_coordinator.py::TestEarlyMorningImport::test_early_morning_import_at_6am PASSED
-tests/test_coordinator.py::TestEarlyMorningImport::test_early_morning_import_at_noon PASSED
-tests/test_coordinator.py::TestDateTimeCreation::test_create_local_datetime_pst PASSED
-tests/test_coordinator.py::TestDateTimeCreation::test_create_local_datetime_est PASSED
-tests/test_coordinator.py::TestDataAvailability::test_handle_no_data_returned PASSED
-tests/test_coordinator.py::TestDataAvailability::test_handle_empty_records PASSED
-
-========================== 8 passed in 0.25s ==========================
-
+pytest -m unit         # Unit tests (no network, no HA core)
+pytest -m integration  # Integration tests requiring HA fixtures
+pytest -m slow         # Tests that take significant time
+pytest -m timezone     # Timezone-sensitive logic tests
 ```
 
 ### Continuous Integration
 
 Tests run automatically on GitHub Actions for every push and pull request:
 
-- **Python Version**: 3.12 (matches Home Assistant 2024.2+ requirements)
+- **Python Version**: 3.13 (required by pytest-homeassistant-custom-component)
 - **Platform**: Ubuntu latest
-- **Coverage Reporting**: Codecov
+- **Coverage Reporting**: Codecov and SonarQube
 
-View test results at: `https://github.com/funkadelic/ha-acwd/actions`
+View test results at: https://github.com/funkadelic/ha-acwd/actions

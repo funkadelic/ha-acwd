@@ -8,13 +8,16 @@ Validates that:
 """
 
 import datetime
+from unittest.mock import MagicMock, patch
+
 import pytest
 import requests
-from unittest.mock import MagicMock, patch
-from tests.helpers import make_mock_hass as _make_mock_hass
-from tests.helpers import make_mock_entry as _make_mock_entry
-from tests.helpers import make_mock_coordinator as _make_mock_coordinator
 
+from tests.helpers import make_client as _make_client
+from tests.helpers import make_logged_in_client as _make_logged_in_client
+from tests.helpers import make_mock_coordinator as _make_mock_coordinator
+from tests.helpers import make_mock_entry as _make_mock_entry
+from tests.helpers import make_mock_hass as _make_mock_hass
 
 # ---------------------------------------------------------------------------
 # Shared helpers
@@ -24,39 +27,29 @@ from tests.helpers import make_mock_coordinator as _make_mock_coordinator
 def _assert_timeout(kwargs):
     """Assert that the caller passed timeout=HTTP_TIMEOUT."""
     from custom_components.acwd.const import HTTP_TIMEOUT
+
     actual = kwargs.get("timeout")
     assert actual == HTTP_TIMEOUT, f"Expected timeout={HTTP_TIMEOUT}, got timeout={actual}"
 
 
 def _raising(error):
     """Return a side_effect that asserts timeout and raises *error*."""
+
     def _fn(*_args, **kwargs):
         _assert_timeout(kwargs)
         raise error
+
     return _fn
 
 
 def _returning(value):
     """Return a side_effect that asserts timeout and returns *value*."""
+
     def _fn(*_args, **kwargs):
         _assert_timeout(kwargs)
         return value
+
     return _fn
-
-
-def _make_client():
-    """Return a fresh ACWDClient instance."""
-    from custom_components.acwd.acwd_api import ACWDClient
-    return ACWDClient("user@example.com", "secret")
-
-
-def _make_logged_in_client(meter_cached=True):
-    """Return a logged-in ACWDClient with optional pre-cached meter."""
-    client = _make_client()
-    client.logged_in = True
-    client.csrf_token = "tok123"
-    client._water_meter_number = "230057301" if meter_cached else None
-    return client
 
 
 def _mock_usage_page():
@@ -160,9 +153,11 @@ class TestLoginTimeoutPropagation:
         """Test 2: login() raises requests.Timeout when initial GET to base_url times out."""
         client = _make_client()
 
-        with patch.object(client.session, "get", side_effect=_raising(requests.Timeout("timed out"))):
-            with pytest.raises(requests.Timeout):
-                client.login()
+        with (
+            patch.object(client.session, "get", side_effect=_raising(requests.Timeout("timed out"))),
+            pytest.raises(requests.Timeout),
+        ):
+            client.login()
 
     def test_login_raises_on_validate_login_post_timeout(self):
         """Test 3: login() raises requests.Timeout when validateLogin POST times out."""
@@ -171,9 +166,7 @@ class TestLoginTimeoutPropagation:
         # First GET (base_url) succeeds, returning a page with a CSRF token
         mock_get_response = MagicMock()
         mock_get_response.status_code = 200
-        mock_get_response.text = (
-            '<html><input type="hidden" name="hdnCSRFToken" value="tok123"/></html>'
-        )
+        mock_get_response.text = '<html><input type="hidden" name="hdnCSRFToken" value="tok123"/></html>'
 
         # First POST (updateState) also succeeds
         mock_update_response = MagicMock()
@@ -189,63 +182,82 @@ class TestLoginTimeoutPropagation:
                 return mock_update_response  # updateState
             raise requests.Timeout("validate login timed out")
 
-        with patch.object(client.session, "get", side_effect=_returning(mock_get_response)):
-            with patch.object(client.session, "post", side_effect=_post_side_effect):
-                with pytest.raises(requests.Timeout):
-                    client.login()
+        with (
+            patch.object(client.session, "get", side_effect=_returning(mock_get_response)),
+            patch.object(client.session, "post", side_effect=_post_side_effect),
+            pytest.raises(requests.Timeout),
+        ):
+            client.login()
 
     def test_login_raises_on_connection_error(self):
         """login() raises requests.ConnectionError when network is unreachable."""
         client = _make_client()
 
-        with patch.object(
-            client.session, "get", side_effect=_raising(requests.ConnectionError("no route to host"))
+        with (
+            patch.object(
+                client.session,
+                "get",
+                side_effect=_raising(requests.ConnectionError("no route to host")),
+            ),
+            pytest.raises(requests.ConnectionError),
         ):
-            with pytest.raises(requests.ConnectionError):
-                client.login()
+            client.login()
 
 
 class TestBindMultiMeterTimeout:
     """Test 4: BindMultiMeter timeout degrades gracefully — leaves meter uncached, logs warning."""
 
-    @pytest.mark.parametrize("error", [
-        requests.Timeout("bind meter timed out"),
-        requests.ConnectionError("bind meter unreachable"),
-    ], ids=["timeout", "connection_error"])
+    @pytest.mark.parametrize(
+        "error",
+        [
+            requests.Timeout("bind meter timed out"),
+            requests.ConnectionError("bind meter unreachable"),
+        ],
+        ids=["timeout", "connection_error"],
+    )
     def test_bind_meter_timeout_leaves_meter_uncached(self, error):
         """Test 4: Network error on BindMultiMeter leaves meter as None so next call retries."""
         client = _make_logged_in_client(meter_cached=False)
 
-        with patch.object(client.session, "get", side_effect=_returning(_mock_usage_page())):
-            with patch.object(
-                client.session, "post",
+        with (
+            patch.object(client.session, "get", side_effect=_returning(_mock_usage_page())),
+            patch.object(
+                client.session,
+                "post",
                 side_effect=_post_failing_first(error),
-            ):
-                client.get_usage_data(mode="B")
+            ),
+        ):
+            client.get_usage_data(mode="B")
 
         assert client._water_meter_number is None
 
-    @pytest.mark.parametrize("error", [
-        requests.Timeout("bind meter timed out"),
-        requests.ConnectionError("bind meter unreachable"),
-    ], ids=["timeout", "connection_error"])
+    @pytest.mark.parametrize(
+        "error",
+        [
+            requests.Timeout("bind meter timed out"),
+            requests.ConnectionError("bind meter unreachable"),
+        ],
+        ids=["timeout", "connection_error"],
+    )
     def test_bind_meter_timeout_logs_warning_with_url(self, error, caplog):
         """Test 4: BindMultiMeter network error warning includes the URL."""
         import logging
 
         client = _make_logged_in_client(meter_cached=False)
 
-        with caplog.at_level(logging.WARNING):
-            with patch.object(client.session, "get", side_effect=_returning(_mock_usage_page())):
-                with patch.object(
-                    client.session, "post",
-                    side_effect=_post_failing_first(error),
-                ):
-                    client.get_usage_data(mode="B")
+        with (
+            caplog.at_level(logging.WARNING),
+            patch.object(client.session, "get", side_effect=_returning(_mock_usage_page())),
+            patch.object(
+                client.session,
+                "post",
+                side_effect=_post_failing_first(error),
+            ),
+        ):
+            client.get_usage_data(mode="B")
 
         warning_messages = [
-            r.getMessage() for r in caplog.records
-            if r.levelname == "WARNING" and r.name == "custom_components.acwd.acwd_api"
+            r.getMessage() for r in caplog.records if r.levelname == "WARNING" and r.name == "custom_components.acwd.acwd_api"
         ]
         assert any("BindMultiMeter" in m and "Network error" in m for m in warning_messages), (
             f"Expected a warning mentioning both BindMultiMeter URL and network error, got: {warning_messages}"
@@ -259,54 +271,65 @@ class TestLoadWaterUsageTimeoutPropagation:
         """Test 5: Timeout on LoadWaterUsage POST propagates up (raises requests.Timeout)."""
         client = _make_logged_in_client(meter_cached=True)
 
-        with patch.object(client.session, "get", side_effect=_returning(_mock_usage_page())):
-            with patch.object(
-                client.session, "post", side_effect=_raising(requests.Timeout("usage POST timed out"))
-            ):
-                with pytest.raises(requests.Timeout):
-                    client.get_usage_data(mode="B")
+        with (
+            patch.object(client.session, "get", side_effect=_returning(_mock_usage_page())),
+            patch.object(
+                client.session,
+                "post",
+                side_effect=_raising(requests.Timeout("usage POST timed out")),
+            ),
+            pytest.raises(requests.Timeout),
+        ):
+            client.get_usage_data(mode="B")
 
 
 class TestCsrfRefreshTimeoutNonFatal:
     """Test 5b: usage_page_url CSRF GET timeout logs warning and does NOT raise."""
 
-    @pytest.mark.parametrize("error", [
-        requests.Timeout("csrf refresh timed out"),
-        requests.ConnectionError("csrf refresh unreachable"),
-    ], ids=["timeout", "connection_error"])
+    @pytest.mark.parametrize(
+        "error",
+        [
+            requests.Timeout("csrf refresh timed out"),
+            requests.ConnectionError("csrf refresh unreachable"),
+        ],
+        ids=["timeout", "connection_error"],
+    )
     def test_csrf_refresh_does_not_raise(self, error):
         """Test 5b: Network error on CSRF refresh GET does not raise — get_usage_data() continues."""
         client = _make_logged_in_client(meter_cached=True)
 
-        with patch.object(
-            client.session, "get", side_effect=_raising(error)
+        with (
+            patch.object(client.session, "get", side_effect=_raising(error)),
+            patch.object(client.session, "post", side_effect=_returning(_mock_usage_json())) as mock_post,
         ):
-            with patch.object(client.session, "post", side_effect=_returning(_mock_usage_json())) as mock_post:
-                result = client.get_usage_data(mode="B")
+            result = client.get_usage_data(mode="B")
 
         mock_post.assert_called_once()
         assert result == {"objUsageGenerationResultSetTwo": []}
 
-    @pytest.mark.parametrize("error", [
-        requests.Timeout("csrf refresh timed out"),
-        requests.ConnectionError("csrf refresh unreachable"),
-    ], ids=["timeout", "connection_error"])
+    @pytest.mark.parametrize(
+        "error",
+        [
+            requests.Timeout("csrf refresh timed out"),
+            requests.ConnectionError("csrf refresh unreachable"),
+        ],
+        ids=["timeout", "connection_error"],
+    )
     def test_csrf_refresh_logs_warning_with_url(self, error, caplog):
         """Test 5b: CSRF refresh network error logs warning including the usage_page_url."""
         import logging
 
         client = _make_logged_in_client(meter_cached=True)
 
-        with caplog.at_level(logging.WARNING):
-            with patch.object(
-                client.session, "get", side_effect=_raising(error)
-            ):
-                with patch.object(client.session, "post", side_effect=_returning(_mock_usage_json())):
-                    client.get_usage_data(mode="B")
+        with (
+            caplog.at_level(logging.WARNING),
+            patch.object(client.session, "get", side_effect=_raising(error)),
+            patch.object(client.session, "post", side_effect=_returning(_mock_usage_json())),
+        ):
+            client.get_usage_data(mode="B")
 
         warning_messages = [
-            r.getMessage() for r in caplog.records
-            if r.levelname == "WARNING" and r.name == "custom_components.acwd.acwd_api"
+            r.getMessage() for r in caplog.records if r.levelname == "WARNING" and r.name == "custom_components.acwd.acwd_api"
         ]
         assert any("usages.aspx" in m and "Network error" in m for m in warning_messages), (
             f"Expected a warning mentioning both usages.aspx URL and network error, got: {warning_messages}"
@@ -324,16 +347,21 @@ class TestCoordinatorNetworkErrors:
     def _make_coordinator_stub(self, hass, client):
         """Build a minimal namespace that satisfies _async_update_data's self requirements."""
         import types
+
         from custom_components.acwd import ACWDDataUpdateCoordinator
 
         stub = types.SimpleNamespace(hass=hass, client=client)
         stub._async_update_data = lambda: ACWDDataUpdateCoordinator._async_update_data(stub)
         return stub
 
-    @pytest.mark.parametrize("error", [
-        requests.Timeout("portal unreachable"),
-        requests.ConnectionError("no route to host"),
-    ], ids=["timeout", "connection_error"])
+    @pytest.mark.parametrize(
+        "error",
+        [
+            requests.Timeout("portal unreachable"),
+            requests.ConnectionError("no route to host"),
+        ],
+        ids=["timeout", "connection_error"],
+    )
     async def test_network_error_raises_update_failed(self, error):
         """_async_update_data() raises UpdateFailed on network errors."""
         from homeassistant.helpers.update_coordinator import UpdateFailed
@@ -354,18 +382,39 @@ class TestCoordinatorNetworkErrors:
 class TestServiceHandlerNetworkErrors:
     """Test 7 & 8: Service handlers raise HomeAssistantError on network errors."""
 
-    @pytest.mark.parametrize("handler_name,call_data", [
-        ("handle_import_hourly", {"date": datetime.date.today() - datetime.timedelta(days=2), "granularity": "hourly"}),
-        ("handle_import_daily", {"start_date": datetime.date(2025, 12, 1), "end_date": datetime.date(2025, 12, 5)}),
-    ], ids=["hourly", "daily"])
-    @pytest.mark.parametrize("error", [
-        requests.Timeout("timed out"),
-        requests.ConnectionError("no route to host"),
-    ], ids=["timeout", "connection_error"])
+    @pytest.mark.parametrize(
+        "handler_name,call_data",
+        [
+            (
+                "handle_import_hourly",
+                {
+                    "date": datetime.date.today() - datetime.timedelta(days=2),
+                    "granularity": "hourly",
+                },
+            ),
+            (
+                "handle_import_daily",
+                {
+                    "start_date": datetime.date(2025, 12, 1),
+                    "end_date": datetime.date(2025, 12, 5),
+                },
+            ),
+        ],
+        ids=["hourly", "daily"],
+    )
+    @pytest.mark.parametrize(
+        "error",
+        [
+            requests.Timeout("timed out"),
+            requests.ConnectionError("no route to host"),
+        ],
+        ids=["timeout", "connection_error"],
+    )
     async def test_service_handler_network_error_raises_ha_error(self, handler_name, call_data, error):
         """Service handlers raise HomeAssistantError on network errors."""
-        import custom_components.acwd as acwd_module
         from homeassistant.exceptions import HomeAssistantError
+
+        import custom_components.acwd as acwd_module
 
         hass, _, _ = _setup_service_handler_mocks()
 
@@ -375,9 +424,8 @@ class TestServiceHandlerNetworkErrors:
 
         handler = getattr(acwd_module, handler_name)
 
-        with _make_failing_client_patch(error):
-            with pytest.raises(HomeAssistantError) as exc_info:
-                await handler(call)
+        with _make_failing_client_patch(error), pytest.raises(HomeAssistantError) as exc_info:
+            await handler(call)
 
         assert str(exc_info.value).startswith("Network error communicating with ACWD portal")
         assert exc_info.value.__cause__ is error

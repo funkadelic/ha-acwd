@@ -1,0 +1,37 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+asyncio_mode = "auto"
+addopts = [
+    "--cov=custom_components.acwd",
+    "--cov-branch",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "-v",
+]
+markers = [
+    "unit: unit tests (no network, no HA core)",
+    "integration: integration tests requiring HA fixtures",
+    "slow: tests that take significant time",
+    "timezone: tests for timezone-sensitive logic",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 130
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific rules
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["custom_components.acwd"]

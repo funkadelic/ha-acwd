@@ -19,10 +19,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Python 3.12
+      - name: Set up Python 3.13
         uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Install dependencies
         run: |
@@ -31,7 +31,7 @@ jobs:
 
       - name: Run tests with pytest
         run: |
-          pytest tests/ -v --cov=custom_components.acwd --cov-branch --cov-report=term-missing --cov-report=xml --junitxml=junit.xml
+          pytest --cov-report=xml --junitxml=junit.xml
 
       - name: SonarQube Scan
         if: env.SONAR_TOKEN != ''

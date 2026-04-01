@@ -5,39 +5,21 @@ No real network calls are made — all HTTP interactions use patch.object on ses
 """
 
 import json
-import pytest
-import requests
 from unittest.mock import MagicMock, patch
 
+import pytest
+import requests
 
-# ---------------------------------------------------------------------------
-# Shared helpers (defined locally — do NOT import from test_http_reliability)
-# ---------------------------------------------------------------------------
-
-
-def _make_client():
-    """Return a fresh ACWDClient instance."""
-    from custom_components.acwd.acwd_api import ACWDClient
-
-    return ACWDClient("user@example.com", "secret")
-
-
-def _make_logged_in_client(meter_cached=True):
-    """Return a logged-in ACWDClient with optional pre-cached meter."""
-    client = _make_client()
-    client.logged_in = True
-    client.csrf_token = "tok123"
-    client._water_meter_number = "230057301" if meter_cached else None
-    return client
+from custom_components.acwd.acwd_api import ACWDClient
+from tests.helpers import make_client as _make_client
+from tests.helpers import make_logged_in_client as _make_logged_in_client
 
 
 def _login_page_response(csrf_value="tok123"):
     """Return a mock 200 response with a CSRF token in the HTML."""
     resp = MagicMock()
     resp.status_code = 200
-    resp.text = (
-        f'<html><input type="hidden" name="hdnCSRFToken" value="{csrf_value}"/></html>'
-    )
+    resp.text = f'<html><input type="hidden" name="hdnCSRFToken" value="{csrf_value}"/></html>'
     return resp
 
 
@@ -113,9 +95,7 @@ def _load_water_usage_response(inner_data=None):
     """Return a mock LoadWaterUsage POST response."""
     resp = MagicMock()
     resp.status_code = 200
-    data = (
-        inner_data if inner_data is not None else {"objUsageGenerationResultSetTwo": []}
-    )
+    data = inner_data if inner_data is not None else {"objUsageGenerationResultSetTwo": []}
     resp.json.return_value = {"d": json.dumps(data)}
     return resp
 
@@ -144,9 +124,8 @@ class TestLoginPaths:
         bad_resp.status_code = 503
         bad_resp.raise_for_status.side_effect = requests.HTTPError("503 Server Error")
 
-        with patch.object(client.session, "get", return_value=bad_resp):
-            with pytest.raises(requests.HTTPError):
-                client.login()
+        with patch.object(client.session, "get", return_value=bad_resp), pytest.raises(requests.HTTPError):
+            client.login()
 
     def test_login_returns_false_when_no_csrf_token(self):
         """login() returns False when login page contains no CSRF token."""
@@ -173,13 +152,15 @@ class TestLoginPaths:
         validate_resp.status_code = 200
         validate_resp.json.return_value = {"d": "Migrated User Found"}
 
-        with patch.object(client.session, "get", return_value=get_resp):
-            with patch.object(
+        with (
+            patch.object(client.session, "get", return_value=get_resp),
+            patch.object(
                 client.session,
                 "post",
                 side_effect=_make_post_dispatcher(update_resp, validate_resp),
-            ):
-                result = client.login()
+            ),
+        ):
+            result = client.login()
 
         assert result is False
 
@@ -194,13 +175,15 @@ class TestLoginPaths:
         validate_resp.status_code = 200
         validate_resp.json.return_value = {"d": inner}
 
-        with patch.object(client.session, "get", return_value=get_resp):
-            with patch.object(
+        with (
+            patch.object(client.session, "get", return_value=get_resp),
+            patch.object(
                 client.session,
                 "post",
                 side_effect=_make_post_dispatcher(update_resp, validate_resp),
-            ):
-                result = client.login()
+            ),
+        ):
+            result = client.login()
 
         assert result is False
 
@@ -210,17 +193,17 @@ class TestLoginPaths:
 
         get_resp = _login_page_response()
         update_resp = _update_state_response()
-        validate_resp = _validate_login_response(
-            [{"STATUS": "0", "Message": "Invalid credentials"}]
-        )
+        validate_resp = _validate_login_response([{"STATUS": "0", "Message": "Invalid credentials"}])
 
-        with patch.object(client.session, "get", return_value=get_resp):
-            with patch.object(
+        with (
+            patch.object(client.session, "get", return_value=get_resp),
+            patch.object(
                 client.session,
                 "post",
                 side_effect=_make_post_dispatcher(update_resp, validate_resp),
-            ):
-                result = client.login()
+            ),
+        ):
+            result = client.login()
 
         assert result is False
 
@@ -241,17 +224,19 @@ class TestLoginPaths:
         validate_resp = _validate_login_response(inner)
         dashboard_resp = _dashboard_response()
 
-        with patch.object(
-            client.session,
-            "get",
-            side_effect=_make_get_dispatcher(get_resp, dashboard_resp),
-        ):
-            with patch.object(
+        with (
+            patch.object(
+                client.session,
+                "get",
+                side_effect=_make_get_dispatcher(get_resp, dashboard_resp),
+            ),
+            patch.object(
                 client.session,
                 "post",
                 side_effect=_make_post_dispatcher(update_resp, validate_resp),
-            ):
-                result = client.login()
+            ),
+        ):
+            result = client.login()
 
         assert result is True
         assert client.logged_in is True
@@ -273,17 +258,19 @@ class TestLoginPaths:
         validate_resp = _validate_login_response(inner)
         dashboard_resp = _dashboard_response()
 
-        with patch.object(
-            client.session,
-            "get",
-            side_effect=_make_get_dispatcher(get_resp, dashboard_resp),
-        ):
-            with patch.object(
+        with (
+            patch.object(
+                client.session,
+                "get",
+                side_effect=_make_get_dispatcher(get_resp, dashboard_resp),
+            ),
+            patch.object(
                 client.session,
                 "post",
                 side_effect=_make_post_dispatcher(update_resp, validate_resp),
-            ):
-                result = client.login()
+            ),
+        ):
+            result = client.login()
 
         assert result is True
         assert client.logged_in is True
@@ -305,17 +292,19 @@ class TestLoginPaths:
         validate_resp = _validate_login_response(inner)
         dashboard_resp = _dashboard_response()
 
-        with patch.object(
-            client.session,
-            "get",
-            side_effect=_make_get_dispatcher(get_resp, dashboard_resp),
-        ):
-            with patch.object(
+        with (
+            patch.object(
+                client.session,
+                "get",
+                side_effect=_make_get_dispatcher(get_resp, dashboard_resp),
+            ),
+            patch.object(
                 client.session,
                 "post",
                 side_effect=_make_post_dispatcher(update_resp, validate_resp),
-            ):
-                result = client.login()
+            ),
+        ):
+            result = client.login()
 
         assert result is True
         assert client.logged_in is True
@@ -337,17 +326,19 @@ class TestLoginPaths:
         validate_resp = _validate_login_response(inner)
         bad_dashboard_resp = _dashboard_response(status=500)
 
-        with patch.object(
-            client.session,
-            "get",
-            side_effect=_make_get_dispatcher(get_resp, bad_dashboard_resp),
-        ):
-            with patch.object(
+        with (
+            patch.object(
+                client.session,
+                "get",
+                side_effect=_make_get_dispatcher(get_resp, bad_dashboard_resp),
+            ),
+            patch.object(
                 client.session,
                 "post",
                 side_effect=_make_post_dispatcher(update_resp, validate_resp),
-            ):
-                result = client.login()
+            ),
+        ):
+            result = client.login()
 
         assert result is True
         assert client.logged_in is True
@@ -376,13 +367,15 @@ class TestLoginPaths:
                 return get_resp
             raise requests.ConnectionError("dashboard unreachable")
 
-        with patch.object(client.session, "get", side_effect=_get_side_effect):
-            with patch.object(
+        with (
+            patch.object(client.session, "get", side_effect=_get_side_effect),
+            patch.object(
                 client.session,
                 "post",
                 side_effect=_make_post_dispatcher(update_resp, validate_resp),
-            ):
-                result = client.login()
+            ),
+        ):
+            result = client.login()
 
         assert result is True
         assert client.logged_in is True
@@ -396,13 +389,15 @@ class TestLoginPaths:
         # A list but no STATUS key
         validate_resp = _validate_login_response([{"Name": "Test User"}])
 
-        with patch.object(client.session, "get", return_value=get_resp):
-            with patch.object(
+        with (
+            patch.object(client.session, "get", return_value=get_resp),
+            patch.object(
                 client.session,
                 "post",
                 side_effect=_make_post_dispatcher(update_resp, validate_resp),
-            ):
-                result = client.login()
+            ),
+        ):
+            result = client.login()
 
         assert result is False
 
@@ -415,13 +410,15 @@ class TestLoginPaths:
         # parse_api_response will return a dict, not a list
         validate_resp = _validate_login_response({"some": "dict"})
 
-        with patch.object(client.session, "get", return_value=get_resp):
-            with patch.object(
+        with (
+            patch.object(client.session, "get", return_value=get_resp),
+            patch.object(
                 client.session,
                 "post",
                 side_effect=_make_post_dispatcher(update_resp, validate_resp),
-            ):
-                result = client.login()
+            ),
+        ):
+            result = client.login()
 
         assert result is False
 
@@ -437,13 +434,15 @@ class TestLoginPaths:
         bad_validate_resp.json.return_value = {"d": "INVALID JSON[[["}
         bad_validate_resp.text = "bad"
 
-        with patch.object(client.session, "get", return_value=get_resp):
-            with patch.object(
+        with (
+            patch.object(client.session, "get", return_value=get_resp),
+            patch.object(
                 client.session,
                 "post",
                 side_effect=_make_post_dispatcher(update_resp, bad_validate_resp),
-            ):
-                result = client.login()
+            ),
+        ):
+            result = client.login()
 
         assert result is False
 
@@ -458,14 +457,16 @@ class TestLoginPaths:
         exc_validate_resp.json.side_effect = RuntimeError("unexpected error")
         exc_validate_resp.text = "boom"
 
-        with patch.object(client.session, "get", return_value=get_resp):
-            with patch.object(
+        with (
+            patch.object(client.session, "get", return_value=get_resp),
+            patch.object(
                 client.session,
                 "post",
                 side_effect=_make_post_dispatcher(update_resp, exc_validate_resp),
-            ):
-                with pytest.raises(RuntimeError, match="unexpected error"):
-                    client.login()
+            ),
+            pytest.raises(RuntimeError, match="unexpected error"),
+        ):
+            client.login()
 
     def test_login_returns_false_when_validate_status_not_200(self):
         """login() returns False when validateLogin endpoint returns non-200."""
@@ -476,13 +477,15 @@ class TestLoginPaths:
         bad_validate = MagicMock()
         bad_validate.status_code = 401
 
-        with patch.object(client.session, "get", return_value=get_resp):
-            with patch.object(
+        with (
+            patch.object(client.session, "get", return_value=get_resp),
+            patch.object(
                 client.session,
                 "post",
                 side_effect=_make_post_dispatcher(update_resp, bad_validate),
-            ):
-                result = client.login()
+            ),
+        ):
+            result = client.login()
 
         assert result is False
 
@@ -497,13 +500,15 @@ class TestLoginPaths:
         validate_resp.status_code = 200
         validate_resp.json.return_value = [1, 2, 3]
 
-        with patch.object(client.session, "get", return_value=get_resp):
-            with patch.object(
+        with (
+            patch.object(client.session, "get", return_value=get_resp),
+            patch.object(
                 client.session,
                 "post",
                 side_effect=_make_post_dispatcher(update_resp, validate_resp),
-            ):
-                result = client.login()
+            ),
+        ):
+            result = client.login()
 
         assert result is False
 
@@ -515,13 +520,15 @@ class TestLoginPaths:
         update_resp = _update_state_response()
         validate_resp = _validate_login_response([{"STATUS": "99", "Message": "weird"}])
 
-        with patch.object(client.session, "get", return_value=get_resp):
-            with patch.object(
+        with (
+            patch.object(client.session, "get", return_value=get_resp),
+            patch.object(
                 client.session,
                 "post",
                 side_effect=_make_post_dispatcher(update_resp, validate_resp),
-            ):
-                result = client.login()
+            ),
+        ):
+            result = client.login()
 
         assert result is False
 
@@ -537,13 +544,15 @@ class TestLoginPaths:
         validate_resp.json.return_value = {"d": json.dumps({"dtResponse": []})}
         validate_resp.text = "error"
 
-        with patch.object(client.session, "get", return_value=get_resp):
-            with patch.object(
+        with (
+            patch.object(client.session, "get", return_value=get_resp),
+            patch.object(
                 client.session,
                 "post",
                 side_effect=_make_post_dispatcher(update_resp, validate_resp),
-            ):
-                result = client.login()
+            ),
+        ):
+            result = client.login()
 
         assert result is False
 
@@ -553,21 +562,21 @@ class TestLoginPaths:
 
         get_resp = _login_page_response()
         update_resp = _update_state_response(status=500)
-        validate_resp = _validate_login_response(
-            [{"STATUS": "1", "DashboardOption": "1", "Name": "Test"}]
-        )
+        validate_resp = _validate_login_response([{"STATUS": "1", "DashboardOption": "1", "Name": "Test"}])
 
-        with patch.object(
-            client.session,
-            "get",
-            side_effect=_make_get_dispatcher(get_resp, _dashboard_response()),
-        ):
-            with patch.object(
+        with (
+            patch.object(
+                client.session,
+                "get",
+                side_effect=_make_get_dispatcher(get_resp, _dashboard_response()),
+            ),
+            patch.object(
                 client.session,
                 "post",
                 side_effect=_make_post_dispatcher(update_resp, validate_resp),
-            ):
-                result = client.login()
+            ),
+        ):
+            result = client.login()
 
         assert result is True
 
@@ -598,18 +607,14 @@ class TestParseMeterResponse:
         """Returns None when MeterDetails is a string instead of a list."""
         from custom_components.acwd.acwd_api import ACWDClient
 
-        result = ACWDClient._parse_meter_response(
-            {"d": json.dumps({"MeterDetails": "not-a-list"})}
-        )
+        result = ACWDClient._parse_meter_response({"d": json.dumps({"MeterDetails": "not-a-list"})})
         assert result is None
 
     def test_returns_none_when_meter_details_contains_non_dicts(self):
         """Returns None when MeterDetails list contains non-dict items."""
         from custom_components.acwd.acwd_api import ACWDClient
 
-        result = ACWDClient._parse_meter_response(
-            {"d": json.dumps({"MeterDetails": [{"ok": 1}, "bad", 42]})}
-        )
+        result = ACWDClient._parse_meter_response({"d": json.dumps({"MeterDetails": [{"ok": 1}, "bad", 42]})})
         assert result is None
 
 
@@ -658,15 +663,15 @@ class TestGetUsageDataPaths:
         # Usage page with fresh CSRF token inside an input with id="hdnCSRFToken"
         usage_page = MagicMock()
         usage_page.status_code = 200
-        usage_page.text = (
-            '<html><input id="hdnCSRFToken" value="new_fresh_token"/></html>'
-        )
+        usage_page.text = '<html><input id="hdnCSRFToken" value="new_fresh_token"/></html>'
 
         load_resp = _load_water_usage_response()
 
-        with patch.object(client.session, "get", return_value=usage_page):
-            with patch.object(client.session, "post", return_value=load_resp):
-                client.get_usage_data(mode="B")
+        with (
+            patch.object(client.session, "get", return_value=usage_page),
+            patch.object(client.session, "post", return_value=load_resp),
+        ):
+            client.get_usage_data(mode="B")
 
         assert client.csrf_token == "new_fresh_token"
 
@@ -684,9 +689,11 @@ class TestGetUsageDataPaths:
             captured_payloads.append(json_body)
             return load_resp
 
-        with patch.object(client.session, "get", return_value=usage_page):
-            with patch.object(client.session, "post", side_effect=_post_capture):
-                client.get_usage_data(mode="H", str_date="not-a-real-date")
+        with (
+            patch.object(client.session, "get", return_value=usage_page),
+            patch.object(client.session, "post", side_effect=_post_capture),
+        ):
+            client.get_usage_data(mode="H", str_date="not-a-real-date")
 
         # The strDate in payload should be the raw string (fallback)
         assert len(captured_payloads) == 1
@@ -697,18 +704,18 @@ class TestGetUsageDataPaths:
         client = _make_logged_in_client(meter_cached=False)
 
         usage_page = _usage_page_response()
-        bind_resp = _bind_meter_response(
-            [{"IsAMI": True, "MeterType": "W", "MeterNumber": "AMI_METER_123"}]
-        )
+        bind_resp = _bind_meter_response([{"IsAMI": True, "MeterType": "W", "MeterNumber": "AMI_METER_123"}])
         load_resp = _load_water_usage_response()
 
-        with patch.object(client.session, "get", return_value=usage_page):
-            with patch.object(
+        with (
+            patch.object(client.session, "get", return_value=usage_page),
+            patch.object(
                 client.session,
                 "post",
                 side_effect=_make_post_dispatcher(bind_resp, load_resp),
-            ):
-                client.get_usage_data(mode="B")
+            ),
+        ):
+            client.get_usage_data(mode="B")
 
         assert client._water_meter_number == "AMI_METER_123"
 
@@ -717,18 +724,18 @@ class TestGetUsageDataPaths:
         client = _make_logged_in_client(meter_cached=False)
 
         usage_page = _usage_page_response()
-        bind_resp = _bind_meter_response(
-            [{"IsAMI": False, "MeterType": "W", "MeterNumber": "FIRST_METER_999"}]
-        )
+        bind_resp = _bind_meter_response([{"IsAMI": False, "MeterType": "W", "MeterNumber": "FIRST_METER_999"}])
         load_resp = _load_water_usage_response()
 
-        with patch.object(client.session, "get", return_value=usage_page):
-            with patch.object(
+        with (
+            patch.object(client.session, "get", return_value=usage_page),
+            patch.object(
                 client.session,
                 "post",
                 side_effect=_make_post_dispatcher(bind_resp, load_resp),
-            ):
-                client.get_usage_data(mode="B")
+            ),
+        ):
+            client.get_usage_data(mode="B")
 
         assert client._water_meter_number == "FIRST_METER_999"
 
@@ -741,13 +748,15 @@ class TestGetUsageDataPaths:
         bad_bind.status_code = 500
         load_resp = _load_water_usage_response()
 
-        with patch.object(client.session, "get", return_value=usage_page):
-            with patch.object(
+        with (
+            patch.object(client.session, "get", return_value=usage_page),
+            patch.object(
                 client.session,
                 "post",
                 side_effect=_make_post_dispatcher(bad_bind, load_resp),
-            ):
-                client.get_usage_data(mode="B")
+            ),
+        ):
+            client.get_usage_data(mode="B")
 
         assert client._water_meter_number is None
 
@@ -766,13 +775,15 @@ class TestGetUsageDataPaths:
         bad_bind.json.return_value = {"d": "NOT VALID JSON{{{"}
         load_resp = _load_water_usage_response()
 
-        with patch.object(client.session, "get", return_value=usage_page):
-            with patch.object(
+        with (
+            patch.object(client.session, "get", return_value=usage_page),
+            patch.object(
                 client.session,
                 "post",
                 side_effect=_make_post_dispatcher(bad_bind, load_resp),
-            ):
-                client.get_usage_data(mode="B")
+            ),
+        ):
+            client.get_usage_data(mode="B")
 
         # meter_details was set to None by the ValueError handler,
         # so _water_meter_number is unchanged (still None)
@@ -785,9 +796,7 @@ class TestGetUsageDataPaths:
         # BindMultiMeter returns 200 but response.json() raises ValueError (HTML body)
         bad_bind = MagicMock()
         bad_bind.status_code = 200
-        bad_bind.json.side_effect = requests.exceptions.JSONDecodeError(
-            "Expecting value", "", 0
-        )
+        bad_bind.json.side_effect = requests.exceptions.JSONDecodeError("Expecting value", "", 0)
 
         headers = {"Content-Type": "application/json"}
         with patch.object(client.session, "post", return_value=bad_bind):
@@ -803,9 +812,11 @@ class TestGetUsageDataPaths:
         bad_load = MagicMock()
         bad_load.status_code = 403
 
-        with patch.object(client.session, "get", return_value=usage_page):
-            with patch.object(client.session, "post", return_value=bad_load):
-                result = client.get_usage_data(mode="B")
+        with (
+            patch.object(client.session, "get", return_value=usage_page),
+            patch.object(client.session, "post", return_value=bad_load),
+        ):
+            result = client.get_usage_data(mode="B")
 
         assert result is None
 
@@ -816,13 +827,13 @@ class TestGetUsageDataPaths:
         usage_page = _usage_page_response()
         bad_json_resp = MagicMock()
         bad_json_resp.status_code = 200
-        bad_json_resp.json.side_effect = requests.exceptions.JSONDecodeError(
-            "Expecting value", "", 0
-        )
+        bad_json_resp.json.side_effect = requests.exceptions.JSONDecodeError("Expecting value", "", 0)
 
-        with patch.object(client.session, "get", return_value=usage_page):
-            with patch.object(client.session, "post", return_value=bad_json_resp):
-                result = client.get_usage_data(mode="B")
+        with (
+            patch.object(client.session, "get", return_value=usage_page),
+            patch.object(client.session, "post", return_value=bad_json_resp),
+        ):
+            result = client.get_usage_data(mode="B")
 
         assert result is None
 
@@ -836,9 +847,11 @@ class TestGetUsageDataPaths:
         # 'd' contains invalid JSON — parse_api_response raises ValueError
         bad_parse_resp.json.return_value = {"d": "INVALID JSON[[["}
 
-        with patch.object(client.session, "get", return_value=usage_page):
-            with patch.object(client.session, "post", return_value=bad_parse_resp):
-                result = client.get_usage_data(mode="B")
+        with (
+            patch.object(client.session, "get", return_value=usage_page),
+            patch.object(client.session, "post", return_value=bad_parse_resp),
+        ):
+            result = client.get_usage_data(mode="B")
 
         assert result is None
 
@@ -910,9 +923,7 @@ class TestRefreshCsrfToken:
 
         usage_page = MagicMock()
         usage_page.status_code = 200
-        usage_page.text = (
-            '<html><input id="hdnCSRFToken" value="new_fresh_token"/></html>'
-        )
+        usage_page.text = '<html><input id="hdnCSRFToken" value="new_fresh_token"/></html>'
 
         with patch.object(client.session, "get", return_value=usage_page):
             client._refresh_csrf_token()
@@ -963,9 +974,7 @@ class TestRefreshCsrfToken:
         client = _make_logged_in_client()
         client.csrf_token = "old_token"
 
-        with patch.object(
-            client.session, "get", side_effect=requests.ConnectionError("fail")
-        ):
+        with patch.object(client.session, "get", side_effect=requests.ConnectionError("fail")):
             client._refresh_csrf_token()
 
         assert client.csrf_token == "old_token"
@@ -979,24 +988,22 @@ class TestRefreshCsrfToken:
 class TestFormatApiDate:
     """Tests for ACWDClient._format_api_date()."""
 
-    from custom_components.acwd.acwd_api import ACWDClient
-
     def test_returns_empty_string_for_none(self):
-        assert self.ACWDClient._format_api_date(None) == ""
+        assert ACWDClient._format_api_date(None) == ""
 
     def test_returns_empty_string_for_empty(self):
-        assert self.ACWDClient._format_api_date("") == ""
+        assert ACWDClient._format_api_date("") == ""
 
     def test_formats_valid_date(self):
-        result = self.ACWDClient._format_api_date("12/04/2025")
+        result = ACWDClient._format_api_date("12/04/2025")
         assert result == "December 4, 2025"
 
     def test_formats_date_without_leading_zero(self):
-        result = self.ACWDClient._format_api_date("01/01/2026")
+        result = ACWDClient._format_api_date("01/01/2026")
         assert result == "January 1, 2026"
 
     def test_returns_raw_value_on_parse_failure(self):
-        result = self.ACWDClient._format_api_date("not-a-real-date")
+        result = ACWDClient._format_api_date("not-a-real-date")
         assert result == "not-a-real-date"
 
 
@@ -1037,12 +1044,7 @@ class TestGetHiddenFieldsSkipsNameless:
         """Hidden inputs missing the name attribute are excluded from the result."""
         from bs4 import BeautifulSoup
 
-        html = (
-            "<html>"
-            '<input type="hidden" name="goodField" value="yes"/>'
-            '<input type="hidden" value="orphan"/>'
-            "</html>"
-        )
+        html = '<html><input type="hidden" name="goodField" value="yes"/><input type="hidden" value="orphan"/></html>'
         soup = BeautifulSoup(html, "html.parser")
         client = _make_client()
         fields = client._get_hidden_fields(soup)
@@ -1068,9 +1070,11 @@ class TestGetUsageDataWithoutCsrf:
                 captured_headers.update(kwargs.get("headers", {}))
             return load_resp
 
-        with patch.object(client.session, "get", return_value=usage_page):
-            with patch.object(client.session, "post", side_effect=_post_capture):
-                client.get_usage_data(mode="B")
+        with (
+            patch.object(client.session, "get", return_value=usage_page),
+            patch.object(client.session, "post", side_effect=_post_capture),
+        ):
+            client.get_usage_data(mode="B")
 
         assert captured_headers, "LoadWaterUsage POST was never captured"
         assert "csrftoken" not in captured_headers
