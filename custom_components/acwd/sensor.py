@@ -1,5 +1,4 @@
 """Sensor platform for ACWD Water Usage integration."""
-
 from __future__ import annotations
 
 import logging

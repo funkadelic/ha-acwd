@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
-
 import requests
 import voluptuous as vol
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -15,14 +15,13 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
-
+from .const import DOMAIN, DATE_FORMAT_SLASH_MDY
 from .acwd_api import ACWDClient
-from .const import DATE_FORMAT_SLASH_MDY, DOMAIN
 from .helpers import local_midnight
 from .statistics import (
-    async_import_daily_statistics,
     async_import_hourly_statistics,
     async_import_quarter_hourly_statistics,
+    async_import_daily_statistics,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,7 +46,9 @@ MORNING_IMPORT_END_HOUR = 12  # Only import yesterday's data before noon
 SERVICE_IMPORT_HOURLY_SCHEMA = vol.Schema(
     {
         vol.Required("date"): cv.date,
-        vol.Optional("granularity", default="hourly"): vol.In(["hourly", "quarter_hourly"]),
+        vol.Optional("granularity", default="hourly"): vol.In(
+            ["hourly", "quarter_hourly"]
+        ),
         vol.Optional("entry_id"): str,
     }
 )
@@ -88,14 +89,18 @@ def _get_coordinator(domain_data: dict, entry_id: str | None):
     if entry_id is not None:
         if entry_id not in domain_data:
             available = ", ".join(domain_data.keys())
-            raise ServiceValidationError(f"Unknown entry_id '{entry_id}'. Available entries: {available}")
+            raise ServiceValidationError(
+                f"Unknown entry_id '{entry_id}'. Available entries: {available}"
+            )
         return domain_data[entry_id]
 
     if len(domain_data) == 1:
         return next(iter(domain_data.values()))
 
     available = ", ".join(domain_data.keys())
-    raise ServiceValidationError(f"Multiple ACWD entries configured. Specify entry_id. Available: {available}")
+    raise ServiceValidationError(
+        f"Multiple ACWD entries configured. Specify entry_id. Available: {available}"
+    )
 
 
 async def handle_import_hourly(call: ServiceCall) -> None:
@@ -109,7 +114,8 @@ async def handle_import_hourly(call: ServiceCall) -> None:
     if date >= today:
         _LOGGER.debug("Service call rejected: date %s is today or future", date)
         raise ServiceValidationError(
-            "Date cannot be in the future. ACWD data has a reporting delay — use a date at least 1 day in the past."
+            "Date cannot be in the future. ACWD data has a reporting delay — "
+            "use a date at least 1 day in the past."
         )
 
     # Look up coordinator from hass.data[DOMAIN]
@@ -161,14 +167,20 @@ async def handle_import_hourly(call: ServiceCall) -> None:
         # Import into statistics
         date_dt = local_midnight(date)  # timezone-aware to prevent UTC baseline bugs
         if granularity == "quarter_hourly":
-            await async_import_quarter_hourly_statistics(hass, meter_number, hourly_records, date_dt)
+            await async_import_quarter_hourly_statistics(
+                hass, meter_number, hourly_records, date_dt
+            )
         else:
-            await async_import_hourly_statistics(hass, meter_number, hourly_records, date_dt)
+            await async_import_hourly_statistics(
+                hass, meter_number, hourly_records, date_dt
+            )
 
         _LOGGER.info("Successfully imported %s data for %s", granularity, date)
 
     except (requests.Timeout, requests.ConnectionError) as err:
-        raise HomeAssistantError(f"Network error communicating with ACWD portal: {err}") from err
+        raise HomeAssistantError(
+            f"Network error communicating with ACWD portal: {err}"
+        ) from err
     except (ServiceValidationError, HomeAssistantError):
         raise
     except Exception as err:
@@ -238,10 +250,14 @@ async def handle_import_daily(call: ServiceCall) -> None:
         # Import into statistics
         await async_import_daily_statistics(hass, str(account_number), daily_records)
 
-        _LOGGER.info("Successfully imported daily data from %s to %s", start_date, end_date)
+        _LOGGER.info(
+            "Successfully imported daily data from %s to %s", start_date, end_date
+        )
 
     except (requests.Timeout, requests.ConnectionError) as err:
-        raise HomeAssistantError(f"Network error communicating with ACWD portal: {err}") from err
+        raise HomeAssistantError(
+            f"Network error communicating with ACWD portal: {err}"
+        ) from err
     except (ServiceValidationError, HomeAssistantError):
         raise
     except Exception as err:
@@ -277,7 +293,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-async def _async_import_initial_yesterday_data(hass: HomeAssistant, coordinator: ACWDDataUpdateCoordinator) -> None:
+async def _async_import_initial_yesterday_data(
+    hass: HomeAssistant, coordinator: "ACWDDataUpdateCoordinator"
+) -> None:
     """Import yesterday's data on first setup to provide immediate feedback to users.
 
     This is a one-time import that runs when the integration is first installed.
@@ -330,8 +348,12 @@ async def _async_import_initial_yesterday_data(hass: HomeAssistant, coordinator:
             return
 
         # Import into statistics
-        date_dt = local_midnight(yesterday)  # timezone-aware to prevent UTC baseline bugs
-        await async_import_hourly_statistics(hass, meter_number, hourly_records, date_dt)
+        date_dt = local_midnight(
+            yesterday
+        )  # timezone-aware to prevent UTC baseline bugs
+        await async_import_hourly_statistics(
+            hass, meter_number, hourly_records, date_dt
+        )
 
         _LOGGER.info(
             "Initial setup: Successfully imported %d hours for %s",
@@ -341,7 +363,8 @@ async def _async_import_initial_yesterday_data(hass: HomeAssistant, coordinator:
 
     except (requests.Timeout, requests.ConnectionError) as err:
         _LOGGER.warning(
-            "Initial import: Network error communicating with ACWD portal: %s (will be retried on the next update cycle)",
+            "Initial import: Network error communicating with ACWD portal: %s "
+            "(will be retried on the next update cycle)",
             err,
         )
     except Exception as err:
@@ -360,7 +383,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         # Check if this was the last loaded entry
         other_loaded_entries = [
-            _entry for _entry in hass.config_entries.async_loaded_entries(DOMAIN) if _entry.entry_id != entry.entry_id
+            _entry
+            for _entry in hass.config_entries.async_loaded_entries(DOMAIN)
+            if _entry.entry_id != entry.entry_id
         ]
         if not other_loaded_entries:
             hass.services.async_remove(DOMAIN, SERVICE_IMPORT_HOURLY)
@@ -372,7 +397,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching ACWD data."""
 
-    def __init__(self, hass: HomeAssistant, client: ACWDClient, entry: ConfigEntry) -> None:
+    def __init__(
+        self, hass: HomeAssistant, client: ACWDClient, entry: ConfigEntry
+    ) -> None:
         """Initialize."""
         self.client = client
         self.entry = entry
@@ -399,7 +426,9 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
                 raise UpdateFailed(ERROR_LOGIN_FAILED)
 
             # Get billing cycle data (mode='B' for complete summary data)
-            data = await self.hass.async_add_executor_job(self.client.get_usage_data, "B")
+            data = await self.hass.async_add_executor_job(
+                self.client.get_usage_data, "B"
+            )
 
             if not data:
                 raise UpdateFailed("No data returned from ACWD portal")
@@ -492,10 +521,16 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.debug("No non-zero usage found for %s", today)
 
             # Import into statistics (duplicates are automatically handled)
-            date_dt = local_midnight(today)  # timezone-aware to prevent UTC baseline bugs
-            await async_import_hourly_statistics(self.hass, meter_number, hourly_records, date_dt)
+            date_dt = local_midnight(
+                today
+            )  # timezone-aware to prevent UTC baseline bugs
+            await async_import_hourly_statistics(
+                self.hass, meter_number, hourly_records, date_dt
+            )
 
-            _LOGGER.info("Imported %s hourly records for %s", len(hourly_records), today)
+            _LOGGER.info(
+                "Imported %s hourly records for %s", len(hourly_records), today
+            )
 
         except Exception as err:
             _LOGGER.warning("Failed to auto-import hourly data for %s: %s", today, err)
@@ -517,7 +552,9 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
         yesterday = (dt_util.now() - timedelta(days=1)).date()
 
         try:
-            _LOGGER.debug("Early morning check: Importing complete data for %s", yesterday)
+            _LOGGER.debug(
+                "Early morning check: Importing complete data for %s", yesterday
+            )
 
             # Format date for API
             date_str = yesterday.strftime(DATE_FORMAT_SLASH_MDY)
@@ -550,8 +587,12 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
                 return
 
             # Import into statistics (duplicates are automatically handled)
-            date_dt = local_midnight(yesterday)  # timezone-aware to prevent UTC baseline bugs
-            await async_import_hourly_statistics(self.hass, meter_number, hourly_records, date_dt)
+            date_dt = local_midnight(
+                yesterday
+            )  # timezone-aware to prevent UTC baseline bugs
+            await async_import_hourly_statistics(
+                self.hass, meter_number, hourly_records, date_dt
+            )
 
             _LOGGER.info(
                 "Early morning import: Updated %s hourly records for %s",
@@ -560,4 +601,6 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             )
 
         except Exception as err:
-            _LOGGER.warning("Failed to import complete yesterday data for %s: %s", yesterday, err)
+            _LOGGER.warning(
+                "Failed to import complete yesterday data for %s: %s", yesterday, err
+            )

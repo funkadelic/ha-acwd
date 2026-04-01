@@ -32,9 +32,14 @@ def parse_api_response(result: dict, endpoint: str = "unknown") -> Any:
         ValueError: If 'd' is absent or its value is not valid JSON.
     """
     if not isinstance(result, dict):
-        raise ValueError(f"Unexpected API response from {endpoint}: expected dict envelope, got {type(result).__name__}")
+        raise ValueError(
+            f"Unexpected API response from {endpoint}: "
+            f"expected dict envelope, got {type(result).__name__}"
+        )
     if KEY_D not in result:
-        raise ValueError(f"Unexpected API response from {endpoint}: missing '{KEY_D}' property")
+        raise ValueError(
+            f"Unexpected API response from {endpoint}: missing '{KEY_D}' property"
+        )
     raw = result[KEY_D]
     if not isinstance(raw, str):
         raise ValueError(
@@ -44,7 +49,9 @@ def parse_api_response(result: dict, endpoint: str = "unknown") -> Any:
         return json.loads(raw)
     except json.JSONDecodeError as e:
         snippet = raw[:200]
-        raise ValueError(f"Failed to parse API response from {endpoint}: {e} (got: {snippet!r})") from e
+        raise ValueError(
+            f"Failed to parse API response from {endpoint}: {e} (got: {snippet!r})"
+        ) from e
 
 
 def local_midnight(d: date) -> datetime:
