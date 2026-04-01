@@ -10,25 +10,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-# ---------------------------------------------------------------------------
-# Shared helpers (defined locally — do NOT import from test_http_reliability)
-# ---------------------------------------------------------------------------
-
-
-def _make_client():
-    """Return a fresh ACWDClient instance."""
-    from custom_components.acwd.acwd_api import ACWDClient
-
-    return ACWDClient("user@example.com", "secret")
-
-
-def _make_logged_in_client(meter_cached=True):
-    """Return a logged-in ACWDClient with optional pre-cached meter."""
-    client = _make_client()
-    client.logged_in = True
-    client.csrf_token = "tok123"
-    client._water_meter_number = "230057301" if meter_cached else None
-    return client
+from custom_components.acwd.acwd_api import ACWDClient
+from tests.helpers import make_client as _make_client
+from tests.helpers import make_logged_in_client as _make_logged_in_client
 
 
 def _login_page_response(csrf_value="tok123"):
@@ -683,9 +667,11 @@ class TestGetUsageDataPaths:
 
         load_resp = _load_water_usage_response()
 
-        with patch.object(client.session, "get", return_value=usage_page):
-            with patch.object(client.session, "post", return_value=load_resp):
-                client.get_usage_data(mode="B")
+        with (
+            patch.object(client.session, "get", return_value=usage_page),
+            patch.object(client.session, "post", return_value=load_resp),
+        ):
+            client.get_usage_data(mode="B")
 
         assert client.csrf_token == "new_fresh_token"
 
@@ -703,9 +689,11 @@ class TestGetUsageDataPaths:
             captured_payloads.append(json_body)
             return load_resp
 
-        with patch.object(client.session, "get", return_value=usage_page):
-            with patch.object(client.session, "post", side_effect=_post_capture):
-                client.get_usage_data(mode="H", str_date="not-a-real-date")
+        with (
+            patch.object(client.session, "get", return_value=usage_page),
+            patch.object(client.session, "post", side_effect=_post_capture),
+        ):
+            client.get_usage_data(mode="H", str_date="not-a-real-date")
 
         # The strDate in payload should be the raw string (fallback)
         assert len(captured_payloads) == 1
@@ -824,9 +812,11 @@ class TestGetUsageDataPaths:
         bad_load = MagicMock()
         bad_load.status_code = 403
 
-        with patch.object(client.session, "get", return_value=usage_page):
-            with patch.object(client.session, "post", return_value=bad_load):
-                result = client.get_usage_data(mode="B")
+        with (
+            patch.object(client.session, "get", return_value=usage_page),
+            patch.object(client.session, "post", return_value=bad_load),
+        ):
+            result = client.get_usage_data(mode="B")
 
         assert result is None
 
@@ -839,9 +829,11 @@ class TestGetUsageDataPaths:
         bad_json_resp.status_code = 200
         bad_json_resp.json.side_effect = requests.exceptions.JSONDecodeError("Expecting value", "", 0)
 
-        with patch.object(client.session, "get", return_value=usage_page):
-            with patch.object(client.session, "post", return_value=bad_json_resp):
-                result = client.get_usage_data(mode="B")
+        with (
+            patch.object(client.session, "get", return_value=usage_page),
+            patch.object(client.session, "post", return_value=bad_json_resp),
+        ):
+            result = client.get_usage_data(mode="B")
 
         assert result is None
 
@@ -855,9 +847,11 @@ class TestGetUsageDataPaths:
         # 'd' contains invalid JSON — parse_api_response raises ValueError
         bad_parse_resp.json.return_value = {"d": "INVALID JSON[[["}
 
-        with patch.object(client.session, "get", return_value=usage_page):
-            with patch.object(client.session, "post", return_value=bad_parse_resp):
-                result = client.get_usage_data(mode="B")
+        with (
+            patch.object(client.session, "get", return_value=usage_page),
+            patch.object(client.session, "post", return_value=bad_parse_resp),
+        ):
+            result = client.get_usage_data(mode="B")
 
         assert result is None
 
@@ -995,30 +989,20 @@ class TestFormatApiDate:
     """Tests for ACWDClient._format_api_date()."""
 
     def test_returns_empty_string_for_none(self):
-        from custom_components.acwd.acwd_api import ACWDClient
-
         assert ACWDClient._format_api_date(None) == ""
 
     def test_returns_empty_string_for_empty(self):
-        from custom_components.acwd.acwd_api import ACWDClient
-
         assert ACWDClient._format_api_date("") == ""
 
     def test_formats_valid_date(self):
-        from custom_components.acwd.acwd_api import ACWDClient
-
         result = ACWDClient._format_api_date("12/04/2025")
         assert result == "December 4, 2025"
 
     def test_formats_date_without_leading_zero(self):
-        from custom_components.acwd.acwd_api import ACWDClient
-
         result = ACWDClient._format_api_date("01/01/2026")
         assert result == "January 1, 2026"
 
     def test_returns_raw_value_on_parse_failure(self):
-        from custom_components.acwd.acwd_api import ACWDClient
-
         result = ACWDClient._format_api_date("not-a-real-date")
         assert result == "not-a-real-date"
 
@@ -1086,9 +1070,11 @@ class TestGetUsageDataWithoutCsrf:
                 captured_headers.update(kwargs.get("headers", {}))
             return load_resp
 
-        with patch.object(client.session, "get", return_value=usage_page):
-            with patch.object(client.session, "post", side_effect=_post_capture):
-                client.get_usage_data(mode="B")
+        with (
+            patch.object(client.session, "get", return_value=usage_page),
+            patch.object(client.session, "post", side_effect=_post_capture),
+        ):
+            client.get_usage_data(mode="B")
 
         assert captured_headers, "LoadWaterUsage POST was never captured"
         assert "csrftoken" not in captured_headers

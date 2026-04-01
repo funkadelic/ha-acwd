@@ -65,7 +65,7 @@ def mock_get_last_statistics():
 @pytest.fixture
 def mock_async_add_external_statistics():
     """Mock homeassistant.components.recorder.async_add_external_statistics."""
-    return AsyncMock()
+    return Mock()
 
 
 @pytest.fixture

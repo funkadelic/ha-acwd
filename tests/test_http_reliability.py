@@ -13,6 +13,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
+from tests.helpers import make_client as _make_client
+from tests.helpers import make_logged_in_client as _make_logged_in_client
 from tests.helpers import make_mock_coordinator as _make_mock_coordinator
 from tests.helpers import make_mock_entry as _make_mock_entry
 from tests.helpers import make_mock_hass as _make_mock_hass
@@ -48,22 +50,6 @@ def _returning(value):
         return value
 
     return _fn
-
-
-def _make_client():
-    """Return a fresh ACWDClient instance."""
-    from custom_components.acwd.acwd_api import ACWDClient
-
-    return ACWDClient("user@example.com", "secret")
-
-
-def _make_logged_in_client(meter_cached=True):
-    """Return a logged-in ACWDClient with optional pre-cached meter."""
-    client = _make_client()
-    client.logged_in = True
-    client.csrf_token = "tok123"
-    client._water_meter_number = "230057301" if meter_cached else None
-    return client
 
 
 def _mock_usage_page():
@@ -335,9 +321,12 @@ class TestCsrfRefreshTimeoutNonFatal:
 
         client = _make_logged_in_client(meter_cached=True)
 
-        with caplog.at_level(logging.WARNING), patch.object(client.session, "get", side_effect=_raising(error)):
-            with patch.object(client.session, "post", side_effect=_returning(_mock_usage_json())):
-                client.get_usage_data(mode="B")
+        with (
+            caplog.at_level(logging.WARNING),
+            patch.object(client.session, "get", side_effect=_raising(error)),
+            patch.object(client.session, "post", side_effect=_returning(_mock_usage_json())),
+        ):
+            client.get_usage_data(mode="B")
 
         warning_messages = [
             r.getMessage() for r in caplog.records if r.levelname == "WARNING" and r.name == "custom_components.acwd.acwd_api"

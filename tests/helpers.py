@@ -4,6 +4,8 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
+from custom_components.acwd.acwd_api import ACWDClient
+
 
 def make_mock_hass():
     """Return a MagicMock hass suitable for service and coordinator tests."""
@@ -39,6 +41,20 @@ def make_mock_coordinator(entry):
 def make_date_dt(date, tz):
     """Return a timezone-aware datetime at midnight for the given date."""
     return datetime.combine(date, datetime.min.time()).replace(tzinfo=tz)
+
+
+def make_client():
+    """Return a fresh ACWDClient instance."""
+    return ACWDClient("user@example.com", "secret")
+
+
+def make_logged_in_client(meter_cached=True):
+    """Return a logged-in ACWDClient with optional pre-cached meter."""
+    client = make_client()
+    client.logged_in = True
+    client.csrf_token = "tok123"
+    client._water_meter_number = "230057301" if meter_cached else None
+    return client
 
 
 def make_baseline_mock(statistic_id, start, sum_value):

@@ -11,6 +11,12 @@ addopts = [
     "--cov-report=html",
     "-v",
 ]
+markers = [
+    "unit: unit tests (no network, no HA core)",
+    "integration: integration tests requiring HA fixtures",
+    "slow: tests that take significant time",
+    "timezone: tests for timezone-sensitive logic",
+]
 
 [tool.ruff]
 target-version = "py313"
@@ -26,9 +32,6 @@ select = [
     "SIM",  # flake8-simplify
     "RUF",  # ruff-specific rules
 ]
-
-[tool.ruff.lint.per-file-ignores]
-"tests/**" = ["SIM117"]  # nested with statements are clearer for multi-patch test setups
 
 [tool.ruff.lint.isort]
 known-first-party = ["custom_components.acwd"]
