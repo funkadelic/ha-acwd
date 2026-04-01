@@ -1,7 +1,7 @@
 """Shared mock factories for ACWD tests."""
 
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from custom_components.acwd.acwd_api import ACWDClient
@@ -80,10 +80,6 @@ def patch_statistics(mock_get_instance, mock_async_add_external_statistics, mock
         patch(
             "custom_components.acwd.statistics.dt_util.get_default_time_zone",
             return_value=tz,
-        ),
-        patch(
-            "custom_components.acwd.statistics.dt_util.as_utc",
-            side_effect=lambda dt: dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt.astimezone(UTC),
         ),
     ):
         yield

@@ -1,18 +1,18 @@
 """Shared pytest fixtures and configuration for ACWD tests."""
 
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, Mock
+from unittest.mock import MagicMock, Mock
 from zoneinfo import ZoneInfo
 
 import pytest
+
+from tests.helpers import make_mock_hass
 
 
 @pytest.fixture
 def mock_hass():
     """Create a mocked HomeAssistant instance."""
-    hass = MagicMock()
-    hass.async_add_executor_job = AsyncMock(side_effect=lambda func, *args: func(*args))
-    return hass
+    return make_mock_hass()
 
 
 @pytest.fixture
