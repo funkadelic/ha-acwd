@@ -5,17 +5,18 @@ patterns across the integration. These tests verify the function returns
 correct timezone-aware midnight datetimes.
 """
 
-import sys
-from datetime import date, datetime, timezone
-from pathlib import Path
+from datetime import UTC, date, datetime
 from unittest.mock import patch
 
 import pytest
 
-# Add custom_components to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from custom_components.acwd.helpers import local_midnight
+from custom_components.acwd.helpers import (
+    local_midnight,
+    parse_api_response,
+    parse_date_long,
+    parse_date_mdy,
+    parse_time_12hr,
+)
 
 
 @pytest.mark.unit
@@ -25,7 +26,7 @@ class TestLocalMidnight:
     def test_returns_timezone_aware_datetime(self, pst_timezone):
         """local_midnight() must return a timezone-aware datetime (never naive)."""
         with patch(
-            "homeassistant.util.dt.get_default_time_zone",
+            "custom_components.acwd.helpers.dt_util.get_default_time_zone",
             return_value=pst_timezone,
         ):
             d = date(2025, 12, 10)
@@ -36,7 +37,7 @@ class TestLocalMidnight:
     def test_returns_midnight(self, pst_timezone):
         """Result is midnight: hour=0, minute=0, second=0, microsecond=0."""
         with patch(
-            "homeassistant.util.dt.get_default_time_zone",
+            "custom_components.acwd.helpers.dt_util.get_default_time_zone",
             return_value=pst_timezone,
         ):
             d = date(2025, 12, 10)
@@ -50,7 +51,7 @@ class TestLocalMidnight:
     def test_preserves_date(self, pst_timezone):
         """Result date matches the input date."""
         with patch(
-            "homeassistant.util.dt.get_default_time_zone",
+            "custom_components.acwd.helpers.dt_util.get_default_time_zone",
             return_value=pst_timezone,
         ):
             d = date(2025, 12, 10)
@@ -63,7 +64,7 @@ class TestLocalMidnight:
     def test_uses_ha_default_timezone_pst(self, pst_timezone):
         """Result uses HA's default timezone (PST in test fixtures)."""
         with patch(
-            "homeassistant.util.dt.get_default_time_zone",
+            "custom_components.acwd.helpers.dt_util.get_default_time_zone",
             return_value=pst_timezone,
         ):
             d = date(2025, 12, 10)
@@ -74,7 +75,7 @@ class TestLocalMidnight:
     def test_uses_ha_default_timezone_est(self, est_timezone):
         """Result uses HA's default timezone when set to EST."""
         with patch(
-            "homeassistant.util.dt.get_default_time_zone",
+            "custom_components.acwd.helpers.dt_util.get_default_time_zone",
             return_value=est_timezone,
         ):
             d = date(2025, 12, 10)
@@ -85,22 +86,14 @@ class TestLocalMidnight:
     def test_pst_midnight_converts_to_correct_utc(self, pst_timezone):
         """Dec 10 00:00 PST converts to Dec 10 08:00 UTC."""
         with patch(
-            "homeassistant.util.dt.get_default_time_zone",
+            "custom_components.acwd.helpers.dt_util.get_default_time_zone",
             return_value=pst_timezone,
         ):
             d = date(2025, 12, 10)
             result = local_midnight(d)
-            result_utc = result.astimezone(timezone.utc)
+            result_utc = result.astimezone(UTC)
 
-            assert result_utc == datetime(2025, 12, 10, 8, 0, 0, tzinfo=timezone.utc)
-
-
-from custom_components.acwd.helpers import (
-    parse_api_response,
-    parse_date_long,
-    parse_date_mdy,
-    parse_time_12hr,
-)
+            assert result_utc == datetime(2025, 12, 10, 8, 0, 0, tzinfo=UTC)
 
 
 @pytest.mark.unit

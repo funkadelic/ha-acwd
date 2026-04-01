@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 import logging
+from datetime import datetime
 from typing import Any
 
 from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.statistics import (
-    async_add_external_statistics,
-    get_last_statistics,
     StatisticData,
     StatisticMeanType,
     StatisticMetaData,
+    async_add_external_statistics,
+    get_last_statistics,
 )
 from homeassistant.const import UnitOfVolume
 from homeassistant.core import HomeAssistant
@@ -72,9 +72,7 @@ async def _get_baseline_sum(
 
     Returns 0.0 if no suitable baseline is found.
     """
-    last_stats = await get_instance(hass).async_add_executor_job(
-        get_last_statistics, hass, 1, statistic_id, True, {"sum"}
-    )
+    last_stats = await get_instance(hass).async_add_executor_job(get_last_statistics, hass, 1, statistic_id, True, {"sum"})
 
     stats_list = last_stats.get(statistic_id, [])
     if not stats_list:
@@ -93,9 +91,7 @@ async def _get_baseline_sum(
     # Only use the last sum if it's from before the target date
     # Otherwise, we'd be adding today's values on top of today's partial sum
     if last_stat_time and last_stat_time < target_date_start:
-        _LOGGER.debug(
-            "Using last sum %s from %s as baseline", last_stat_sum, last_stat_time
-        )
+        _LOGGER.debug("Using last sum %s from %s as baseline", last_stat_sum, last_stat_time)
         return last_stat_sum
 
     # Last statistic is from target date, need to get sum from day before
@@ -193,9 +189,7 @@ async def async_import_hourly_statistics(
     # Import the statistics
     if statistics:
         async_add_external_statistics(hass, metadata, statistics)
-        _LOGGER.info(
-            "Imported %d hourly statistics for %s", len(statistics), date.date()
-        )
+        _LOGGER.info("Imported %d hourly statistics for %s", len(statistics), date.date())
 
 
 async def async_import_quarter_hourly_statistics(
@@ -235,9 +229,7 @@ async def async_import_quarter_hourly_statistics(
     target_date_start = dt_util.as_utc(target_date_midnight_local)
 
     # Start cumulative sum from last known value before the target date
-    last_sum = await _get_baseline_sum(
-        hass, statistic_id, target_date_start, extended_lookback=192
-    )
+    last_sum = await _get_baseline_sum(hass, statistic_id, target_date_start, extended_lookback=192)
 
     # Convert 15-minute data to statistics
     statistics: list[StatisticData] = []
@@ -272,9 +264,7 @@ async def async_import_quarter_hourly_statistics(
     # Import the statistics
     if statistics:
         async_add_external_statistics(hass, metadata, statistics)
-        _LOGGER.info(
-            "Imported %d 15-minute statistics for %s", len(statistics), date.date()
-        )
+        _LOGGER.info("Imported %d 15-minute statistics for %s", len(statistics), date.date())
 
 
 async def async_import_daily_statistics(

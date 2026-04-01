@@ -6,27 +6,21 @@ Covers previously-untested branches in statistics.py to bring coverage from 46% 
 - async_import_daily_statistics: all branches
 """
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from unittest.mock import Mock
 
 import pytest
 
-# Import mocks - conftest sets up homeassistant module mocks.
+from custom_components.acwd.statistics import (
+    async_import_daily_statistics,
+    async_import_hourly_statistics,
+    async_import_quarter_hourly_statistics,
+)
 from tests.helpers import (
-    load_stats_module,
     make_baseline_mock,
     make_date_dt,
     patch_statistics,
 )
-from homeassistant.util import dt as dt_util
-
-_stats_module = load_stats_module()
-async_import_hourly_statistics = _stats_module.async_import_hourly_statistics
-async_import_quarter_hourly_statistics = (
-    _stats_module.async_import_quarter_hourly_statistics
-)
-async_import_daily_statistics = _stats_module.async_import_daily_statistics
-
 
 # ---------------------------------------------------------------------------
 # Hourly edge cases
@@ -53,7 +47,7 @@ class TestHourlyEdgeCases:
         hourly_records = [
             {"Hourly": None, "UsageValue": 5.0},
             {"Hourly": "", "UsageValue": 5.0},
-            {"Hourly": "12:00 AM", "UsageValue": 3.0},  # only valid record
+            {"Hourly": "12:00 AM", "UsageValue": 3.0},
         ]
 
         with patch_statistics(
@@ -62,15 +56,12 @@ class TestHourlyEdgeCases:
             mock_get_last_stats,
             pst_timezone,
         ):
-            await async_import_hourly_statistics(
-                mock_hass, meter_number, hourly_records, date_dt
-            )
+            await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
 
         assert mock_async_add_external_statistics.called
         statistics = mock_async_add_external_statistics.call_args[0][2]
-        # Only the one valid record should produce a statistic
         assert len(statistics) == 1
-        assert statistics[0].sum == pytest.approx(3.0, rel=0.01)
+        assert statistics[0]["sum"] == pytest.approx(3.0, rel=0.01)
 
     async def test_unparseable_hourly_value_is_skipped(
         self,
@@ -85,8 +76,8 @@ class TestHourlyEdgeCases:
         date_dt = make_date_dt(date(2025, 12, 9), pst_timezone)
 
         hourly_records = [
-            {"Hourly": "bad-time", "UsageValue": 5.0},  # skipped
-            {"Hourly": "1:00 AM", "UsageValue": 2.0},  # valid
+            {"Hourly": "bad-time", "UsageValue": 5.0},
+            {"Hourly": "1:00 AM", "UsageValue": 2.0},
         ]
 
         with patch_statistics(
@@ -95,13 +86,11 @@ class TestHourlyEdgeCases:
             mock_get_last_stats,
             pst_timezone,
         ):
-            await async_import_hourly_statistics(
-                mock_hass, meter_number, hourly_records, date_dt
-            )
+            await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
 
         statistics = mock_async_add_external_statistics.call_args[0][2]
         assert len(statistics) == 1
-        assert statistics[0].sum == pytest.approx(2.0, rel=0.01)
+        assert statistics[0]["sum"] == pytest.approx(2.0, rel=0.01)
 
     async def test_float_timestamp_in_extended_search_is_converted_to_datetime(
         self,
@@ -115,13 +104,11 @@ class TestHourlyEdgeCases:
         statistic_id = f"acwd:{meter_number}_hourly_usage"
         date_dt = make_date_dt(date(2025, 12, 10), pst_timezone)
 
-        # Today's stat — forces the extended search
-        today_8am_utc = datetime(2025, 12, 10, 16, 0, 0, tzinfo=dt_util.UTC)
-        today_float_ts = today_8am_utc.timestamp()  # float
+        today_8am_utc = datetime(2025, 12, 10, 16, 0, 0, tzinfo=UTC)
+        today_float_ts = today_8am_utc.timestamp()
 
-        # Yesterday's stat — correct baseline, also as float
-        yesterday_11pm_utc = datetime(2025, 12, 10, 7, 0, 0, tzinfo=dt_util.UTC)
-        yesterday_float_ts = yesterday_11pm_utc.timestamp()  # float
+        yesterday_11pm_utc = datetime(2025, 12, 10, 7, 0, 0, tzinfo=UTC)
+        yesterday_float_ts = yesterday_11pm_utc.timestamp()
         yesterday_sum = 500.0
 
         call_count = {"n": 0}
@@ -129,14 +116,12 @@ class TestHourlyEdgeCases:
         def _get_last_stats(*_args, **_kwargs):
             call_count["n"] += 1
             if call_count["n"] == 1:
-                # First call: return today's stat as float timestamp
                 return {
                     statistic_id: [
                         {"start": today_float_ts, "sum": 800.0},
                     ]
                 }
             else:
-                # Extended call: two stats — today (float) + yesterday (float)
                 return {
                     statistic_id: [
                         {"start": today_float_ts, "sum": 800.0},
@@ -152,14 +137,11 @@ class TestHourlyEdgeCases:
             _get_last_stats,
             pst_timezone,
         ):
-            await async_import_hourly_statistics(
-                mock_hass, meter_number, hourly_records, date_dt
-            )
+            await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
 
         statistics = mock_async_add_external_statistics.call_args[0][2]
-        # Baseline is yesterday's sum, so first stat = 500 + 10 = 510
-        assert statistics[0].sum == pytest.approx(510.0, rel=0.01)
-        assert call_count["n"] == 2  # Both calls were made
+        assert statistics[0]["sum"] == pytest.approx(510.0, rel=0.01)
+        assert call_count["n"] == 2
 
     async def test_empty_hourly_data_does_not_call_add_external_statistics(
         self,
@@ -219,17 +201,15 @@ class TestQuarterHourlyStatistics:
             mock_get_last_stats,
             pst_timezone,
         ):
-            await async_import_quarter_hourly_statistics(
-                mock_hass, meter_number, quarter_records, date_dt
-            )
+            await async_import_quarter_hourly_statistics(mock_hass, meter_number, quarter_records, date_dt)
 
         assert mock_async_add_external_statistics.called
         statistics = mock_async_add_external_statistics.call_args[0][2]
         assert len(statistics) == 4
-        assert statistics[0].sum == pytest.approx(5.0, rel=0.01)
-        assert statistics[1].sum == pytest.approx(8.0, rel=0.01)
-        assert statistics[2].sum == pytest.approx(15.0, rel=0.01)
-        assert statistics[3].sum == pytest.approx(17.0, rel=0.01)
+        assert statistics[0]["sum"] == pytest.approx(5.0, rel=0.01)
+        assert statistics[1]["sum"] == pytest.approx(8.0, rel=0.01)
+        assert statistics[2]["sum"] == pytest.approx(15.0, rel=0.01)
+        assert statistics[3]["sum"] == pytest.approx(17.0, rel=0.01)
 
     async def test_statistic_id_uses_quarter_hourly_suffix(
         self,
@@ -251,12 +231,10 @@ class TestQuarterHourlyStatistics:
             mock_get_last_stats,
             pst_timezone,
         ):
-            await async_import_quarter_hourly_statistics(
-                mock_hass, meter_number, quarter_records, date_dt
-            )
+            await async_import_quarter_hourly_statistics(mock_hass, meter_number, quarter_records, date_dt)
 
         metadata = mock_async_add_external_statistics.call_args[0][1]
-        assert metadata.statistic_id == f"acwd:{meter_number}_quarter_hourly_usage"
+        assert metadata["statistic_id"] == f"acwd:{meter_number}_quarter_hourly_usage"
 
     async def test_record_with_none_hour_is_skipped(
         self,
@@ -271,8 +249,8 @@ class TestQuarterHourlyStatistics:
         date_dt = make_date_dt(date(2025, 12, 9), pst_timezone)
 
         quarter_records = [
-            {"Hour": None, "Minute": 0, "UsageValue": 1.0},  # skipped
-            {"Hour": 0, "Minute": 15, "UsageValue": 4.0},  # valid
+            {"Hour": None, "Minute": 0, "UsageValue": 1.0},
+            {"Hour": 0, "Minute": 15, "UsageValue": 4.0},
         ]
 
         with patch_statistics(
@@ -281,13 +259,11 @@ class TestQuarterHourlyStatistics:
             mock_get_last_stats,
             pst_timezone,
         ):
-            await async_import_quarter_hourly_statistics(
-                mock_hass, meter_number, quarter_records, date_dt
-            )
+            await async_import_quarter_hourly_statistics(mock_hass, meter_number, quarter_records, date_dt)
 
         statistics = mock_async_add_external_statistics.call_args[0][2]
         assert len(statistics) == 1
-        assert statistics[0].sum == pytest.approx(4.0, rel=0.01)
+        assert statistics[0]["sum"] == pytest.approx(4.0, rel=0.01)
 
     async def test_record_with_none_minute_is_skipped(
         self,
@@ -302,8 +278,8 @@ class TestQuarterHourlyStatistics:
         date_dt = make_date_dt(date(2025, 12, 9), pst_timezone)
 
         quarter_records = [
-            {"Hour": 0, "Minute": None, "UsageValue": 1.0},  # skipped
-            {"Hour": 0, "Minute": 30, "UsageValue": 6.0},  # valid
+            {"Hour": 0, "Minute": None, "UsageValue": 1.0},
+            {"Hour": 0, "Minute": 30, "UsageValue": 6.0},
         ]
 
         with patch_statistics(
@@ -312,13 +288,11 @@ class TestQuarterHourlyStatistics:
             mock_get_last_stats,
             pst_timezone,
         ):
-            await async_import_quarter_hourly_statistics(
-                mock_hass, meter_number, quarter_records, date_dt
-            )
+            await async_import_quarter_hourly_statistics(mock_hass, meter_number, quarter_records, date_dt)
 
         statistics = mock_async_add_external_statistics.call_args[0][2]
         assert len(statistics) == 1
-        assert statistics[0].sum == pytest.approx(6.0, rel=0.01)
+        assert statistics[0]["sum"] == pytest.approx(6.0, rel=0.01)
 
     async def test_baseline_is_zero_when_no_prior_stats(
         self,
@@ -340,12 +314,10 @@ class TestQuarterHourlyStatistics:
             mock_get_last_stats,
             pst_timezone,
         ):
-            await async_import_quarter_hourly_statistics(
-                mock_hass, meter_number, quarter_records, date_dt
-            )
+            await async_import_quarter_hourly_statistics(mock_hass, meter_number, quarter_records, date_dt)
 
         statistics = mock_async_add_external_statistics.call_args[0][2]
-        assert statistics[0].sum == pytest.approx(10.0, rel=0.01)
+        assert statistics[0]["sum"] == pytest.approx(10.0, rel=0.01)
 
     async def test_baseline_from_yesterday_prior_to_target_date(
         self,
@@ -359,13 +331,10 @@ class TestQuarterHourlyStatistics:
         statistic_id = f"acwd:{meter_number}_quarter_hourly_usage"
         date_dt = make_date_dt(date(2025, 12, 10), pst_timezone)
 
-        # Yesterday's 11 PM PST = Dec 10 07:00 UTC (before Dec 10 08:00 UTC midnight)
-        yesterday_stat_utc = datetime(2025, 12, 10, 7, 0, 0, tzinfo=dt_util.UTC)
+        yesterday_stat_utc = datetime(2025, 12, 10, 7, 0, 0, tzinfo=UTC)
         yesterday_sum = 250.0
 
-        mock_get_last_stats = make_baseline_mock(
-            statistic_id, yesterday_stat_utc, yesterday_sum
-        )
+        mock_get_last_stats = make_baseline_mock(statistic_id, yesterday_stat_utc, yesterday_sum)
 
         quarter_records = [{"Hour": 0, "Minute": 0, "UsageValue": 5.0}]
 
@@ -375,12 +344,10 @@ class TestQuarterHourlyStatistics:
             mock_get_last_stats,
             pst_timezone,
         ):
-            await async_import_quarter_hourly_statistics(
-                mock_hass, meter_number, quarter_records, date_dt
-            )
+            await async_import_quarter_hourly_statistics(mock_hass, meter_number, quarter_records, date_dt)
 
         statistics = mock_async_add_external_statistics.call_args[0][2]
-        assert statistics[0].sum == pytest.approx(yesterday_sum + 5.0, rel=0.01)
+        assert statistics[0]["sum"] == pytest.approx(yesterday_sum + 5.0, rel=0.01)
 
     async def test_extended_192_record_search_when_last_stat_is_from_today(
         self,
@@ -394,12 +361,10 @@ class TestQuarterHourlyStatistics:
         statistic_id = f"acwd:{meter_number}_quarter_hourly_usage"
         date_dt = make_date_dt(date(2025, 12, 10), pst_timezone)
 
-        # Today's stat (after midnight UTC) — triggers extended search
-        today_stat_utc = datetime(2025, 12, 10, 12, 0, 0, tzinfo=dt_util.UTC)
+        today_stat_utc = datetime(2025, 12, 10, 12, 0, 0, tzinfo=UTC)
         today_sum = 900.0
 
-        # Yesterday's stat — correct baseline
-        yesterday_stat_utc = datetime(2025, 12, 10, 7, 0, 0, tzinfo=dt_util.UTC)
+        yesterday_stat_utc = datetime(2025, 12, 10, 7, 0, 0, tzinfo=UTC)
         yesterday_sum = 300.0
 
         call_count = {"n": 0}
@@ -423,15 +388,11 @@ class TestQuarterHourlyStatistics:
             _get_last_stats,
             pst_timezone,
         ):
-            await async_import_quarter_hourly_statistics(
-                mock_hass, meter_number, quarter_records, date_dt
-            )
+            await async_import_quarter_hourly_statistics(mock_hass, meter_number, quarter_records, date_dt)
 
-        # Should have made 2 get_last_statistics calls
         assert call_count["n"] == 2
-        # Baseline should be yesterday's sum
         statistics = mock_async_add_external_statistics.call_args[0][2]
-        assert statistics[0].sum == pytest.approx(yesterday_sum + 8.0, rel=0.01)
+        assert statistics[0]["sum"] == pytest.approx(yesterday_sum + 8.0, rel=0.01)
 
     async def test_float_timestamp_in_quarter_hourly_extended_search_is_converted(
         self,
@@ -445,11 +406,10 @@ class TestQuarterHourlyStatistics:
         statistic_id = f"acwd:{meter_number}_quarter_hourly_usage"
         date_dt = make_date_dt(date(2025, 12, 10), pst_timezone)
 
-        # Both timestamps as floats
-        today_stat_utc = datetime(2025, 12, 10, 12, 0, 0, tzinfo=dt_util.UTC)
+        today_stat_utc = datetime(2025, 12, 10, 12, 0, 0, tzinfo=UTC)
         today_float_ts = today_stat_utc.timestamp()
 
-        yesterday_stat_utc = datetime(2025, 12, 10, 7, 0, 0, tzinfo=dt_util.UTC)
+        yesterday_stat_utc = datetime(2025, 12, 10, 7, 0, 0, tzinfo=UTC)
         yesterday_float_ts = yesterday_stat_utc.timestamp()
         yesterday_sum = 400.0
 
@@ -474,13 +434,10 @@ class TestQuarterHourlyStatistics:
             _get_last_stats,
             pst_timezone,
         ):
-            # Should not raise TypeError on float timestamp comparison
-            await async_import_quarter_hourly_statistics(
-                mock_hass, meter_number, quarter_records, date_dt
-            )
+            await async_import_quarter_hourly_statistics(mock_hass, meter_number, quarter_records, date_dt)
 
         statistics = mock_async_add_external_statistics.call_args[0][2]
-        assert statistics[0].sum == pytest.approx(yesterday_sum + 3.0, rel=0.01)
+        assert statistics[0]["sum"] == pytest.approx(yesterday_sum + 3.0, rel=0.01)
 
     async def test_empty_quarter_hourly_data_does_not_call_add_external_statistics(
         self,
@@ -500,9 +457,7 @@ class TestQuarterHourlyStatistics:
             mock_get_last_stats,
             pst_timezone,
         ):
-            await async_import_quarter_hourly_statistics(
-                mock_hass, meter_number, [], date_dt
-            )
+            await async_import_quarter_hourly_statistics(mock_hass, meter_number, [], date_dt)
 
         assert not mock_async_add_external_statistics.called
 
@@ -545,9 +500,9 @@ class TestDailyStatistics:
         assert mock_async_add_external_statistics.called
         statistics = mock_async_add_external_statistics.call_args[0][2]
         assert len(statistics) == 3
-        assert statistics[0].sum == pytest.approx(100.0, rel=0.01)
-        assert statistics[1].sum == pytest.approx(300.0, rel=0.01)
-        assert statistics[2].sum == pytest.approx(350.0, rel=0.01)
+        assert statistics[0]["sum"] == pytest.approx(100.0, rel=0.01)
+        assert statistics[1]["sum"] == pytest.approx(300.0, rel=0.01)
+        assert statistics[2]["sum"] == pytest.approx(350.0, rel=0.01)
 
     async def test_record_with_missing_usage_date_is_skipped(
         self,
@@ -561,8 +516,8 @@ class TestDailyStatistics:
         mock_get_last_stats = Mock(return_value={})
 
         daily_records = [
-            {"UsageDate": None, "UsageValue": 5.0},  # skipped
-            {"UsageDate": "December 1, 2025", "UsageValue": 100.0},  # valid
+            {"UsageDate": None, "UsageValue": 5.0},
+            {"UsageDate": "December 1, 2025", "UsageValue": 100.0},
         ]
 
         with patch_statistics(
@@ -575,7 +530,7 @@ class TestDailyStatistics:
 
         statistics = mock_async_add_external_statistics.call_args[0][2]
         assert len(statistics) == 1
-        assert statistics[0].sum == pytest.approx(100.0, rel=0.01)
+        assert statistics[0]["sum"] == pytest.approx(100.0, rel=0.01)
 
     async def test_record_with_unparseable_date_string_is_skipped(
         self,
@@ -589,8 +544,8 @@ class TestDailyStatistics:
         mock_get_last_stats = Mock(return_value={})
 
         daily_records = [
-            {"UsageDate": "bad date", "UsageValue": 5.0},  # skipped
-            {"UsageDate": "December 2, 2025", "UsageValue": 75.0},  # valid
+            {"UsageDate": "bad date", "UsageValue": 5.0},
+            {"UsageDate": "December 2, 2025", "UsageValue": 75.0},
         ]
 
         with patch_statistics(
@@ -603,7 +558,7 @@ class TestDailyStatistics:
 
         statistics = mock_async_add_external_statistics.call_args[0][2]
         assert len(statistics) == 1
-        assert statistics[0].sum == pytest.approx(75.0, rel=0.01)
+        assert statistics[0]["sum"] == pytest.approx(75.0, rel=0.01)
 
     async def test_baseline_uses_last_known_sum(
         self,
@@ -617,12 +572,8 @@ class TestDailyStatistics:
         statistic_id = f"acwd:{meter_number}_daily_usage"
         prior_sum = 500.0
 
-        # "start" must be before the earliest record date so _get_baseline_sum
-        # recognises it as a valid prior-day baseline.
-        nov30_utc = datetime(2025, 11, 30, 8, 0, tzinfo=dt_util.UTC)
-        mock_get_last_stats = Mock(
-            return_value={statistic_id: [{"sum": prior_sum, "start": nov30_utc}]}
-        )
+        nov30_utc = datetime(2025, 11, 30, 8, 0, tzinfo=UTC)
+        mock_get_last_stats = Mock(return_value={statistic_id: [{"sum": prior_sum, "start": nov30_utc}]})
 
         daily_records = [
             {"UsageDate": "December 1, 2025", "UsageValue": 100.0},
@@ -637,7 +588,7 @@ class TestDailyStatistics:
             await async_import_daily_statistics(mock_hass, meter_number, daily_records)
 
         statistics = mock_async_add_external_statistics.call_args[0][2]
-        assert statistics[0].sum == pytest.approx(prior_sum + 100.0, rel=0.01)
+        assert statistics[0]["sum"] == pytest.approx(prior_sum + 100.0, rel=0.01)
 
     async def test_statistic_id_uses_daily_usage_suffix(
         self,
@@ -661,7 +612,7 @@ class TestDailyStatistics:
             await async_import_daily_statistics(mock_hass, meter_number, daily_records)
 
         metadata = mock_async_add_external_statistics.call_args[0][1]
-        assert metadata.statistic_id.endswith("_daily_usage")
+        assert metadata["statistic_id"].endswith("_daily_usage")
 
     async def test_empty_daily_data_does_not_call_add_external_statistics(
         self,

@@ -5,28 +5,26 @@ implemented in Phase 2 Plan 02.
 """
 
 import datetime
-import requests
-import pytest
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
+import pytest
+import requests
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
 from custom_components.acwd import (
+    DOMAIN,
+    SERVICE_IMPORT_DAILY,
+    SERVICE_IMPORT_HOURLY,
+    _get_coordinator,
     async_setup,
     async_setup_entry,
     async_unload_entry,
-    handle_import_hourly,
     handle_import_daily,
-    _get_coordinator,
-    DOMAIN,
-    SERVICE_IMPORT_HOURLY,
-    SERVICE_IMPORT_DAILY,
+    handle_import_hourly,
 )
-
-from tests.helpers import make_mock_hass as _make_mock_hass
-from tests.helpers import make_mock_entry as _make_mock_entry
 from tests.helpers import make_mock_coordinator as _make_mock_coordinator
-
+from tests.helpers import make_mock_entry as _make_mock_entry
+from tests.helpers import make_mock_hass as _make_mock_hass
 
 # ---------------------------------------------------------------------------
 # SRVC-01: Domain-level service registration
@@ -161,7 +159,7 @@ class TestServiceValidation:
         coordinator = _make_mock_coordinator(entry)
         hass.data[DOMAIN] = {entry.entry_id: coordinator}
 
-        future_date = datetime.date.today()  # today counts as future per CONTEXT.md
+        future_date = datetime.date(2099, 1, 1)
         call = MagicMock()
         call.hass = hass
         call.data = {"date": future_date, "granularity": "hourly"}
@@ -395,9 +393,7 @@ class TestHandleImportHourlyErrors:
             mock_client = MagicMock()
             mock_client.login.return_value = True
             mock_client.get_usage_data.return_value = {
-                "objUsageGenerationResultSetTwo": [
-                    {"Hourly": "12:00 AM", "UsageValue": 1.0}
-                ]
+                "objUsageGenerationResultSetTwo": [{"Hourly": "12:00 AM", "UsageValue": 1.0}]
             }
             mock_client.meter_number = None
             mock_client.logout.return_value = None
@@ -422,9 +418,7 @@ class TestHandleImportHourlyErrors:
         with patch("custom_components.acwd.ACWDClient") as mock_client_cls:
             mock_client = MagicMock()
             mock_client.login.return_value = True
-            mock_client.get_usage_data.return_value = {
-                "objUsageGenerationResultSetTwo": []
-            }
+            mock_client.get_usage_data.return_value = {"objUsageGenerationResultSetTwo": []}
             mock_client.meter_number = "230057301"
             mock_client.logout.return_value = None
             mock_client_cls.return_value = mock_client
@@ -513,9 +507,7 @@ class TestHandleImportDailyErrors:
             mock_client.logout.return_value = None
             mock_client_cls.return_value = mock_client
 
-            with pytest.raises(
-                HomeAssistantError, match="Account number not available"
-            ):
+            with pytest.raises(HomeAssistantError, match="Account number not available"):
                 await handle_import_daily(call)
 
     async def test_no_daily_records_raises_error(self):
@@ -537,9 +529,7 @@ class TestHandleImportDailyErrors:
             mock_client = MagicMock()
             mock_client.login.return_value = True
             mock_client.user_info = {"AccountNumber": "12345"}
-            mock_client.get_usage_data.return_value = {
-                "objUsageGenerationResultSetTwo": []
-            }
+            mock_client.get_usage_data.return_value = {"objUsageGenerationResultSetTwo": []}
             mock_client.logout.return_value = None
             mock_client_cls.return_value = mock_client
 
@@ -1118,9 +1108,7 @@ class TestAsyncImportInitialYesterdayData:
 
             warning_calls = mock_logger.warning.call_args_list
             assert any(
-                "Network error" in str(call)
-                and "retried on the next update cycle" in str(call)
-                for call in warning_calls
+                "Network error" in str(call) and "retried on the next update cycle" in str(call) for call in warning_calls
             ), f"Expected network warning not found. Calls: {warning_calls}"
             mock_client.logout.assert_called_once()
 
@@ -1150,9 +1138,7 @@ class TestAsyncImportInitialYesterdayData:
 
             warning_calls = mock_logger.warning.call_args_list
             assert any(
-                "Network error" in str(call)
-                and "retried on the next update cycle" in str(call)
-                for call in warning_calls
+                "Network error" in str(call) and "retried on the next update cycle" in str(call) for call in warning_calls
             ), f"Expected network warning not found. Calls: {warning_calls}"
             mock_client.logout.assert_called_once()
 
@@ -1207,15 +1193,9 @@ class TestCoordinatorAsyncUpdateData:
             _last_hourly_import_date=None,
         )
         # Bind the real methods to our stub
-        coord._async_update_data = ACWDDataUpdateCoordinator._async_update_data.__get__(
-            coord
-        )
-        coord._import_today_hourly_data = (
-            ACWDDataUpdateCoordinator._import_today_hourly_data.__get__(coord)
-        )
-        coord._import_yesterday_complete_data = (
-            ACWDDataUpdateCoordinator._import_yesterday_complete_data.__get__(coord)
-        )
+        coord._async_update_data = ACWDDataUpdateCoordinator._async_update_data.__get__(coord)
+        coord._import_today_hourly_data = ACWDDataUpdateCoordinator._import_today_hourly_data.__get__(coord)
+        coord._import_yesterday_complete_data = ACWDDataUpdateCoordinator._import_yesterday_complete_data.__get__(coord)
         return coord
 
     async def test_happy_path_returns_data(self):
@@ -1328,9 +1308,7 @@ class TestCoordinatorAsyncUpdateData:
         coord.client.get_usage_data.return_value = {"summary": "data"}
         coord.client.logout.return_value = None
 
-        coord._import_today_hourly_data = AsyncMock(
-            side_effect=RuntimeError("sub error")
-        )
+        coord._import_today_hourly_data = AsyncMock(side_effect=RuntimeError("sub error"))
         coord._import_yesterday_complete_data = AsyncMock()
 
         with pytest.raises(UpdateFailed):
@@ -1401,9 +1379,7 @@ class TestCoordinatorImportTodayHourlyData:
             entry=entry,
             _last_hourly_import_date=None,
         )
-        coord._import_today_hourly_data = (
-            ACWDDataUpdateCoordinator._import_today_hourly_data.__get__(coord)
-        )
+        coord._import_today_hourly_data = ACWDDataUpdateCoordinator._import_today_hourly_data.__get__(coord)
         return coord
 
     async def test_happy_path_imports_data(self):
@@ -1476,9 +1452,7 @@ class TestCoordinatorImportTodayHourlyData:
     async def test_no_hourly_records_returns_gracefully(self):
         """Empty hourly records returns without importing."""
         coord = self._make_coordinator()
-        coord.client.get_usage_data.return_value = {
-            "objUsageGenerationResultSetTwo": []
-        }
+        coord.client.get_usage_data.return_value = {"objUsageGenerationResultSetTwo": []}
         coord.client.meter_number = "230057301"
 
         with (
@@ -1555,9 +1529,7 @@ class TestCoordinatorImportYesterdayCompleteData:
             entry=entry,
             _last_hourly_import_date=None,
         )
-        coord._import_yesterday_complete_data = (
-            ACWDDataUpdateCoordinator._import_yesterday_complete_data.__get__(coord)
-        )
+        coord._import_yesterday_complete_data = ACWDDataUpdateCoordinator._import_yesterday_complete_data.__get__(coord)
         return coord
 
     async def test_runs_during_morning_hours(self):
@@ -1652,9 +1624,7 @@ class TestCoordinatorImportYesterdayCompleteData:
     async def test_no_hourly_records_returns_gracefully(self):
         """Empty hourly records returns gracefully."""
         coord = self._make_coordinator()
-        coord.client.get_usage_data.return_value = {
-            "objUsageGenerationResultSetTwo": []
-        }
+        coord.client.get_usage_data.return_value = {"objUsageGenerationResultSetTwo": []}
         coord.client.meter_number = "230057301"
 
         with (
@@ -1700,7 +1670,8 @@ class TestACWDDataUpdateCoordinatorInit:
         client = MagicMock()
         entry = MagicMock()
 
-        coordinator = ACWDDataUpdateCoordinator(hass, client, entry)
+        with patch("homeassistant.helpers.update_coordinator.DataUpdateCoordinator.__init__"):
+            coordinator = ACWDDataUpdateCoordinator(hass, client, entry)
 
         assert coordinator.client is client
         assert coordinator.entry is entry

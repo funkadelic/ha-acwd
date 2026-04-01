@@ -7,7 +7,6 @@ from typing import Any
 
 import requests
 import voluptuous as vol
-
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
@@ -63,9 +62,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
-    async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
 
@@ -85,7 +82,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ) as err:
                 _LOGGER.warning("Connection error during setup: %s", err)
                 errors["base"] = "cannot_connect"
-            except Exception:  # pylint: disable=broad-except  # noqa: BLE001
+            except Exception:  # pylint: disable=broad-except
                 # HA convention: broad except is the standard safety net for config flows
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"

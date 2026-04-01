@@ -1,36 +1,18 @@
 """Tests for sensor.py - ACWD sensor entities."""
 
-import sys
-import importlib.util
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
-# Import sensor module via importlib (avoids pulling in __init__.py)
-_sensor_path = Path(__file__).parent.parent / "custom_components" / "acwd" / "sensor.py"
-_sensor_spec = importlib.util.spec_from_file_location(
-    "custom_components.acwd.sensor",
-    _sensor_path,
+from custom_components.acwd.const import HCF_TO_GALLONS
+from custom_components.acwd.sensor import (
+    ACWDAverageSensor,
+    ACWDCurrentCycleSensor,
+    ACWDCurrentUsageSensor,
+    ACWDHighestSensor,
+    ACWDLastBillingCycleSensor,
+    async_setup_entry,
 )
-assert _sensor_spec is not None and _sensor_spec.loader is not None, (
-    f"Failed to create module spec from {_sensor_path}"
-)
-_sensor_module = importlib.util.module_from_spec(_sensor_spec)
-_sensor_spec.loader.exec_module(_sensor_module)
-sys.modules["custom_components.acwd.sensor"] = _sensor_module
-
-HCF_TO_GALLONS = _sensor_module.HCF_TO_GALLONS
-
-# Extract classes for direct use
-ACWDSensorBase = _sensor_module.ACWDSensorBase
-ACWDCurrentUsageSensor = _sensor_module.ACWDCurrentUsageSensor
-ACWDCurrentCycleSensor = _sensor_module.ACWDCurrentCycleSensor
-ACWDLastBillingCycleSensor = _sensor_module.ACWDLastBillingCycleSensor
-ACWDAverageSensor = _sensor_module.ACWDAverageSensor
-ACWDHighestSensor = _sensor_module.ACWDHighestSensor
-async_setup_entry = _sensor_module.async_setup_entry
-
 
 # -- Fixtures ----------------------------------------------------------------
 
@@ -112,9 +94,7 @@ class TestACWDCurrentUsageSensor:
         sensor = ACWDCurrentUsageSensor(mock_coordinator, mock_config_entry)
         assert sensor.extra_state_attributes == {}
 
-    def test_extra_state_attributes_empty_tentative(
-        self, mock_coordinator, mock_config_entry
-    ):
+    def test_extra_state_attributes_empty_tentative(self, mock_coordinator, mock_config_entry):
         mock_coordinator.data = {"getTentativeData": []}
         sensor = ACWDCurrentUsageSensor(mock_coordinator, mock_config_entry)
         assert sensor.extra_state_attributes == {}
@@ -162,9 +142,7 @@ class TestACWDLastBillingCycleSensor:
         sensor = ACWDLastBillingCycleSensor(mock_coordinator, mock_config_entry)
         assert sensor.native_value is None
 
-    def test_native_value_empty_usage_records(
-        self, mock_coordinator, mock_config_entry
-    ):
+    def test_native_value_empty_usage_records(self, mock_coordinator, mock_config_entry):
         mock_coordinator.data = {"objUsageGenerationResultSetTwo": []}
         sensor = ACWDLastBillingCycleSensor(mock_coordinator, mock_config_entry)
         assert sensor.native_value is None
@@ -184,9 +162,7 @@ class TestACWDLastBillingCycleSensor:
         sensor = ACWDLastBillingCycleSensor(mock_coordinator, mock_config_entry)
         assert sensor.extra_state_attributes == {}
 
-    def test_extra_state_attributes_empty_usage_records(
-        self, mock_coordinator, mock_config_entry
-    ):
+    def test_extra_state_attributes_empty_usage_records(self, mock_coordinator, mock_config_entry):
         mock_coordinator.data = {"objUsageGenerationResultSetTwo": []}
         sensor = ACWDLastBillingCycleSensor(mock_coordinator, mock_config_entry)
         assert sensor.extra_state_attributes == {}
