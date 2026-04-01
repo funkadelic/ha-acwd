@@ -6,6 +6,7 @@ python_functions = "test_*"
 asyncio_mode = "auto"
 addopts = [
     "--cov=custom_components.acwd",
+    "--cov-branch",
     "--cov-report=term-missing",
     "--cov-report=html",
     "-v",

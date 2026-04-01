@@ -31,7 +31,7 @@ jobs:
 
       - name: Run tests with pytest
         run: |
-          pytest tests/ -v --cov=custom_components.acwd --cov-branch --cov-report=term-missing --cov-report=xml --junitxml=junit.xml
+          pytest --cov-report=xml --junitxml=junit.xml
 
       - name: SonarQube Scan
         if: env.SONAR_TOKEN != ''
