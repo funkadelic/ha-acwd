@@ -482,7 +482,6 @@ class TestHandleImportDailyErrors:
         with patch("custom_components.acwd.ACWDClient") as mock_client_cls:
             mock_client = MagicMock()
             mock_client.login.return_value = True
-            mock_client.meter_number = "12345"
             mock_client.get_usage_data.return_value = None
             mock_client.logout.return_value = None
             mock_client_cls.return_value = mock_client
@@ -761,7 +760,6 @@ class TestHandleImportDailyEdgeCases:
         with patch("custom_components.acwd.ACWDClient") as mock_client_cls:
             mock_client = MagicMock()
             mock_client.login.return_value = True
-            mock_client.meter_number = "12345"
             mock_client.get_usage_data.side_effect = RuntimeError("unexpected")
             mock_client.logout.return_value = None
             mock_client_cls.return_value = mock_client
