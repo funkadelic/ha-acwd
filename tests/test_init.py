@@ -255,10 +255,11 @@ class TestServiceValidation:
             patch(
                 "custom_components.acwd.async_import_daily_statistics",
                 new_callable=AsyncMock,
-            ),
+            ) as mock_import_daily,
         ):
             mock_client = MagicMock()
             mock_client.login.return_value = True
+            mock_client.meter_number = "230057301"
             mock_client.get_usage_data.return_value = {
                 "objUsageGenerationResultSetTwo": [
                     {"Date": "12/01/2025", "UsageValue": 50.0},
@@ -271,6 +272,10 @@ class TestServiceValidation:
                 await handle_import_daily(call)
             except ServiceValidationError:
                 pytest.fail("ServiceValidationError raised for a valid date range")
+
+            # Verify meter_number (not account_number) is passed to import function
+            mock_import_daily.assert_called_once()
+            assert mock_import_daily.call_args[0][1] == "230057301"
 
 
 # ---------------------------------------------------------------------------
@@ -478,15 +483,15 @@ class TestHandleImportDailyErrors:
             mock_client = MagicMock()
             mock_client.login.return_value = True
             mock_client.get_usage_data.return_value = None
-            mock_client.user_info = {"AccountNumber": "12345"}
             mock_client.logout.return_value = None
             mock_client_cls.return_value = mock_client
 
             with pytest.raises(HomeAssistantError, match="No data returned"):
                 await handle_import_daily(call)
 
-    async def test_no_account_number_raises_error(self):
-        """Missing account number raises HomeAssistantError."""
+    @pytest.mark.parametrize("meter_value", [None, ""])
+    async def test_no_meter_number_raises_error(self, meter_value):
+        """Missing meter number raises HomeAssistantError."""
 
         hass = _make_mock_hass()
         entry = _make_mock_entry()
@@ -503,11 +508,12 @@ class TestHandleImportDailyErrors:
         with patch("custom_components.acwd.ACWDClient") as mock_client_cls:
             mock_client = MagicMock()
             mock_client.login.return_value = True
-            mock_client.user_info = {}
+            mock_client.get_usage_data.return_value = {"objUsageGenerationResultSetTwo": [{"Date": "12/01/2025"}]}
+            mock_client.meter_number = meter_value
             mock_client.logout.return_value = None
             mock_client_cls.return_value = mock_client
 
-            with pytest.raises(HomeAssistantError, match="Account number not available"):
+            with pytest.raises(HomeAssistantError, match="Meter number not available"):
                 await handle_import_daily(call)
 
     async def test_no_daily_records_raises_error(self):
@@ -528,7 +534,7 @@ class TestHandleImportDailyErrors:
         with patch("custom_components.acwd.ACWDClient") as mock_client_cls:
             mock_client = MagicMock()
             mock_client.login.return_value = True
-            mock_client.user_info = {"AccountNumber": "12345"}
+            mock_client.meter_number = "12345"
             mock_client.get_usage_data.return_value = {"objUsageGenerationResultSetTwo": []}
             mock_client.logout.return_value = None
             mock_client_cls.return_value = mock_client
@@ -755,7 +761,6 @@ class TestHandleImportDailyEdgeCases:
         with patch("custom_components.acwd.ACWDClient") as mock_client_cls:
             mock_client = MagicMock()
             mock_client.login.return_value = True
-            mock_client.user_info = {"AccountNumber": "12345"}
             mock_client.get_usage_data.side_effect = RuntimeError("unexpected")
             mock_client.logout.return_value = None
             mock_client_cls.return_value = mock_client
@@ -786,7 +791,7 @@ class TestHandleImportDailyEdgeCases:
         ):
             mock_client = MagicMock()
             mock_client.login.return_value = True
-            mock_client.user_info = {"AccountNumber": "12345"}
+            mock_client.meter_number = "230057301"
             mock_client.get_usage_data.return_value = {
                 "objUsageGenerationResultSetTwo": [
                     {"Date": "12/01/2025", "UsageValue": 50.0},
