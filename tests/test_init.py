@@ -489,7 +489,8 @@ class TestHandleImportDailyErrors:
             with pytest.raises(HomeAssistantError, match="No data returned"):
                 await handle_import_daily(call)
 
-    async def test_no_meter_number_raises_error(self):
+    @pytest.mark.parametrize("meter_value", [None, ""])
+    async def test_no_meter_number_raises_error(self, meter_value):
         """Missing meter number raises HomeAssistantError."""
 
         hass = _make_mock_hass()
@@ -508,7 +509,7 @@ class TestHandleImportDailyErrors:
             mock_client = MagicMock()
             mock_client.login.return_value = True
             mock_client.get_usage_data.return_value = {"objUsageGenerationResultSetTwo": [{"Date": "12/01/2025"}]}
-            mock_client.meter_number = None
+            mock_client.meter_number = meter_value
             mock_client.logout.return_value = None
             mock_client_cls.return_value = mock_client
 
