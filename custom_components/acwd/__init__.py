@@ -210,15 +210,11 @@ async def handle_import_daily(call: ServiceCall) -> None:
         if not logged_in:
             raise HomeAssistantError(ERROR_LOGIN_FAILED)
 
-        meter_number = service_client.meter_number
-        if not meter_number:
-            raise HomeAssistantError("Meter number not available")
-
         # Format dates for API
         start_str = start_date.strftime(DATE_FORMAT_SLASH_MDY)
         end_str = end_date.strftime(DATE_FORMAT_SLASH_MDY)
 
-        # Fetch daily data
+        # Fetch daily data (also triggers meter discovery)
         data = await hass.async_add_executor_job(
             service_client.get_usage_data,
             "D",  # mode
@@ -228,6 +224,11 @@ async def handle_import_daily(call: ServiceCall) -> None:
 
         if not data:
             raise HomeAssistantError(f"No data returned for {start_date} to {end_date}")
+
+        # Get meter number from client (populated by get_usage_data -> _discover_meter)
+        meter_number = service_client.meter_number
+        if not meter_number:
+            raise HomeAssistantError("Meter number not available")
 
         # Extract daily records
         daily_records = data.get("objUsageGenerationResultSetTwo", [])
