@@ -14,6 +14,8 @@ python3 --version
 
 If you need Python 3.13, install it via [pyenv](https://github.com/pyenv/pyenv), your system package manager, or [python.org](https://www.python.org/downloads/).
 
+This repo includes a `.python-version` file, so if you have pyenv installed, running `pyenv install 3.13` is enough — pyenv will auto-select 3.13 whenever you're in the project directory.
+
 ## Development Setup
 
 ### 1. Fork and clone
