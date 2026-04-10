@@ -16,7 +16,7 @@ It is distributed as a HACS-compatible custom integration and supports the Home 
 ## How it works
 
 The integration periodically fetches and normalizes usage data from the ACWD portal, exposing it as Home Assistant entities for automation and monitoring.
-  
+
 ## Background
 
 After ACWD deployed [AMI (Advanced Metering Infrastructure) smart meters](https://en.wikipedia.org/wiki/Smart_meter#Advanced_metering_infrastructure), third-party solutions like Flume Water lost direct access to real-time water usage data. This integration bridges that gap by importing hourly water usage directly from the ACWD portal into Home Assistant.
@@ -93,7 +93,7 @@ ACWD releases data in 4 batches per day (times are consistent within 1-hour wind
 
 ## Contributing
 
-Found a bug or want to add a feature? Pull requests welcome!
+Found a bug or want to add a feature? Pull requests welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
 
 ## Disclaimer
 

@@ -4,11 +4,12 @@ This document describes how to test the ACWD integration locally before deployin
 
 ## Prerequisites
 
-- Python 3.8 or higher
+- Python 3.13 (required by test framework)
 - ACWD portal account credentials
+- A virtual environment (see [CONTRIBUTING.md](CONTRIBUTING.md) for setup)
 - Required packages: `requests`, `beautifulsoup4`
 
-Install dependencies:
+Install dependencies (with your virtual environment activated):
 
 ```bash
 pip install requests beautifulsoup4
