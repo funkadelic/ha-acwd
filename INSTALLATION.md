@@ -18,7 +18,7 @@ Then restart Home Assistant and proceed to [Configuration](#configuration).
 
 ### Prerequisites
 
-- Home Assistant 2024.2.0 or newer
+- Home Assistant 2025.4.0 or newer
 - HACS installed
 
 ### Steps
