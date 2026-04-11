@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.31] - 2026-04-11
+
+### Documentation
+
+- bump minimum Home Assistant version to 2025.4 (#50)
+- add .python-version and document pyenv auto-selection (#49)
+- add contributing guide with development setup instructions (#48)
 ## [1.0.30] - 2026-04-04
 
 ### Fixed
@@ -298,7 +305,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Five water usage sensors (current cycle, projected, last billing, average, highest)
 - 15-minute interval support via manual service
 
-[Unreleased]: https://github.com/funkadelic/ha-acwd/compare/v1.0.30...HEAD
+[Unreleased]: https://github.com/funkadelic/ha-acwd/compare/v1.0.31...HEAD
+[1.0.31]: https://github.com/funkadelic/ha-acwd/compare/v1.0.30...v1.0.31
 [1.0.30]: https://github.com/funkadelic/ha-acwd/compare/v1.0.29...v1.0.30
 [1.0.29]: https://github.com/funkadelic/ha-acwd/compare/v1.0.28...v1.0.29
 [1.0.28]: https://github.com/funkadelic/ha-acwd/compare/v1.0.27...v1.0.28
