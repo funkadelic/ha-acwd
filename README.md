@@ -5,6 +5,7 @@
 [![Home Assistant][ha-badge]][ha-link]
 
 # ha-acwd
+
 ACWD Water Usage Integration for Home Assistant
 
 **ha-acwd** is an open-source Python integration that imports water usage data from Alameda County Water District into Home Assistant for use in automation and monitoring.
@@ -40,7 +41,7 @@ After ACWD deployed [AMI (Advanced Metering Infrastructure) smart meters](https:
 ## Available Entities
 
 | Entity | Description | Unit |
-|--------|-------------|------|
+| ------ | ----------- | ---- |
 | Current Cycle Usage | Water used in current billing cycle | Gallons |
 | Current Cycle Projected | Projected total for current billing cycle | Gallons |
 | Last Billing Cycle | Previous billing cycle usage | Gallons |
@@ -102,8 +103,8 @@ This is an unofficial tool and is not affiliated with or endorsed by ACWD. Use a
 [build-badge]: https://github.com/funkadelic/ha-acwd/actions/workflows/tests.yml/badge.svg
 [coverage-badge]: https://img.shields.io/codecov/c/github/funkadelic/ha-acwd?logo=codecov
 [release-badge]: https://img.shields.io/github/v/release/funkadelic/ha-acwd
-[hacs-badge]: https://img.shields.io/badge/HACS-Custom-orange
-[ha-badge]: https://img.shields.io/badge/Home%20Assistant-2024.2+-blue
+[hacs-badge]: https://img.shields.io/badge/HACS-Default-orange
+[ha-badge]: https://img.shields.io/badge/Home%20Assistant-2025.4+-blue
 
 [build-link]: https://github.com/funkadelic/ha-acwd/actions/workflows/tests.yml
 [coverage-link]: https://codecov.io/gh/funkadelic/ha-acwd
