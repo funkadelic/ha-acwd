@@ -5,6 +5,7 @@
       "release-type": "simple",
       "package-name": "ha-acwd",
       "include-component-in-tag": false,
+      "include-v-in-tag": true,
       "changelog-path": "CHANGELOG.md",
       "pull-request-footer": "",
       "extra-files": [
@@ -21,9 +22,9 @@
         { "type": "refactor", "section": "Changed" },
         { "type": "docs",     "section": "Documentation" },
         { "type": "test",     "section": "Testing" },
-        { "type": "build",    "section": "Changed" },
-        { "type": "ci",       "section": "Changed" },
-        { "type": "chore",    "section": "Changed", "hidden": false }
+        { "type": "build",    "section": "Changed", "hidden": true },
+        { "type": "ci",       "section": "Changed", "hidden": true },
+        { "type": "chore",    "section": "Changed", "hidden": true }
       ]
     }
   }
