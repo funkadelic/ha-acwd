@@ -1,0 +1,37 @@
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/workflows/**
+          - .github/labeler.yml
+          - .github/dependabot.yml
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - LICENSE
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - tests/**
+          - requirements-test.txt
+          - pyproject.toml
+
+integration:
+  - changed-files:
+      - any-glob-to-any-file:
+          - custom_components/acwd/**
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - requirements*.txt
+          - custom_components/acwd/manifest.json
+
+release:
+  - changed-files:
+      - any-glob-to-any-file:
+          - release-please-config.json
+          - .release-please-manifest.json
+          - CHANGELOG.md

@@ -14,9 +14,10 @@ Exception handling patterns:
   cookies so session.close() is sufficient; no server-side logout endpoint is needed.
 """
 
+import logging
+
 import requests
 from bs4 import BeautifulSoup
-import logging
 
 from .const import (
     DATE_FORMAT_LONG,
@@ -42,7 +43,7 @@ VALUE_XML_HTTP_REQUEST = "XMLHttpRequest"
 
 # Parser constants
 PARSER_HTML = "html.parser"
-FIELD_CSRF_TOKEN = "hdnCSRFToken"  # noqa: S105  # form field name, not a secret
+FIELD_CSRF_TOKEN = "hdnCSRFToken"  # form field name, not a secret
 
 
 class ACWDClient:
@@ -128,9 +129,7 @@ class ACWDClient:
 
             # Check for special cases before JSON parsing (not valid JSON)
             if not isinstance(result, dict):
-                _LOGGER.error(
-                    "validateLogin returned non-dict JSON: %s", type(result).__name__
-                )
+                _LOGGER.error("validateLogin returned non-dict JSON: %s", type(result).__name__)
                 return False
 
             if result.get(KEY_D) == "Migrated User Found":
@@ -144,9 +143,7 @@ class ACWDClient:
             # Handle error response format (dtResponse)
             if isinstance(login_data, dict) and "dtResponse" in login_data:
                 error_info = login_data["dtResponse"][0]
-                _LOGGER.error(
-                    "Login failed: %s", error_info.get(KEY_MESSAGE, "Unknown error")
-                )
+                _LOGGER.error("Login failed: %s", error_info.get(KEY_MESSAGE, "Unknown error"))
                 return False
 
             # Handle success response format (array with STATUS)
@@ -162,9 +159,7 @@ class ACWDClient:
 
             status = str(main_table[KEY_STATUS])  # Convert to string for comparison
             if status == "0":
-                _LOGGER.error(
-                    "Login failed: %s", main_table.get(KEY_MESSAGE, "Unknown error")
-                )
+                _LOGGER.error("Login failed: %s", main_table.get(KEY_MESSAGE, "Unknown error"))
                 return False
 
             if status == "1":
@@ -232,9 +227,7 @@ class ACWDClient:
         )
 
         if update_state_response.status_code != 200:
-            _LOGGER.warning(
-                "updateState returned %s", update_state_response.status_code
-            )
+            _LOGGER.warning("updateState returned %s", update_state_response.status_code)
 
         # Step 4: Call validateLogin endpoint (actual login validation)
         _LOGGER.info("Calling validateLogin endpoint...")
@@ -312,16 +305,11 @@ class ACWDClient:
 
         meter_details = bind_data["MeterDetails"]
 
-        if not isinstance(meter_details, list) or any(
-            not isinstance(m, dict) for m in meter_details
-        ):
+        if not isinstance(meter_details, list) or any(not isinstance(m, dict) for m in meter_details):
             if isinstance(meter_details, list):
-                bad_types = {
-                    type(m).__name__ for m in meter_details if not isinstance(m, dict)
-                }
+                bad_types = {type(m).__name__ for m in meter_details if not isinstance(m, dict)}
                 _LOGGER.warning(
-                    "Invalid MeterDetails format: expected list of dicts, "
-                    "got list containing %s",
+                    "Invalid MeterDetails format: expected list of dicts, got list containing %s",
                     ", ".join(sorted(bad_types)),
                 )
             else:
@@ -450,9 +438,7 @@ class ACWDClient:
         _LOGGER.warning("Failed to parse date %r, using raw value", str_date)
         return str(str_date)
 
-    def get_usage_data(
-        self, mode="B", date_from=None, date_to=None, str_date=None, hourly_type="H"
-    ):
+    def get_usage_data(self, mode="B", date_from=None, date_to=None, str_date=None, hourly_type="H"):
         """
         Retrieve water usage data
 
@@ -480,9 +466,7 @@ class ACWDClient:
         if not self.logged_in:
             raise RuntimeError("Not logged in. Call login() first.")
 
-        _LOGGER.info(
-            "Fetching usage data (mode=%s, hourly_type=%s)...", mode, hourly_type
-        )
+        _LOGGER.info("Fetching usage data (mode=%s, hourly_type=%s)...", mode, hourly_type)
 
         self._refresh_csrf_token()
 
@@ -507,9 +491,7 @@ class ACWDClient:
             self._discover_meter(headers)
 
         # Use cached meter number
-        meter_number = (
-            self._water_meter_number if self._water_meter_number is not None else ""
-        )
+        meter_number = self._water_meter_number if self._water_meter_number is not None else ""
 
         # Build final payload with discovered meter number
         payload = {
@@ -526,9 +508,7 @@ class ACWDClient:
             "isNoDashboard": True,
         }
 
-        response = self.session.post(
-            usage_url, json=payload, headers=headers, timeout=HTTP_TIMEOUT
-        )
+        response = self.session.post(usage_url, json=payload, headers=headers, timeout=HTTP_TIMEOUT)
 
         if response.status_code != 200:
             _LOGGER.error("Failed to fetch usage data: %s", response.status_code)
