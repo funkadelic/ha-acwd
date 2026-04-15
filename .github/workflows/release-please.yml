@@ -34,9 +34,13 @@ jobs:
           cd custom_components/acwd
           zip -r ../../acwd.zip .
 
-      - name: Upload release asset
+      - name: Generate checksum
+        if: ${{ steps.release.outputs.release_created }}
+        run: sha256sum acwd.zip > acwd.zip.sha256
+
+      - name: Upload release assets
         if: ${{ steps.release.outputs.release_created }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.release.outputs.tag_name }}
-        run: gh release upload "$TAG" acwd.zip
+        run: gh release upload "$TAG" acwd.zip acwd.zip.sha256 --clobber
