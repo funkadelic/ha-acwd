@@ -6,6 +6,7 @@
       "package-name": "ha-acwd",
       "include-component-in-tag": false,
       "changelog-path": "CHANGELOG.md",
+      "pull-request-footer": "",
       "extra-files": [
         {
           "type": "json",
