@@ -8,9 +8,17 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13"]
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
@@ -19,10 +27,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Python 3.13
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements-test.txt
 
       - name: Install dependencies
         run: |
@@ -34,12 +44,13 @@ jobs:
           pytest --cov-report=xml --junitxml=junit.xml
 
       - name: SonarQube Scan
-        if: env.SONAR_TOKEN != ''
+        if: env.SONAR_TOKEN != '' && matrix.python-version == '3.13'
         uses: SonarSource/sonarqube-scan-action@v7
         env:
           SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
 
       - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.13'
         uses: codecov/codecov-action@v6
         with:
           files: ./coverage.xml
@@ -49,7 +60,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload test results to Codecov
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.python-version == '3.13' }}
         uses: codecov/codecov-action@v6
         with:
           files: ./junit.xml

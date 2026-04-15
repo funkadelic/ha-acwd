@@ -8,9 +8,13 @@ on:
   schedule:
     - cron: "0 0 * * *"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: "ubuntu-latest"
     steps:
-      - uses: "actions/checkout@v6"
-      - uses: home-assistant/actions/hassfest@master
+      - uses: actions/checkout@v6
+      - uses: home-assistant/actions/hassfest@f6f29a7ee3fa0eccadf3620a7b9ee00ab54ec03b # master
