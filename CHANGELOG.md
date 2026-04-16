@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.32](https://github.com/funkadelic/ha-acwd/compare/v1.0.31...v1.0.32) (2026-04-16)
+
+
+### Fixed
+
+* add zip_release to hacs.json for filename support ([#53](https://github.com/funkadelic/ha-acwd/issues/53)) ([fcc351e](https://github.com/funkadelic/ha-acwd/commit/fcc351e9e259252c1483ad4e5ca6ff6473384c06))
+
 ## [Unreleased]
 
 ## [1.0.31] - 2026-04-11
