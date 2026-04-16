@@ -7,7 +7,8 @@
       "include-component-in-tag": false,
       "include-v-in-tag": true,
       "changelog-path": "CHANGELOG.md",
-      "pull-request-footer": "",
+      "pull-request-header": " ",
+      "pull-request-footer": " ",
       "extra-files": [
         {
           "type": "json",

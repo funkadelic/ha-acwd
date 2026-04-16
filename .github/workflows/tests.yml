@@ -44,13 +44,17 @@ jobs:
           pytest --cov-report=xml --junitxml=junit.xml
 
       - name: SonarQube Scan
-        if: env.SONAR_TOKEN != '' && matrix.python-version == '3.13'
+        if: >-
+          ${{ env.SONAR_TOKEN != '' && matrix.python-version == '3.13'
+          && !contains(github.event.pull_request.labels.*.name, 'autorelease: pending') }}
         uses: SonarSource/sonarqube-scan-action@v7
         env:
           SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
 
       - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.13'
+        if: >-
+          ${{ matrix.python-version == '3.13'
+          && !contains(github.event.pull_request.labels.*.name, 'autorelease: pending') }}
         uses: codecov/codecov-action@v6
         with:
           files: ./coverage.xml
@@ -60,7 +64,9 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload test results to Codecov
-        if: ${{ !cancelled() && matrix.python-version == '3.13' }}
+        if: >-
+          ${{ !cancelled() && matrix.python-version == '3.13'
+          && !contains(github.event.pull_request.labels.*.name, 'autorelease: pending') }}
         uses: codecov/codecov-action@v6
         with:
           files: ./junit.xml
