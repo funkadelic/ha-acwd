@@ -1,9 +1,13 @@
 {
   "domain": "acwd",
   "name": "ACWD Water Usage",
-  "codeowners": ["@funkadelic"],
+  "codeowners": [
+    "@funkadelic"
+  ],
   "config_flow": true,
-  "dependencies": ["recorder"],
+  "dependencies": [
+    "recorder"
+  ],
   "documentation": "https://github.com/funkadelic/ha-acwd",
   "integration_type": "service",
   "iot_class": "cloud_polling",
@@ -11,5 +15,5 @@
   "requirements": [
     "beautifulsoup4>=4.14.3"
   ],
-  "version": "1.0.31"
+  "version": "1.0.32"
 }
