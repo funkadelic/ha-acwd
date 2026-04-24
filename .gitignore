@@ -24,3 +24,28 @@ Thumbs.db
 .credentials
 *.credentials
 run_tests_local.bat
+
+# Env files (keep .env.example checked in)
+.env.*
+!.env.example
+
+# Editors / misc
+*~
+*.code-workspace
+
+# Test / build artifacts
+*.log
+.coverage
+coverage/
+htmlcov/
+.cache/
+.pytest_cache/
+.ruff_cache/
+tmp/
+
+.gsd
+.gsd-id
+.bg-shell/
+.planning/
+.claude/
+.mcp.json
