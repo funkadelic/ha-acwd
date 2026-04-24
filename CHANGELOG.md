@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.33](https://github.com/funkadelic/ha-acwd/compare/v1.0.32...v1.0.33) (2026-04-24)
+
+
+### Fixed
+
+* prevent negative midnight water usage from import ordering ([#61](https://github.com/funkadelic/ha-acwd/issues/61)) ([22ef320](https://github.com/funkadelic/ha-acwd/commit/22ef32045c7cd89a7be6f106bd473d2ae4b40bfe))
+
 ## [1.0.32](https://github.com/funkadelic/ha-acwd/compare/v1.0.31...v1.0.32) (2026-04-16)
 
 
