@@ -405,12 +405,10 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             if not data:
                 raise UpdateFailed("No data returned from ACWD portal")
 
-            # Automatically import today's hourly data
-            await self._import_today_hourly_data()
-
-            # Also import yesterday's data during early morning hours (0-12 PM)
-            # to catch the last few hours that become available overnight
+            # Yesterday catch-up MUST run before today's import — otherwise today's baseline
+            # anchors against an incomplete yesterday, producing negative midnight buckets.
             await self._import_yesterday_complete_data()
+            await self._import_today_hourly_data()
 
             return data
 
