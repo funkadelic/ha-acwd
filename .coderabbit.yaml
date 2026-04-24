@@ -1,5 +1,5 @@
 reviews:
   auto_review:
     drafts: false
-    base_branches:
-      - "!release-please--**"
+    ignore_title_keywords:
+      - "chore(main): release"

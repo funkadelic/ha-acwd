@@ -1360,6 +1360,32 @@ class TestCoordinatorAsyncUpdateData:
         assert result == {"summary": "data"}
         coord.client.logout.assert_called_once()
 
+    async def test_yesterday_import_runs_before_today_import(self):
+        """Regression: yesterday catch-up must precede today's import so today's midnight baseline is correct."""
+        coord = self._make_coordinator()
+        coord.client.login.return_value = True
+        coord.client.get_usage_data.return_value = {"summary": "data"}
+        coord.client.logout.return_value = None
+
+        call_order = []
+
+        async def mock_yesterday():
+            call_order.append("yesterday")
+
+        async def mock_today():
+            call_order.append("today")
+
+        coord._import_yesterday_complete_data = mock_yesterday
+        coord._import_today_hourly_data = mock_today
+
+        await coord._async_update_data()
+
+        assert call_order == ["yesterday", "today"], (
+            "yesterday catch-up must run before today's partial import to ensure "
+            "today's baseline is anchored against the fully-updated yesterday final sum. "
+            f"Actual order: {call_order}"
+        )
+
 
 # ---------------------------------------------------------------------------
 # ACWDDataUpdateCoordinator._import_today_hourly_data
