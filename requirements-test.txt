@@ -1,5 +1,5 @@
 # Testing dependencies for ACWD Home Assistant Integration
-pytest-homeassistant-custom-component>=0.13.310
+pytest-homeassistant-custom-component>=0.13.316
 pytest-mock>=3.10.0
 freezegun>=1.2.0
 beautifulsoup4>=4.14.3
