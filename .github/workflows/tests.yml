@@ -47,7 +47,7 @@ jobs:
         if: >-
           ${{ env.SONAR_TOKEN != '' && matrix.python-version == '3.13'
           && !contains(github.event.pull_request.labels.*.name, 'autorelease: pending') }}
-        uses: SonarSource/sonarqube-scan-action@v7
+        uses: SonarSource/sonarqube-scan-action@v8
         env:
           SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
 
