@@ -4,7 +4,7 @@ Thanks for your interest in contributing! This guide covers everything you need 
 
 ## Prerequisites
 
-- **Python 3.13** — required by the test framework (`pytest-homeassistant-custom-component`)
+- **Python 3.14** — required by the test framework (`pytest-homeassistant-custom-component`)
 
 Check your Python version:
 
@@ -12,9 +12,9 @@ Check your Python version:
 python3 --version
 ```
 
-If you need Python 3.13, install it via [pyenv](https://github.com/pyenv/pyenv), your system package manager, or [python.org](https://www.python.org/downloads/).
+If you need Python 3.14, install it via [pyenv](https://github.com/pyenv/pyenv), your system package manager, or [python.org](https://www.python.org/downloads/).
 
-This repo includes a `.python-version` file, so if you have pyenv installed, running `pyenv install 3.13` is enough — pyenv will auto-select 3.13 whenever you're in the project directory.
+This repo includes a `.python-version` file, so if you have pyenv installed, running `pyenv install 3.14` is enough — pyenv will auto-select 3.14 whenever you're in the project directory.
 
 ## Development Setup
 

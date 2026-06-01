@@ -218,7 +218,7 @@ def test_hourly_data_conversion(username, password):
             time_obj = datetime.strptime(hourly_str, TIME_FORMAT_12HR)
             hour = time_obj.hour
             display_time = f"{hour:02d}:00"
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             display_time = hourly_str
 
         print(f"  {display_time:<12} {usage_gallons:<15.2f} {cumulative_sum:<15.2f}")
@@ -312,7 +312,7 @@ def test_cumulative_sum_across_days(username, password):
                 time_obj = datetime.strptime(hourly_str, TIME_FORMAT_12HR)
                 hour = time_obj.hour
                 display_time = f"{hour:02d}:00"
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 display_time = hourly_str
 
             # Save first hour for validation

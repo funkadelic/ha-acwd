@@ -70,7 +70,7 @@ def parse_date_mdy(date_str: str | None) -> datetime | None:
         return None
     try:
         return datetime.strptime(date_str, DATE_FORMAT_SLASH_MDY)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         _LOGGER.warning("Could not parse date (MM/DD/YYYY): %r", date_str)
         return None
 
@@ -88,7 +88,7 @@ def parse_time_12hr(time_str: str | None) -> int | None:
         return None
     try:
         return datetime.strptime(time_str, TIME_FORMAT_12HR).hour
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         _LOGGER.warning("Could not parse time (H:MM AM/PM): %r", time_str)
         return None
 
@@ -106,6 +106,6 @@ def parse_date_long(date_str: str | None) -> datetime | None:
         return None
     try:
         return datetime.strptime(date_str, DATE_FORMAT_LONG)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         _LOGGER.warning("Could not parse date (Month D, YYYY): %r", date_str)
         return None
