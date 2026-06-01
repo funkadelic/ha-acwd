@@ -169,7 +169,7 @@ async def handle_import_hourly(call: ServiceCall) -> None:
 
     except (requests.Timeout, requests.ConnectionError) as err:
         raise HomeAssistantError(f"Network error communicating with ACWD portal: {err}") from err
-    except (ServiceValidationError, HomeAssistantError):
+    except ServiceValidationError, HomeAssistantError:
         raise
     except Exception as err:
         raise HomeAssistantError(f"Error importing hourly data: {err}") from err
@@ -243,7 +243,7 @@ async def handle_import_daily(call: ServiceCall) -> None:
 
     except (requests.Timeout, requests.ConnectionError) as err:
         raise HomeAssistantError(f"Network error communicating with ACWD portal: {err}") from err
-    except (ServiceValidationError, HomeAssistantError):
+    except ServiceValidationError, HomeAssistantError:
         raise
     except Exception as err:
         raise HomeAssistantError(f"Error importing daily data: {err}") from err

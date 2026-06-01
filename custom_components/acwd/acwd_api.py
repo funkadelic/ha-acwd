@@ -175,7 +175,7 @@ class ACWDClient:
         except ValueError:
             _LOGGER.exception("Failed to parse login response JSON")
             return False
-        except (KeyError, TypeError, IndexError):
+        except KeyError, TypeError, IndexError:
             _LOGGER.exception("Error processing validateLogin response")
             _LOGGER.debug("Response text: %s", validate_response.text[:200])
             return False
