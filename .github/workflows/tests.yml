@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.13"]
+        python-version: ["3.14"]
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
@@ -45,7 +45,7 @@ jobs:
 
       - name: SonarQube Scan
         if: >-
-          ${{ env.SONAR_TOKEN != '' && matrix.python-version == '3.13'
+          ${{ env.SONAR_TOKEN != '' && matrix.python-version == '3.14'
           && !contains(github.event.pull_request.labels.*.name, 'autorelease: pending') }}
         uses: SonarSource/sonarqube-scan-action@v8
         env:
@@ -53,7 +53,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: >-
-          ${{ matrix.python-version == '3.13'
+          ${{ matrix.python-version == '3.14'
           && !contains(github.event.pull_request.labels.*.name, 'autorelease: pending') }}
         uses: codecov/codecov-action@v6
         with:
@@ -65,7 +65,7 @@ jobs:
 
       - name: Upload test results to Codecov
         if: >-
-          ${{ !cancelled() && matrix.python-version == '3.13'
+          ${{ !cancelled() && matrix.python-version == '3.14'
           && !contains(github.event.pull_request.labels.*.name, 'autorelease: pending') }}
         uses: codecov/codecov-action@v6
         with:
