@@ -4,7 +4,7 @@ This document describes how to test the ACWD integration locally before deployin
 
 ## Prerequisites
 
-- Python 3.13 (required by test framework)
+- Python 3.14 (required by test framework)
 - ACWD portal account credentials
 - A virtual environment (see [CONTRIBUTING.md](CONTRIBUTING.md) for setup)
 - Required packages: `requests`, `beautifulsoup4`
@@ -258,7 +258,7 @@ pytest -m timezone     # Timezone-sensitive logic tests
 
 Tests run automatically on GitHub Actions for every push and pull request:
 
-- **Python Version**: 3.13 (required by pytest-homeassistant-custom-component)
+- **Python Version**: 3.14 (required by pytest-homeassistant-custom-component)
 - **Platform**: Ubuntu latest
 - **Coverage Reporting**: Codecov and SonarQube
 
