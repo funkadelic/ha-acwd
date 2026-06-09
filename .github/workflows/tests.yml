@@ -55,7 +55,7 @@ jobs:
         if: >-
           ${{ matrix.python-version == '3.14'
           && !contains(github.event.pull_request.labels.*.name, 'autorelease: pending') }}
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
           flags: unittests
@@ -67,7 +67,7 @@ jobs:
         if: >-
           ${{ !cancelled() && matrix.python-version == '3.14'
           && !contains(github.event.pull_request.labels.*.name, 'autorelease: pending') }}
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           files: ./junit.xml
           report_type: test_results
