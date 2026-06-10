@@ -32,7 +32,7 @@ from .helpers import parse_api_response, parse_date_mdy
 _LOGGER = logging.getLogger(__name__)
 
 # User agent string for HTTP requests
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
 
 # HTTP header constants
 CONTENT_TYPE_JSON = "application/json; charset=UTF-8"
