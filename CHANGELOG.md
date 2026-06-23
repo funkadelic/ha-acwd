@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.34](https://github.com/funkadelic/ha-acwd/compare/v1.0.33...v1.0.34) (2026-06-23)
+
+
+### Changed
+
+* add workflow_dispatch trigger to release-please ([#80](https://github.com/funkadelic/ha-acwd/issues/80)) ([4d21b03](https://github.com/funkadelic/ha-acwd/commit/4d21b03f2d3052605d39a56eec4660aa1072fe58))
+* bump actions/checkout from 6 to 7 ([#78](https://github.com/funkadelic/ha-acwd/issues/78)) ([4092c1d](https://github.com/funkadelic/ha-acwd/commit/4092c1d39f6c631d397132002849794c0e9ef4bd))
+* bump codecov/codecov-action from 6 to 7 ([#71](https://github.com/funkadelic/ha-acwd/issues/71)) ([4d1c8d1](https://github.com/funkadelic/ha-acwd/commit/4d1c8d1076075c47095aa537a77551a09985525c))
+* bump googleapis/release-please-action from 4 to 5 ([#63](https://github.com/funkadelic/ha-acwd/issues/63)) ([341cbfc](https://github.com/funkadelic/ha-acwd/commit/341cbfc223f21fc28abd8a7c867495fa14f1a4c4))
+* bump hacs/action ([#75](https://github.com/funkadelic/ha-acwd/issues/75)) ([8be0cac](https://github.com/funkadelic/ha-acwd/commit/8be0cac6f0b77dfbffabfa88b305fcb9f28d0392))
+* bump home-assistant/actions ([#69](https://github.com/funkadelic/ha-acwd/issues/69)) ([9f69786](https://github.com/funkadelic/ha-acwd/commit/9f69786f9b15cdaed8832e875eeda2c9fc129fcc))
+* bump home-assistant/actions ([#74](https://github.com/funkadelic/ha-acwd/issues/74)) ([c432773](https://github.com/funkadelic/ha-acwd/commit/c432773ac42987c564e89cc33244aec537e78a00))
+* bump SonarSource/sonarqube-scan-action from 7 to 8 ([#67](https://github.com/funkadelic/ha-acwd/issues/67)) ([8ea3e0c](https://github.com/funkadelic/ha-acwd/commit/8ea3e0c0ae54efcdb6c7fdef58b4691e7100db13))
+* bump user-agent and test dependency ([#73](https://github.com/funkadelic/ha-acwd/issues/73)) ([372978e](https://github.com/funkadelic/ha-acwd/commit/372978e8f3fe009be74f80d7f7739e968e241e86))
+* show build/ci/chore commits in release notes ([#82](https://github.com/funkadelic/ha-acwd/issues/82)) ([0f523a4](https://github.com/funkadelic/ha-acwd/commit/0f523a4dd165272f71ff2307f08838770166a56e))
+* update beautifulsoup4 requirement from &gt;=4.14.3 to &gt;=4.15.0 ([#77](https://github.com/funkadelic/ha-acwd/issues/77)) ([53736eb](https://github.com/funkadelic/ha-acwd/commit/53736ebe15771d6995320dcd0420033c505e4a51))
+* update freezegun requirement from &gt;=1.2.0 to &gt;=1.5.5 ([#66](https://github.com/funkadelic/ha-acwd/issues/66)) ([d11dc3d](https://github.com/funkadelic/ha-acwd/commit/d11dc3d3c8c2df30645ece3a1575838fb1e1dea0))
+* update pytest-homeassistant-custom-component requirement ([#65](https://github.com/funkadelic/ha-acwd/issues/65)) ([03df4d8](https://github.com/funkadelic/ha-acwd/commit/03df4d8ec41297e66ec1c8f45f811395c58cae2a))
+* update pytest-homeassistant-custom-component requirement ([#72](https://github.com/funkadelic/ha-acwd/issues/72)) ([dcc9822](https://github.com/funkadelic/ha-acwd/commit/dcc9822883544e106c2a9b5b96140e168b123460))
+* update pytest-homeassistant-custom-component requirement ([#76](https://github.com/funkadelic/ha-acwd/issues/76)) ([dd73660](https://github.com/funkadelic/ha-acwd/commit/dd7366023467090a1c49ad3cdfa89714902d73c3))
+* update pytest-homeassistant-custom-component requirement ([#79](https://github.com/funkadelic/ha-acwd/issues/79)) ([56a25ff](https://github.com/funkadelic/ha-acwd/commit/56a25fffb07f9f60d19853aad05e95f3cc58c0e7))
+* update pytest-mock requirement from &gt;=3.10.0 to &gt;=3.15.1 ([#64](https://github.com/funkadelic/ha-acwd/issues/64)) ([2ef16d1](https://github.com/funkadelic/ha-acwd/commit/2ef16d1434fdba4be46552ed86f2673ce13a4c78))
+* upgrade to Python 3.14 and adopt PEP 758 except syntax ([#70](https://github.com/funkadelic/ha-acwd/issues/70)) ([296f12f](https://github.com/funkadelic/ha-acwd/commit/296f12fa5073c4c01a2c123bca22cf158df5d55e))
+
 ## [1.0.33](https://github.com/funkadelic/ha-acwd/compare/v1.0.32...v1.0.33) (2026-04-24)
 
 
