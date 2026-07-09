@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.35](https://github.com/funkadelic/ha-acwd/compare/v1.0.34...v1.0.35) (2026-07-09)
+
+
+### Changed
+
+* bump home-assistant/actions/hassfest ([#84](https://github.com/funkadelic/ha-acwd/issues/84)) ([15ec490](https://github.com/funkadelic/ha-acwd/commit/15ec4905430c32effc67f74d7f0b2efeafa30442))
+* update pytest-homeassistant-custom-component requirement ([#85](https://github.com/funkadelic/ha-acwd/issues/85)) ([6e342ee](https://github.com/funkadelic/ha-acwd/commit/6e342ee2c5e21e26aa5c807259a29d62b04736c0))
+* update pytest-homeassistant-custom-component requirement ([#86](https://github.com/funkadelic/ha-acwd/issues/86)) ([ff4c3ef](https://github.com/funkadelic/ha-acwd/commit/ff4c3ef6375e359295cc87a0b9b24296c4571ef2))
+
 ## [1.0.34](https://github.com/funkadelic/ha-acwd/compare/v1.0.33...v1.0.34) (2026-06-23)
 
 
