@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.36](https://github.com/funkadelic/ha-acwd/compare/v1.0.35...v1.0.36) (2026-08-03)
+
+
+### Changed
+
+* bump actions/labeler from 6 to 7 ([#93](https://github.com/funkadelic/ha-acwd/issues/93)) ([cb76a4e](https://github.com/funkadelic/ha-acwd/commit/cb76a4ed396b2c111932fdcfc3968f48db3dd4c3))
+* bump actions/setup-python from 6 to 7 ([#92](https://github.com/funkadelic/ha-acwd/issues/92)) ([b54c502](https://github.com/funkadelic/ha-acwd/commit/b54c502fabc0b44ab53be3ec1a65fe39ac1e726e))
+* bump home-assistant/actions/hassfest ([#91](https://github.com/funkadelic/ha-acwd/issues/91)) ([26d12fb](https://github.com/funkadelic/ha-acwd/commit/26d12fbe667d38e3498b34edd63476a508b6db1f))
+* bump home-assistant/actions/hassfest ([#96](https://github.com/funkadelic/ha-acwd/issues/96)) ([64ac142](https://github.com/funkadelic/ha-acwd/commit/64ac142e96ceb41d42036f470fa31aae823a661a))
+* pre-commit autoupdate ([#97](https://github.com/funkadelic/ha-acwd/issues/97)) ([2ceb7e5](https://github.com/funkadelic/ha-acwd/commit/2ceb7e57ea27c5dedfdb59cf5174d498728d84da))
+* update pytest-homeassistant-custom-component requirement ([#94](https://github.com/funkadelic/ha-acwd/issues/94)) ([3bbd53f](https://github.com/funkadelic/ha-acwd/commit/3bbd53f7ce347b8825a3caf06217ae6fde9f05ce))
+
 ## [1.0.35](https://github.com/funkadelic/ha-acwd/compare/v1.0.34...v1.0.35) (2026-07-25)
 
 
