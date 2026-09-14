@@ -254,3 +254,27 @@ class TestParseApiResponse:
         """Non-dict inputs raise ValueError with 'expected dict envelope'."""
         with pytest.raises(ValueError, match="expected dict envelope"):
             parse_api_response(bad_input)
+
+    def test_non_dict_input_error_names_actual_type(self):
+        """Error message names the real input type, not a hardcoded one."""
+        with pytest.raises(ValueError, match="got str"):
+            parse_api_response("a string")
+
+    def test_non_string_d_error_names_actual_type(self):
+        """Error message names the real 'd' value type, not a hardcoded one."""
+        with pytest.raises(ValueError, match="is int"):
+            parse_api_response({"d": 42})
+
+    def test_default_endpoint_is_unknown(self):
+        """Omitting endpoint uses the literal default 'unknown' in the error."""
+        with pytest.raises(ValueError, match="from unknown:"):
+            parse_api_response({})
+
+    def test_malformed_json_snippet_is_truncated_to_200_chars(self):
+        """Error message includes the raw snippet, truncated at exactly 200 chars."""
+        raw = "n" * 200 + "Z" + "n" * 10
+        with pytest.raises(ValueError) as exc_info:
+            parse_api_response({"d": raw})
+        message = str(exc_info.value)
+        assert "n" * 50 in message
+        assert "Z" not in message

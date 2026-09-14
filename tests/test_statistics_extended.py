@@ -7,10 +7,14 @@ Covers previously-untested branches in statistics.py to bring coverage from 46% 
 """
 
 from datetime import UTC, date, datetime
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from homeassistant.components.recorder.statistics import StatisticMeanType
+from homeassistant.const import UnitOfVolume
+from homeassistant.util import dt as dt_util
 
+from custom_components.acwd.const import DOMAIN
 from custom_components.acwd.statistics import (
     async_import_daily_statistics,
     async_import_hourly_statistics,
@@ -164,6 +168,77 @@ class TestHourlyEdgeCases:
             await async_import_hourly_statistics(mock_hass, meter_number, [], date_dt)
 
         assert not mock_async_add_external_statistics.called
+
+    async def test_full_metadata_and_statistics_list(
+        self,
+        mock_hass,
+        mock_get_instance,
+        mock_async_add_external_statistics,
+        meter_number,
+        pst_timezone,
+    ):
+        """Every metadata field and every statistic record (start/sum/state) is exact.
+
+        date_dt carries a nonzero minute/second/microsecond so the per-record
+        replace() call is proven to zero them out, not just leave them as-is.
+        """
+        mock_get_last_stats = Mock(return_value={})
+        date_dt = datetime(2025, 12, 9, 0, 30, 15, 500000, tzinfo=pst_timezone)
+
+        hourly_records = [
+            {"Hourly": "12:00 AM", "UsageValue": 1.0},
+            {"Hourly": "1:00 AM", "UsageValue": 2.0},
+            {"Hourly": "11:00 PM", "UsageValue": 3.0},
+        ]
+
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
+            await async_import_hourly_statistics(mock_hass, meter_number, hourly_records, date_dt)
+
+        statistic_id = f"{DOMAIN}:{meter_number}_hourly_usage"
+        expected_metadata = {
+            "has_mean": False,
+            "has_sum": True,
+            "mean_type": StatisticMeanType.NONE,
+            "name": f"ACWD Water Hourly Usage - Meter {meter_number}",
+            "source": DOMAIN,
+            "statistic_id": statistic_id,
+            "unit_of_measurement": UnitOfVolume.GALLONS.value,
+            "unit_class": "volume",
+        }
+        expected_statistics = [
+            {"start": dt_util.as_utc(date_dt.replace(hour=0, minute=0, second=0, microsecond=0)), "sum": 1.0, "state": 1.0},
+            {"start": dt_util.as_utc(date_dt.replace(hour=1, minute=0, second=0, microsecond=0)), "sum": 3.0, "state": 2.0},
+            {"start": dt_util.as_utc(date_dt.replace(hour=23, minute=0, second=0, microsecond=0)), "sum": 6.0, "state": 3.0},
+        ]
+        mock_async_add_external_statistics.assert_called_once_with(mock_hass, expected_metadata, expected_statistics)
+
+    async def test_baseline_sum_called_with_expected_args(
+        self,
+        mock_hass,
+        meter_number,
+        pst_timezone,
+    ):
+        """hass, statistic_id, and the local-midnight target are forwarded to _get_baseline_sum."""
+        date_dt = make_date_dt(date(2025, 12, 10), pst_timezone)
+        statistic_id = f"{DOMAIN}:{meter_number}_hourly_usage"
+        expected_target = dt_util.as_utc(datetime(2025, 12, 10, tzinfo=pst_timezone))
+
+        mock_baseline = AsyncMock(return_value=10.0)
+        mock_add_stats = Mock()
+
+        with (
+            patch("custom_components.acwd.statistics._get_baseline_sum", mock_baseline),
+            patch("custom_components.acwd.statistics.async_add_external_statistics", mock_add_stats),
+            patch("custom_components.acwd.statistics.dt_util.get_default_time_zone", return_value=pst_timezone),
+        ):
+            await async_import_hourly_statistics(mock_hass, meter_number, [{"Hourly": "12:00 AM", "UsageValue": 1.0}], date_dt)
+
+        mock_baseline.assert_called_once_with(mock_hass, statistic_id, expected_target)
 
 
 # ---------------------------------------------------------------------------
@@ -461,6 +536,108 @@ class TestQuarterHourlyStatistics:
 
         assert not mock_async_add_external_statistics.called
 
+    async def test_full_metadata_and_statistics_list(
+        self,
+        mock_hass,
+        mock_get_instance,
+        mock_async_add_external_statistics,
+        meter_number,
+        pst_timezone,
+    ):
+        """Every metadata field and every statistic record (start/sum/state) is exact.
+
+        date_dt carries a nonzero second/microsecond so the per-record replace()
+        call is proven to zero them out, not just leave them as-is.
+        """
+        mock_get_last_stats = Mock(return_value={})
+        date_dt = datetime(2025, 12, 9, 0, 0, 15, 500000, tzinfo=pst_timezone)
+
+        quarter_records = [
+            {"Hour": 0, "Minute": 0, "UsageValue": 1.0},
+            {"Hour": 0, "Minute": 15, "UsageValue": 2.0},
+            {"Hour": 23, "Minute": 45, "UsageValue": 3.0},
+        ]
+
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
+            await async_import_quarter_hourly_statistics(mock_hass, meter_number, quarter_records, date_dt)
+
+        statistic_id = f"{DOMAIN}:{meter_number}_quarter_hourly_usage"
+        expected_metadata = {
+            "has_mean": False,
+            "has_sum": True,
+            "mean_type": StatisticMeanType.NONE,
+            "name": f"ACWD Water 15-Min Usage - Meter {meter_number}",
+            "source": DOMAIN,
+            "statistic_id": statistic_id,
+            "unit_of_measurement": UnitOfVolume.GALLONS.value,
+            "unit_class": "volume",
+        }
+        expected_statistics = [
+            {"start": dt_util.as_utc(date_dt.replace(hour=0, minute=0, second=0, microsecond=0)), "sum": 1.0, "state": 1.0},
+            {"start": dt_util.as_utc(date_dt.replace(hour=0, minute=15, second=0, microsecond=0)), "sum": 3.0, "state": 2.0},
+            {"start": dt_util.as_utc(date_dt.replace(hour=23, minute=45, second=0, microsecond=0)), "sum": 6.0, "state": 3.0},
+        ]
+        mock_async_add_external_statistics.assert_called_once_with(mock_hass, expected_metadata, expected_statistics)
+
+    async def test_usage_value_zero_is_not_replaced_by_default(
+        self,
+        mock_hass,
+        mock_get_instance,
+        mock_async_add_external_statistics,
+        meter_number,
+        pst_timezone,
+    ):
+        """A record with UsageValue=0.0 contributes 0, not a truthy default of 1."""
+        mock_get_last_stats = Mock(return_value={})
+        date_dt = make_date_dt(date(2025, 12, 9), pst_timezone)
+
+        quarter_records = [
+            {"Hour": 0, "Minute": 0, "UsageValue": 0.0},
+            {"Hour": 0, "Minute": 15, "UsageValue": 5.0},
+        ]
+
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
+            await async_import_quarter_hourly_statistics(mock_hass, meter_number, quarter_records, date_dt)
+
+        statistics = mock_async_add_external_statistics.call_args[0][2]
+        assert statistics[0]["sum"] == pytest.approx(0.0)
+        assert statistics[1]["sum"] == pytest.approx(5.0)
+
+    async def test_baseline_sum_called_with_expected_args_including_extended_lookback(
+        self,
+        mock_hass,
+        meter_number,
+        pst_timezone,
+    ):
+        """hass, statistic_id, target and the 192-record extended lookback are forwarded."""
+        date_dt = make_date_dt(date(2025, 12, 10), pst_timezone)
+        statistic_id = f"{DOMAIN}:{meter_number}_quarter_hourly_usage"
+        expected_target = dt_util.as_utc(datetime(2025, 12, 10, tzinfo=pst_timezone))
+
+        mock_baseline = AsyncMock(return_value=10.0)
+        mock_add_stats = Mock()
+
+        with (
+            patch("custom_components.acwd.statistics._get_baseline_sum", mock_baseline),
+            patch("custom_components.acwd.statistics.async_add_external_statistics", mock_add_stats),
+            patch("custom_components.acwd.statistics.dt_util.get_default_time_zone", return_value=pst_timezone),
+        ):
+            await async_import_quarter_hourly_statistics(
+                mock_hass, meter_number, [{"Hour": 0, "Minute": 0, "UsageValue": 1.0}], date_dt
+            )
+
+        mock_baseline.assert_called_once_with(mock_hass, statistic_id, expected_target, extended_lookback=192)
+
 
 # ---------------------------------------------------------------------------
 # Task 2C: Daily statistics
@@ -634,3 +811,129 @@ class TestDailyStatistics:
             await async_import_daily_statistics(mock_hass, meter_number, [])
 
         assert not mock_async_add_external_statistics.called
+
+    async def test_full_metadata_and_statistics_list(
+        self,
+        mock_hass,
+        mock_get_instance,
+        mock_async_add_external_statistics,
+        meter_number,
+        pst_timezone,
+    ):
+        """Every metadata field and every statistic record (start/sum/state) is exact."""
+        mock_get_last_stats = Mock(return_value={})
+
+        daily_records = [
+            {"UsageDate": "December 1, 2025", "UsageValue": 10.0},
+            {"UsageDate": "December 2, 2025", "UsageValue": 20.0},
+        ]
+
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
+            await async_import_daily_statistics(mock_hass, meter_number, daily_records)
+
+        statistic_id = f"{DOMAIN}:{meter_number}_daily_usage"
+        expected_metadata = {
+            "has_mean": False,
+            "has_sum": True,
+            "mean_type": StatisticMeanType.NONE,
+            "name": f"ACWD Water Daily Usage - Meter {meter_number}",
+            "source": DOMAIN,
+            "statistic_id": statistic_id,
+            "unit_of_measurement": UnitOfVolume.GALLONS.value,
+            "unit_class": "volume",
+        }
+        expected_statistics = [
+            {"start": dt_util.as_utc(datetime(2025, 12, 1, tzinfo=pst_timezone)), "sum": 10.0, "state": 10.0},
+            {"start": dt_util.as_utc(datetime(2025, 12, 2, tzinfo=pst_timezone)), "sum": 30.0, "state": 20.0},
+        ]
+        mock_async_add_external_statistics.assert_called_once_with(mock_hass, expected_metadata, expected_statistics)
+
+    async def test_usage_value_zero_is_not_replaced_by_default(
+        self,
+        mock_hass,
+        mock_get_instance,
+        mock_async_add_external_statistics,
+        meter_number,
+        pst_timezone,
+    ):
+        """A record with UsageValue=0.0 contributes 0, not a truthy default of 1."""
+        mock_get_last_stats = Mock(return_value={})
+
+        daily_records = [
+            {"UsageDate": "December 1, 2025", "UsageValue": 0.0},
+            {"UsageDate": "December 2, 2025", "UsageValue": 5.0},
+        ]
+
+        with patch_statistics(
+            mock_get_instance,
+            mock_async_add_external_statistics,
+            mock_get_last_stats,
+            pst_timezone,
+        ):
+            await async_import_daily_statistics(mock_hass, meter_number, daily_records)
+
+        statistics = mock_async_add_external_statistics.call_args[0][2]
+        assert statistics[0]["sum"] == pytest.approx(0.0)
+        assert statistics[1]["sum"] == pytest.approx(5.0)
+
+    async def test_baseline_sum_called_with_expected_args(
+        self,
+        mock_hass,
+        meter_number,
+        pst_timezone,
+    ):
+        """hass, statistic_id, and local midnight of the earliest parseable date are forwarded."""
+        statistic_id = f"{DOMAIN}:{meter_number}_daily_usage"
+        expected_target = dt_util.as_utc(datetime(2025, 12, 1, tzinfo=pst_timezone))
+
+        mock_baseline = AsyncMock(return_value=10.0)
+        mock_add_stats = Mock()
+
+        daily_records = [
+            {"UsageDate": "December 1, 2025", "UsageValue": 1.0},
+        ]
+
+        with (
+            patch("custom_components.acwd.statistics._get_baseline_sum", mock_baseline),
+            patch("custom_components.acwd.statistics.async_add_external_statistics", mock_add_stats),
+            patch("custom_components.acwd.statistics.dt_util.get_default_time_zone", return_value=pst_timezone),
+        ):
+            await async_import_daily_statistics(mock_hass, meter_number, daily_records)
+
+        mock_baseline.assert_called_once_with(mock_hass, statistic_id, expected_target)
+
+    async def test_earliest_date_skips_leading_unparseable_records(
+        self,
+        mock_hass,
+        meter_number,
+        pst_timezone,
+    ):
+        """The baseline target is taken from the first parseable date, not the first record."""
+        statistic_id = f"{DOMAIN}:{meter_number}_daily_usage"
+        expected_target = dt_util.as_utc(datetime(2025, 12, 5, tzinfo=pst_timezone))
+
+        mock_baseline = AsyncMock(return_value=0.0)
+        mock_add_stats = Mock()
+
+        daily_records = [
+            {"UsageDate": None, "UsageValue": 1.0},
+            {"UsageDate": "bad date", "UsageValue": 2.0},
+            {"UsageDate": "December 5, 2025", "UsageValue": 3.0},
+            {"UsageDate": "December 6, 2025", "UsageValue": 4.0},
+        ]
+
+        with (
+            patch("custom_components.acwd.statistics._get_baseline_sum", mock_baseline),
+            patch("custom_components.acwd.statistics.async_add_external_statistics", mock_add_stats),
+            patch("custom_components.acwd.statistics.dt_util.get_default_time_zone", return_value=pst_timezone),
+        ):
+            await async_import_daily_statistics(mock_hass, meter_number, daily_records)
+
+        mock_baseline.assert_called_once_with(mock_hass, statistic_id, expected_target)
+        statistics = mock_add_stats.call_args[0][2]
+        assert len(statistics) == 2

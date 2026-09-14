@@ -525,7 +525,7 @@ class ACWDClient:
             _LOGGER.info("Retrieved usage data successfully")
             return usage_data
         except ValueError as e:
-            _LOGGER.error("Error parsing usage data: %s", e)
+            _LOGGER.exception("Error parsing usage data: %s", e)
             return None
 
     def logout(self):
