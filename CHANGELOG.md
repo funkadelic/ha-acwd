@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.36](https://github.com/funkadelic/ha-acwd/compare/v1.0.35...v1.0.36) (2026-09-14)
 
+### What's new
+
+This release contains backend and stability updates only. Nothing changes in how the integration looks or works in Home Assistant.
+
 
 ### Changed
 
