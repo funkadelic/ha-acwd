@@ -49,3 +49,5 @@ tmp/
 .planning/
 .claude/
 .mcp.json
+.vale/
+.vale.ini
