@@ -18,6 +18,27 @@ markers = [
     "timezone: tests for timezone-sensitive logic",
 ]
 
+# Kept out of requirements-test.txt so CI never installs it. Major capped because
+# mutmut 4 could change the [tool.mutmut] format without failing loudly.
+[dependency-groups]
+mutation = ["mutmut>=3.7,<4"]
+
+# Mutation testing, run by hand. --no-cov skips coverage collection and the HTML
+# report on every mutant run.
+[tool.mutmut]
+source_paths = ["custom_components/"]
+also_copy = ["tests/", "pyproject.toml"]
+# Mutated log calls test nothing but log text. Delete mutants/ after changing this.
+do_not_mutate_patterns = ['_LOGGER\.']
+# A mutant that breaks a loop can eat enough memory to hang WSL at the default of 15.
+timeout_multiplier = 5.0
+# Vale edits would otherwise count as a dependency change and discard the cache.
+cache_invalidation_exclude = [".vale.ini", ".vale/*"]
+# "warn" can keep a stale cache that skips every mutant as uncovered.
+on_dependency_change = "rerun"
+pytest_add_cli_args = ["--no-cov"]
+pytest_add_cli_args_test_selection = ["tests/"]
+
 [tool.ruff]
 target-version = "py314"
 line-length = 130
