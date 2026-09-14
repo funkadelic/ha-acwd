@@ -3,14 +3,16 @@
 from unittest.mock import MagicMock
 
 import pytest
+from homeassistant.helpers.entity import DeviceInfo
 
-from custom_components.acwd.const import HCF_TO_GALLONS
+from custom_components.acwd.const import DOMAIN, HCF_TO_GALLONS
 from custom_components.acwd.sensor import (
     ACWDAverageSensor,
     ACWDCurrentCycleSensor,
     ACWDCurrentUsageSensor,
     ACWDHighestSensor,
     ACWDLastBillingCycleSensor,
+    ACWDSensorBase,
     async_setup_entry,
 )
 
@@ -54,6 +56,36 @@ def mock_config_entry():
     entry = MagicMock()
     entry.entry_id = "test_entry_id"
     return entry
+
+
+# -- ACWDSensorBase -----------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestACWDSensorBase:
+    """Tests for the shared device info and entity naming on ACWDSensorBase."""
+
+    def test_device_info(self, mock_coordinator, mock_config_entry):
+        sensor = ACWDSensorBase(mock_coordinator, mock_config_entry)
+        assert sensor._attr_has_entity_name is True
+        assert sensor._attr_device_info == DeviceInfo(
+            identifiers={(DOMAIN, "12345")},
+            name="ACWD Water - Test User",
+            manufacturer="Alameda County Water District",
+            model="Water Meter",
+            configuration_url="https://portal.acwd.org/portal/",
+        )
+
+    def test_device_info_defaults_when_account_info_missing(self, mock_coordinator, mock_config_entry):
+        mock_coordinator.client.user_info = {}
+        sensor = ACWDSensorBase(mock_coordinator, mock_config_entry)
+        assert sensor._attr_device_info == DeviceInfo(
+            identifiers={(DOMAIN, "Unknown")},
+            name="ACWD Water - ACWD Water",
+            manufacturer="Alameda County Water District",
+            model="Water Meter",
+            configuration_url="https://portal.acwd.org/portal/",
+        )
 
 
 # -- ACWDCurrentUsageSensor --------------------------------------------------
@@ -103,6 +135,16 @@ class TestACWDCurrentUsageSensor:
         sensor = ACWDCurrentUsageSensor(mock_coordinator, mock_config_entry)
         assert sensor.unique_id == "12345_current_usage"
 
+    def test_name_and_translation_key(self, mock_coordinator, mock_config_entry):
+        sensor = ACWDCurrentUsageSensor(mock_coordinator, mock_config_entry)
+        assert sensor._attr_name == "Current Cycle Usage"
+        assert sensor._attr_translation_key == "current_usage"
+
+    def test_unique_id_defaults_when_account_number_missing(self, mock_coordinator, mock_config_entry):
+        mock_coordinator.client.user_info = {}
+        sensor = ACWDCurrentUsageSensor(mock_coordinator, mock_config_entry)
+        assert sensor.unique_id == "unknown_current_usage"
+
 
 # -- ACWDCurrentCycleSensor --------------------------------------------------
 
@@ -124,6 +166,16 @@ class TestACWDCurrentCycleSensor:
         mock_coordinator.data = {"getTentativeData": []}
         sensor = ACWDCurrentCycleSensor(mock_coordinator, mock_config_entry)
         assert sensor.native_value is None
+
+    def test_unique_id_and_name(self, mock_coordinator, mock_config_entry):
+        sensor = ACWDCurrentCycleSensor(mock_coordinator, mock_config_entry)
+        assert sensor.unique_id == "12345_current_cycle_projected"
+        assert sensor._attr_name == "Current Cycle Projected"
+
+    def test_unique_id_defaults_when_account_number_missing(self, mock_coordinator, mock_config_entry):
+        mock_coordinator.client.user_info = {}
+        sensor = ACWDCurrentCycleSensor(mock_coordinator, mock_config_entry)
+        assert sensor.unique_id == "unknown_current_cycle_projected"
 
 
 # -- ACWDLastBillingCycleSensor ----------------------------------------------
@@ -167,6 +219,16 @@ class TestACWDLastBillingCycleSensor:
         sensor = ACWDLastBillingCycleSensor(mock_coordinator, mock_config_entry)
         assert sensor.extra_state_attributes == {}
 
+    def test_unique_id_and_name(self, mock_coordinator, mock_config_entry):
+        sensor = ACWDLastBillingCycleSensor(mock_coordinator, mock_config_entry)
+        assert sensor.unique_id == "12345_last_billing_cycle"
+        assert sensor._attr_name == "Last Billing Cycle"
+
+    def test_unique_id_defaults_when_account_number_missing(self, mock_coordinator, mock_config_entry):
+        mock_coordinator.client.user_info = {}
+        sensor = ACWDLastBillingCycleSensor(mock_coordinator, mock_config_entry)
+        assert sensor.unique_id == "unknown_last_billing_cycle"
+
 
 # -- ACWDAverageSensor -------------------------------------------------------
 
@@ -189,6 +251,16 @@ class TestACWDAverageSensor:
         sensor = ACWDAverageSensor(mock_coordinator, mock_config_entry)
         assert sensor.native_value is None
 
+    def test_unique_id_and_name(self, mock_coordinator, mock_config_entry):
+        sensor = ACWDAverageSensor(mock_coordinator, mock_config_entry)
+        assert sensor.unique_id == "12345_average_usage"
+        assert sensor._attr_name == "Average Usage"
+
+    def test_unique_id_defaults_when_account_number_missing(self, mock_coordinator, mock_config_entry):
+        mock_coordinator.client.user_info = {}
+        sensor = ACWDAverageSensor(mock_coordinator, mock_config_entry)
+        assert sensor.unique_id == "unknown_average_usage"
+
 
 # -- ACWDHighestSensor -------------------------------------------------------
 
@@ -210,6 +282,16 @@ class TestACWDHighestSensor:
         mock_coordinator.data = {"getTentativeData": []}
         sensor = ACWDHighestSensor(mock_coordinator, mock_config_entry)
         assert sensor.native_value is None
+
+    def test_unique_id_and_name(self, mock_coordinator, mock_config_entry):
+        sensor = ACWDHighestSensor(mock_coordinator, mock_config_entry)
+        assert sensor.unique_id == "12345_highest_usage"
+        assert sensor._attr_name == "Highest Usage Ever"
+
+    def test_unique_id_defaults_when_account_number_missing(self, mock_coordinator, mock_config_entry):
+        mock_coordinator.client.user_info = {}
+        sensor = ACWDHighestSensor(mock_coordinator, mock_config_entry)
+        assert sensor.unique_id == "unknown_highest_usage"
 
 
 # -- async_setup_entry -------------------------------------------------------
@@ -236,3 +318,6 @@ class TestAsyncSetupEntry:
         assert isinstance(entities[2], ACWDLastBillingCycleSensor)
         assert isinstance(entities[3], ACWDAverageSensor)
         assert isinstance(entities[4], ACWDHighestSensor)
+        # Every entity must receive the real config_entry, not None.
+        for entity in entities:
+            assert entity._config_entry is mock_config_entry

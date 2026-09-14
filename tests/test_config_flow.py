@@ -6,6 +6,7 @@ import pytest
 import requests
 
 from custom_components.acwd.config_flow import (
+    STEP_USER_DATA_SCHEMA,
     CannotConnect,
     ConfigFlow,
     InvalidAuth,
@@ -36,12 +37,29 @@ class TestValidateInput:
         with patch(
             "custom_components.acwd.config_flow.ACWDClient",
             return_value=mock_client,
-        ):
+        ) as mock_client_cls:
             result = await validate_input(mock_hass, USER_INPUT)
 
+        mock_client_cls.assert_called_once_with(USER_INPUT["username"], USER_INPUT["password"])
         assert result["title"] == "ACWD - Test User"
         assert result["account_number"] == "12345"
         assert result["account_name"] == "Test User"
+
+    async def test_validate_input_default_title_when_name_missing(self, mock_hass):
+        """Verify title falls back to 'Water Usage' when Name is absent."""
+        mock_client = MagicMock()
+        mock_client.login.return_value = True
+        mock_client.user_info = {"AccountNumber": "12345"}
+        mock_client.logout.return_value = None
+
+        with patch(
+            "custom_components.acwd.config_flow.ACWDClient",
+            return_value=mock_client,
+        ):
+            result = await validate_input(mock_hass, USER_INPUT)
+
+        assert result["title"] == "ACWD - Water Usage"
+        assert result["account_name"] is None
 
     async def test_validate_input_missing_account_number(self, mock_hass):
         """Verify CannotConnect raised when AccountNumber is missing from user_info."""
@@ -55,9 +73,11 @@ class TestValidateInput:
                 "custom_components.acwd.config_flow.ACWDClient",
                 return_value=mock_client,
             ),
-            pytest.raises(CannotConnect, match="Unable to retrieve account number"),
+            pytest.raises(CannotConnect) as exc_info,
         ):
             await validate_input(mock_hass, USER_INPUT)
+
+        assert str(exc_info.value) == "Unable to retrieve account number"
 
     async def test_validate_input_invalid_auth(self, mock_hass):
         """Verify failed login raises InvalidAuth."""
@@ -96,6 +116,9 @@ class TestConfigFlowAsyncStepUser:
         result = await flow.async_step_user(user_input=None)
         assert result["type"] == "form"
         assert result["step_id"] == "user"
+        assert result["data_schema"] == STEP_USER_DATA_SCHEMA
+        assert result["errors"] == {}
+        assert result["description_placeholders"] == {}
 
     async def test_successful_login(self, mock_hass):
         """Verify create_entry on successful validation."""
@@ -112,11 +135,14 @@ class TestConfigFlowAsyncStepUser:
                 "custom_components.acwd.config_flow.validate_input",
                 new_callable=AsyncMock,
                 return_value=info,
-            ),
+            ) as mock_validate,
+            patch.object(flow, "async_set_unique_id", new_callable=AsyncMock) as mock_set_unique_id,
             patch.object(flow, "_abort_if_unique_id_configured"),
         ):
             result = await flow.async_step_user(user_input=USER_INPUT)
 
+        mock_validate.assert_called_once_with(mock_hass, USER_INPUT)
+        mock_set_unique_id.assert_called_once_with("12345")
         assert result["type"] == "create_entry"
         assert result["title"] == "ACWD - Test User"
         assert result["data"] == USER_INPUT
