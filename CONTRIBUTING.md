@@ -81,17 +81,6 @@ pytest -m integration  # Integration tests requiring HA fixtures
 
 See [TESTING.md](TESTING.md) for details on the integration test script (`test_login.py`) that tests against the live ACWD portal.
 
-## Linting and Formatting
-
-This project uses [Ruff](https://docs.astral.sh/ruff/) for linting and formatting. Run both before submitting a PR:
-
-```bash
-python -m ruff check --fix .
-python -m ruff format .
-```
-
-Ruff configuration is in `pyproject.toml`.
-
 ## Mutation testing (optional)
 
 ```bash
@@ -103,7 +92,7 @@ mutmut show MUTANT_NAME                                         # one of those n
 
 Scope it to a module while you work on that module. A whole-tree `mutmut run` takes much longer, though results are cached, so a later run picks up where the last one stopped. `mutants/` is the working copy mutmut builds; it is gitignored and safe to delete.
 
-Pass `--max-children` with a number below your core count. It defaults to one worker per core, and every worker is a forked copy of a process that has already imported Home Assistant and the test suite, so a default run saturates the machine. Half your cores is a reasonable ceiling, and prefixing the command with `nice -n 19` keeps the rest of your shell usable.
+Pass `--max-children` with a number below your core count. It defaults to one worker per core, and every worker is a forked copy of a process that has already imported Home Assistant and the test suite, so a default run can leave a laptop or WSL session unresponsive until it finishes. Half your cores is a reasonable ceiling, and prefixing the command with `nice -n 19` keeps the rest of your shell usable.
 
 A mutant that breaks a loop can grow a worker's memory until mutmut's timeout stops it. On Linux or WSL with systemd, cap the run so the kernel kills the runaway worker instead:
 
@@ -114,6 +103,17 @@ systemd-run --user --scope -p MemoryMax=10G -p MemorySwapMax=0 -p OOMPolicy=cont
 A surviving mutant names a change to the source that no test objects to. Sometimes that means a missing assertion, sometimes the line doesn't matter.
 
 Configuration lives in `pyproject.toml` under `[tool.mutmut]`.
+
+## Linting and Formatting
+
+This project uses [Ruff](https://docs.astral.sh/ruff/) for linting and formatting. Run both before submitting a PR:
+
+```bash
+python -m ruff check --fix .
+python -m ruff format .
+```
+
+Ruff configuration is in `pyproject.toml`.
 
 ## Submitting Changes
 
