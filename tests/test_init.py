@@ -5,7 +5,7 @@ implemented in Phase 2 Plan 02.
 """
 
 import datetime
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, call, patch
 
 import pytest
 import requests
@@ -13,6 +13,7 @@ from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
 from custom_components.acwd import (
     DOMAIN,
+    PLATFORMS,
     SERVICE_IMPORT_DAILY,
     SERVICE_IMPORT_HOURLY,
     _get_coordinator,
@@ -22,6 +23,7 @@ from custom_components.acwd import (
     handle_import_daily,
     handle_import_hourly,
 )
+from custom_components.acwd.const import DATE_FORMAT_SLASH_MDY
 from tests.helpers import make_mock_coordinator as _make_mock_coordinator
 from tests.helpers import make_mock_entry as _make_mock_entry
 from tests.helpers import make_mock_hass as _make_mock_hass
@@ -35,15 +37,25 @@ class TestServiceRegistration:
     """Tests for SRVC-01: services registered in async_setup at domain level."""
 
     async def test_async_setup_registers_services(self):
-        """async_setup registers both services exactly once each."""
+        """async_setup registers both services, with their handler and schema, exactly once each."""
+        from custom_components.acwd import (
+            SERVICE_IMPORT_DAILY_SCHEMA,
+            SERVICE_IMPORT_HOURLY_SCHEMA,
+            handle_import_daily,
+            handle_import_hourly,
+        )
+
         hass = _make_mock_hass()
         await async_setup(hass, {})
 
-        assert hass.services.async_register.call_count == 2
-        calls = hass.services.async_register.call_args_list
-        registered = {(c.args[0], c.args[1]) for c in calls}
-        assert (DOMAIN, SERVICE_IMPORT_HOURLY) in registered
-        assert (DOMAIN, SERVICE_IMPORT_DAILY) in registered
+        assert hass.services.has_service.call_args_list == [
+            call(DOMAIN, SERVICE_IMPORT_HOURLY),
+            call(DOMAIN, SERVICE_IMPORT_DAILY),
+        ]
+        assert hass.services.async_register.call_args_list == [
+            call(DOMAIN, SERVICE_IMPORT_HOURLY, handle_import_hourly, schema=SERVICE_IMPORT_HOURLY_SCHEMA),
+            call(DOMAIN, SERVICE_IMPORT_DAILY, handle_import_daily, schema=SERVICE_IMPORT_DAILY_SCHEMA),
+        ]
 
     async def test_async_setup_idempotent(self):
         """async_setup skips registration if services already exist."""
@@ -80,6 +92,34 @@ class TestServiceRegistration:
 
         hass.services.async_register.assert_not_called()
 
+    async def test_async_setup_entry_wires_client_coordinator_and_platforms(self):
+        """async_setup_entry builds the client and coordinator with the right args and wires everything up."""
+        hass = _make_mock_hass()
+        entry = _make_mock_entry()
+
+        with (
+            patch("custom_components.acwd.ACWDClient") as mock_client_cls,
+            patch("custom_components.acwd.ACWDDataUpdateCoordinator") as mock_coord_cls,
+            patch(
+                "custom_components.acwd._async_import_initial_yesterday_data",
+                new_callable=AsyncMock,
+            ) as mock_initial_import,
+        ):
+            mock_client = MagicMock()
+            mock_client_cls.return_value = mock_client
+            mock_coord = MagicMock()
+            mock_coord.async_config_entry_first_refresh = AsyncMock()
+            mock_coord_cls.return_value = mock_coord
+
+            result = await async_setup_entry(hass, entry)
+
+        assert result is True
+        mock_client_cls.assert_called_once_with("test_user", "test_pass")
+        mock_coord_cls.assert_called_once_with(hass, mock_client, entry)
+        assert hass.data[DOMAIN][entry.entry_id] is mock_coord
+        hass.config_entries.async_forward_entry_setups.assert_called_once_with(entry, PLATFORMS)
+        mock_initial_import.assert_called_once_with(hass, mock_coord)
+
 
 # ---------------------------------------------------------------------------
 # SRVC-02: Service unregistration on last entry removal
@@ -101,11 +141,24 @@ class TestServiceUnregistration:
 
         await async_unload_entry(hass, entry)
 
+        hass.config_entries.async_unload_platforms.assert_called_once_with(entry, PLATFORMS)
+        hass.config_entries.async_loaded_entries.assert_called_once_with(DOMAIN)
         assert hass.services.async_remove.call_count == 2
         removed = {c.args for c in hass.services.async_remove.call_args_list}
         assert (DOMAIN, SERVICE_IMPORT_HOURLY) in removed
         assert (DOMAIN, SERVICE_IMPORT_DAILY) in removed
         assert entry.entry_id not in hass.data.get(DOMAIN, {})
+
+    async def test_unload_with_no_domain_data_does_not_raise(self):
+        """Unloading when hass.data has no DOMAIN key at all does not crash (default {} fallback)."""
+        hass = _make_mock_hass()
+        entry = _make_mock_entry("entry_a")
+        hass.data = {}  # no DOMAIN key present
+        hass.config_entries.async_loaded_entries = Mock(return_value=[])
+
+        result = await async_unload_entry(hass, entry)
+
+        assert result is True
 
     async def test_unload_failure_skips_cleanup(self):
         """When platform unload fails, data and services are left untouched."""
@@ -167,8 +220,24 @@ class TestServiceValidation:
         with pytest.raises(ServiceValidationError):
             await handle_import_hourly(call)
 
+    async def test_today_date_raises_validation_error(self):
+        """A date exactly equal to today raises ServiceValidationError (boundary of >=)."""
+
+        hass = _make_mock_hass()
+        entry = _make_mock_entry()
+        coordinator = _make_mock_coordinator(entry)
+        hass.data[DOMAIN] = {entry.entry_id: coordinator}
+
+        today = datetime.date.today()
+        call = MagicMock()
+        call.hass = hass
+        call.data = {"date": today, "granularity": "hourly"}
+
+        with pytest.raises(ServiceValidationError):
+            await handle_import_hourly(call)
+
     async def test_valid_past_date_no_validation_error(self):
-        """A past date does not raise ServiceValidationError."""
+        """A past date does not raise ServiceValidationError and calls downstream APIs with correct args."""
 
         hass = _make_mock_hass()
         entry = _make_mock_entry()
@@ -176,9 +245,53 @@ class TestServiceValidation:
         hass.data[DOMAIN] = {entry.entry_id: coordinator}
 
         past_date = datetime.date.today() - datetime.timedelta(days=2)
-        call = MagicMock()
-        call.hass = hass
-        call.data = {"date": past_date, "granularity": "hourly"}
+        hourly_records = [{"Hourly": "12:00 AM", "UsageValue": 1.0}]
+        call_obj = MagicMock()
+        call_obj.hass = hass
+        call_obj.data = {"date": past_date, "granularity": "hourly"}
+
+        with (
+            patch("custom_components.acwd.ACWDClient") as mock_client_cls,
+            patch(
+                "custom_components.acwd.async_import_hourly_statistics",
+                new_callable=AsyncMock,
+            ) as mock_import,
+            patch("custom_components.acwd.local_midnight") as mock_midnight,
+        ):
+            mock_client = MagicMock()
+            mock_client.login.return_value = True
+            mock_client.get_usage_data.return_value = {"objUsageGenerationResultSetTwo": hourly_records}
+            mock_client.meter_number = "230057301"
+            mock_client.logout.return_value = None
+            mock_client_cls.return_value = mock_client
+
+            try:
+                await handle_import_hourly(call_obj)
+            except ServiceValidationError:
+                pytest.fail("ServiceValidationError raised for a valid past date")
+
+            mock_client_cls.assert_called_once_with("test_user", "test_pass")
+            mock_client.get_usage_data.assert_called_once_with("H", None, None, past_date.strftime(DATE_FORMAT_SLASH_MDY), "H")
+            mock_midnight.assert_called_once_with(past_date)
+            mock_import.assert_called_once_with(hass, "230057301", hourly_records, mock_midnight.return_value)
+            mock_client.logout.assert_called_once()
+
+    async def test_entry_id_selects_matching_coordinator_credentials(self):
+        """entry_id in call.data picks the matching coordinator, whose credentials are used to log in."""
+
+        hass = _make_mock_hass()
+        entry_a = _make_mock_entry("entry_a")
+        entry_a.data = {"username": "user_a", "password": "pass_a"}
+        entry_b = _make_mock_entry("entry_b")
+        entry_b.data = {"username": "user_b", "password": "pass_b"}
+        coordinator_a = _make_mock_coordinator(entry_a)
+        coordinator_b = _make_mock_coordinator(entry_b)
+        hass.data[DOMAIN] = {"entry_a": coordinator_a, "entry_b": coordinator_b}
+
+        past_date = datetime.date.today() - datetime.timedelta(days=2)
+        call_obj = MagicMock()
+        call_obj.hass = hass
+        call_obj.data = {"date": past_date, "granularity": "hourly", "entry_id": "entry_b"}
 
         with (
             patch("custom_components.acwd.ACWDClient") as mock_client_cls,
@@ -190,18 +303,15 @@ class TestServiceValidation:
             mock_client = MagicMock()
             mock_client.login.return_value = True
             mock_client.get_usage_data.return_value = {
-                "objUsageGenerationResultSetTwo": [
-                    {"Hourly": "12:00 AM", "UsageValue": 1.0},
-                ]
+                "objUsageGenerationResultSetTwo": [{"Hourly": "12:00 AM", "UsageValue": 1.0}]
             }
             mock_client.meter_number = "230057301"
             mock_client.logout.return_value = None
             mock_client_cls.return_value = mock_client
 
-            try:
-                await handle_import_hourly(call)
-            except ServiceValidationError:
-                pytest.fail("ServiceValidationError raised for a valid past date")
+            await handle_import_hourly(call_obj)
+
+            mock_client_cls.assert_called_once_with("user_b", "pass_b")
 
     async def test_no_config_raises_error(self):
         """When hass.data has no DOMAIN entry, handler raises HomeAssistantError."""
@@ -235,20 +345,54 @@ class TestServiceValidation:
         with pytest.raises(ServiceValidationError):
             await handle_import_daily(call)
 
-    async def test_daily_valid_range_no_validation_error(self):
-        """A valid past date range does not raise ServiceValidationError."""
+    async def test_daily_equal_dates_no_validation_error(self):
+        """start_date == end_date does not raise (boundary of the > comparison)."""
 
         hass = _make_mock_hass()
         entry = _make_mock_entry()
         coordinator = _make_mock_coordinator(entry)
         hass.data[DOMAIN] = {entry.entry_id: coordinator}
 
-        call = MagicMock()
-        call.hass = hass
-        call.data = {
-            "start_date": datetime.date(2025, 12, 1),
-            "end_date": datetime.date(2025, 12, 5),
-        }
+        same_date = datetime.date(2025, 12, 5)
+        call_obj = MagicMock()
+        call_obj.hass = hass
+        call_obj.data = {"start_date": same_date, "end_date": same_date}
+
+        with (
+            patch("custom_components.acwd.ACWDClient") as mock_client_cls,
+            patch(
+                "custom_components.acwd.async_import_daily_statistics",
+                new_callable=AsyncMock,
+            ),
+        ):
+            mock_client = MagicMock()
+            mock_client.login.return_value = True
+            mock_client.meter_number = "230057301"
+            mock_client.get_usage_data.return_value = {
+                "objUsageGenerationResultSetTwo": [{"Date": "12/05/2025", "UsageValue": 50.0}]
+            }
+            mock_client.logout.return_value = None
+            mock_client_cls.return_value = mock_client
+
+            try:
+                await handle_import_daily(call_obj)
+            except ServiceValidationError:
+                pytest.fail("ServiceValidationError raised for start_date == end_date")
+
+    async def test_daily_valid_range_no_validation_error(self):
+        """A valid past date range does not raise ServiceValidationError and calls downstream APIs with correct args."""
+
+        hass = _make_mock_hass()
+        entry = _make_mock_entry()
+        coordinator = _make_mock_coordinator(entry)
+        hass.data[DOMAIN] = {entry.entry_id: coordinator}
+
+        start_date = datetime.date(2025, 12, 1)
+        end_date = datetime.date(2025, 12, 5)
+        daily_records = [{"Date": "12/01/2025", "UsageValue": 50.0}]
+        call_obj = MagicMock()
+        call_obj.hass = hass
+        call_obj.data = {"start_date": start_date, "end_date": end_date}
 
         with (
             patch("custom_components.acwd.ACWDClient") as mock_client_cls,
@@ -260,22 +404,61 @@ class TestServiceValidation:
             mock_client = MagicMock()
             mock_client.login.return_value = True
             mock_client.meter_number = "230057301"
-            mock_client.get_usage_data.return_value = {
-                "objUsageGenerationResultSetTwo": [
-                    {"Date": "12/01/2025", "UsageValue": 50.0},
-                ]
-            }
+            mock_client.get_usage_data.return_value = {"objUsageGenerationResultSetTwo": daily_records}
             mock_client.logout.return_value = None
             mock_client_cls.return_value = mock_client
 
             try:
-                await handle_import_daily(call)
+                await handle_import_daily(call_obj)
             except ServiceValidationError:
                 pytest.fail("ServiceValidationError raised for a valid date range")
 
-            # Verify meter_number (not account_number) is passed to import function
-            mock_import_daily.assert_called_once()
-            assert mock_import_daily.call_args[0][1] == "230057301"
+            mock_client_cls.assert_called_once_with("test_user", "test_pass")
+            mock_client.get_usage_data.assert_called_once_with(
+                "D", start_date.strftime(DATE_FORMAT_SLASH_MDY), end_date.strftime(DATE_FORMAT_SLASH_MDY)
+            )
+            mock_import_daily.assert_called_once_with(hass, "230057301", daily_records)
+            mock_client.logout.assert_called_once()
+
+    async def test_daily_entry_id_selects_matching_coordinator_credentials(self):
+        """entry_id in call.data picks the matching coordinator, whose credentials are used to log in."""
+
+        hass = _make_mock_hass()
+        entry_a = _make_mock_entry("entry_a")
+        entry_a.data = {"username": "user_a", "password": "pass_a"}
+        entry_b = _make_mock_entry("entry_b")
+        entry_b.data = {"username": "user_b", "password": "pass_b"}
+        coordinator_a = _make_mock_coordinator(entry_a)
+        coordinator_b = _make_mock_coordinator(entry_b)
+        hass.data[DOMAIN] = {"entry_a": coordinator_a, "entry_b": coordinator_b}
+
+        call_obj = MagicMock()
+        call_obj.hass = hass
+        call_obj.data = {
+            "start_date": datetime.date(2025, 12, 1),
+            "end_date": datetime.date(2025, 12, 5),
+            "entry_id": "entry_b",
+        }
+
+        with (
+            patch("custom_components.acwd.ACWDClient") as mock_client_cls,
+            patch(
+                "custom_components.acwd.async_import_daily_statistics",
+                new_callable=AsyncMock,
+            ),
+        ):
+            mock_client = MagicMock()
+            mock_client.login.return_value = True
+            mock_client.meter_number = "230057301"
+            mock_client.get_usage_data.return_value = {
+                "objUsageGenerationResultSetTwo": [{"Date": "12/01/2025", "UsageValue": 50.0}]
+            }
+            mock_client.logout.return_value = None
+            mock_client_cls.return_value = mock_client
+
+            await handle_import_daily(call_obj)
+
+            mock_client_cls.assert_called_once_with("user_b", "pass_b")
 
 
 # ---------------------------------------------------------------------------
@@ -552,16 +735,17 @@ class TestHandleImportHourlyEdgeCases:
     """Tests for handle_import_hourly edge cases not covered above."""
 
     async def test_quarter_hourly_granularity_calls_quarter_hourly_import(self):
-        """Quarter-hourly granularity calls async_import_quarter_hourly_statistics."""
+        """Quarter-hourly granularity fetches with hourly_type='Q' and calls the quarter-hourly importer."""
         hass = _make_mock_hass()
         entry = _make_mock_entry()
         coordinator = _make_mock_coordinator(entry)
         hass.data[DOMAIN] = {entry.entry_id: coordinator}
 
         past_date = datetime.date.today() - datetime.timedelta(days=2)
-        call = MagicMock()
-        call.hass = hass
-        call.data = {"date": past_date, "granularity": "quarter_hourly"}
+        hourly_records = [{"Hourly": "12:00 AM", "UsageValue": 1.0}]
+        call_obj = MagicMock()
+        call_obj.hass = hass
+        call_obj.data = {"date": past_date, "granularity": "quarter_hourly"}
 
         with (
             patch("custom_components.acwd.ACWDClient") as mock_client_cls,
@@ -573,21 +757,19 @@ class TestHandleImportHourlyEdgeCases:
                 "custom_components.acwd.async_import_hourly_statistics",
                 new_callable=AsyncMock,
             ) as mock_h_import,
+            patch("custom_components.acwd.local_midnight") as mock_midnight,
         ):
             mock_client = MagicMock()
             mock_client.login.return_value = True
-            mock_client.get_usage_data.return_value = {
-                "objUsageGenerationResultSetTwo": [
-                    {"Hourly": "12:00 AM", "UsageValue": 1.0},
-                ]
-            }
+            mock_client.get_usage_data.return_value = {"objUsageGenerationResultSetTwo": hourly_records}
             mock_client.meter_number = "230057301"
             mock_client.logout.return_value = None
             mock_client_cls.return_value = mock_client
 
-            await handle_import_hourly(call)
+            await handle_import_hourly(call_obj)
 
-            mock_qh_import.assert_called_once()
+            mock_client.get_usage_data.assert_called_once_with("H", None, None, past_date.strftime(DATE_FORMAT_SLASH_MDY), "Q")
+            mock_qh_import.assert_called_once_with(hass, "230057301", hourly_records, mock_midnight.return_value)
             mock_h_import.assert_not_called()
 
     async def test_requests_timeout_raises_home_assistant_error(self):
@@ -815,20 +997,17 @@ class TestAsyncImportInitialYesterdayData:
     """Tests for _async_import_initial_yesterday_data."""
 
     async def test_happy_path_imports_statistics(self):
-        """Happy path: login, data returned, hourly records exist, imports statistics."""
+        """Happy path: login, data returned, hourly records exist, imports statistics with correct args."""
         from custom_components.acwd import _async_import_initial_yesterday_data
 
         hass = _make_mock_hass()
         entry = _make_mock_entry()
         coordinator = _make_mock_coordinator(entry)
+        hourly_records = [{"Hourly": "12:00 AM", "UsageValue": 2.0}]
 
         mock_client = MagicMock()
         mock_client.login.return_value = True
-        mock_client.get_usage_data.return_value = {
-            "objUsageGenerationResultSetTwo": [
-                {"Hourly": "12:00 AM", "UsageValue": 2.0},
-            ]
-        }
+        mock_client.get_usage_data.return_value = {"objUsageGenerationResultSetTwo": hourly_records}
         mock_client.meter_number = "230057301"
         mock_client.logout.return_value = None
 
@@ -836,7 +1015,7 @@ class TestAsyncImportInitialYesterdayData:
             patch(
                 "custom_components.acwd.acwd_api.ACWDClient",
                 return_value=mock_client,
-            ),
+            ) as mock_client_cls,
             patch(
                 "custom_components.acwd.async_import_hourly_statistics",
                 new_callable=AsyncMock,
@@ -849,8 +1028,13 @@ class TestAsyncImportInitialYesterdayData:
 
             await _async_import_initial_yesterday_data(hass, coordinator)
 
-            mock_import.assert_called_once()
-            assert mock_import.call_args[0][1] == "230057301"
+            expected_yesterday = datetime.date(2025, 12, 9)
+            mock_client_cls.assert_called_once_with("test_user", "test_pass")
+            mock_client.get_usage_data.assert_called_once_with(
+                "H", None, None, expected_yesterday.strftime(DATE_FORMAT_SLASH_MDY), "H"
+            )
+            mock_midnight.assert_called_once_with(expected_yesterday)
+            mock_import.assert_called_once_with(hass, "230057301", hourly_records, mock_midnight.return_value)
 
     async def test_login_failure_returns_without_raising(self):
         """Login failure returns gracefully without raising."""
@@ -1219,6 +1403,7 @@ class TestCoordinatorAsyncUpdateData:
         result = await coord._async_update_data()
 
         assert result == {"summary": "data"}
+        coord.client.get_usage_data.assert_called_once_with("B")
         mock_today.assert_called_once()
         mock_yesterday.assert_called_once()
 
@@ -1525,6 +1710,79 @@ class TestCoordinatorImportTodayHourlyData:
 
             mock_import.assert_called_once()
 
+    async def test_get_usage_data_called_with_correct_args(self):
+        """get_usage_data is fetched for today with mode='H' and hourly_type='H'."""
+        coord = self._make_coordinator()
+        hourly_records = [{"Hourly": "12:00 AM", "UsageValue": 2.0}]
+        coord.client.get_usage_data.return_value = {"objUsageGenerationResultSetTwo": hourly_records}
+        coord.client.meter_number = "230057301"
+
+        with (
+            patch("custom_components.acwd.dt_util") as mock_dt_util,
+            patch("custom_components.acwd.local_midnight") as mock_midnight,
+            patch(
+                "custom_components.acwd.async_import_hourly_statistics",
+                new_callable=AsyncMock,
+            ) as mock_import,
+        ):
+            today = datetime.datetime(2025, 12, 10, 14, 0, 0)
+            mock_dt_util.now.return_value = today
+
+            await coord._import_today_hourly_data()
+
+            coord.client.get_usage_data.assert_called_once_with(
+                "H", None, None, today.date().strftime(DATE_FORMAT_SLASH_MDY), "H"
+            )
+            mock_midnight.assert_called_once_with(today.date())
+            mock_import.assert_called_once_with(coord.hass, "230057301", hourly_records, mock_midnight.return_value)
+
+    async def test_last_nonzero_hour_logged_correctly(self):
+        """The latest non-zero-usage hour and count are found via reverse scan, not the first or last record."""
+        coord = self._make_coordinator()
+        coord.client.get_usage_data.return_value = {
+            "objUsageGenerationResultSetTwo": [
+                {"Hourly": "12:00 AM", "UsageValue": 2.0},
+                {"Hourly": "1:00 AM", "UsageValue": 0.5},
+                {"Hourly": "2:00 AM", "UsageValue": 0},
+            ]
+        }
+        coord.client.meter_number = "230057301"
+
+        with (
+            patch("custom_components.acwd.dt_util") as mock_dt_util,
+            patch("custom_components.acwd.local_midnight"),
+            patch("custom_components.acwd.async_import_hourly_statistics", new_callable=AsyncMock),
+            patch("custom_components.acwd._LOGGER") as mock_logger,
+        ):
+            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
+
+            await coord._import_today_hourly_data()
+
+            info_calls = mock_logger.info.call_args_list
+            assert any(c.args[2:] == ("1:00 AM", 2) for c in info_calls), (
+                f"Expected latest-hour log with '1:00 AM' and count 2. Calls: {info_calls}"
+            )
+
+    async def test_record_missing_usage_value_key_still_imports(self):
+        """A record without a 'UsageValue' key defaults to zero usage and import still proceeds."""
+        coord = self._make_coordinator()
+        coord.client.get_usage_data.return_value = {"objUsageGenerationResultSetTwo": [{"Hourly": "12:00 AM"}]}
+        coord.client.meter_number = "230057301"
+
+        with (
+            patch("custom_components.acwd.dt_util") as mock_dt_util,
+            patch("custom_components.acwd.local_midnight"),
+            patch(
+                "custom_components.acwd.async_import_hourly_statistics",
+                new_callable=AsyncMock,
+            ) as mock_import,
+        ):
+            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
+
+            await coord._import_today_hourly_data()
+
+            mock_import.assert_called_once()
+
     async def test_exception_caught_as_warning(self):
         """Exception during import is caught and logged as warning."""
         coord = self._make_coordinator()
@@ -1564,13 +1822,10 @@ class TestCoordinatorImportYesterdayCompleteData:
         return coord
 
     async def test_runs_during_morning_hours(self):
-        """Runs import when current hour < MORNING_IMPORT_END_HOUR."""
+        """Runs import when current hour < MORNING_IMPORT_END_HOUR, using yesterday's date throughout."""
         coord = self._make_coordinator()
-        coord.client.get_usage_data.return_value = {
-            "objUsageGenerationResultSetTwo": [
-                {"Hourly": "12:00 AM", "UsageValue": 2.0},
-            ]
-        }
+        hourly_records = [{"Hourly": "12:00 AM", "UsageValue": 2.0}]
+        coord.client.get_usage_data.return_value = {"objUsageGenerationResultSetTwo": hourly_records}
         coord.client.meter_number = "230057301"
 
         with (
@@ -1588,7 +1843,12 @@ class TestCoordinatorImportYesterdayCompleteData:
 
             await coord._import_yesterday_complete_data()
 
-            mock_import.assert_called_once()
+            expected_yesterday = datetime.date(2025, 12, 9)
+            coord.client.get_usage_data.assert_called_once_with(
+                "H", None, None, expected_yesterday.strftime(DATE_FORMAT_SLASH_MDY), "H"
+            )
+            mock_midnight.assert_called_once_with(expected_yesterday)
+            mock_import.assert_called_once_with(coord.hass, "230057301", hourly_records, mock_midnight.return_value)
 
     async def test_skips_after_morning_hours(self):
         """Skips import when current hour >= MORNING_IMPORT_END_HOUR."""
@@ -1607,6 +1867,25 @@ class TestCoordinatorImportYesterdayCompleteData:
 
             await coord._import_yesterday_complete_data()
 
+            mock_import.assert_not_called()
+
+    async def test_skips_exactly_at_noon_boundary(self):
+        """Skips import when current hour == MORNING_IMPORT_END_HOUR exactly (boundary of >=)."""
+        coord = self._make_coordinator()
+
+        with (
+            patch("custom_components.acwd.dt_util") as mock_dt_util,
+            patch(
+                "custom_components.acwd.async_import_hourly_statistics",
+                new_callable=AsyncMock,
+            ) as mock_import,
+        ):
+            mock_now = datetime.datetime(2025, 12, 10, 12, 0, 0)
+            mock_dt_util.now.return_value = mock_now
+
+            await coord._import_yesterday_complete_data()
+
+            coord.client.get_usage_data.assert_not_called()
             mock_import.assert_not_called()
 
     async def test_no_data_returns_gracefully(self):
@@ -1695,15 +1974,18 @@ class TestACWDDataUpdateCoordinatorInit:
 
     def test_constructor_sets_attributes(self):
         """Instantiating ACWDDataUpdateCoordinator sets client, entry, and _last_hourly_import_date."""
-        from custom_components.acwd import ACWDDataUpdateCoordinator
+        from custom_components.acwd import _LOGGER, DOMAIN, UPDATE_INTERVAL, ACWDDataUpdateCoordinator
 
         hass = _make_mock_hass()
         client = MagicMock()
         entry = MagicMock()
 
-        with patch("homeassistant.helpers.update_coordinator.DataUpdateCoordinator.__init__"):
+        with patch(
+            "homeassistant.helpers.update_coordinator.DataUpdateCoordinator.__init__", return_value=None
+        ) as mock_super_init:
             coordinator = ACWDDataUpdateCoordinator(hass, client, entry)
 
         assert coordinator.client is client
         assert coordinator.entry is entry
         assert coordinator._last_hourly_import_date is None
+        mock_super_init.assert_called_once_with(hass, _LOGGER, name=DOMAIN, update_interval=UPDATE_INTERVAL)
