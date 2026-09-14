@@ -265,10 +265,7 @@ class TestServiceValidation:
             mock_client.logout.return_value = None
             mock_client_cls.return_value = mock_client
 
-            try:
-                await handle_import_hourly(call_obj)
-            except ServiceValidationError:
-                pytest.fail("ServiceValidationError raised for a valid past date")
+            await handle_import_hourly(call_obj)
 
             mock_client_cls.assert_called_once_with("test_user", "test_pass")
             mock_client.get_usage_data.assert_called_once_with("H", None, None, past_date.strftime(DATE_FORMAT_SLASH_MDY), "H")
@@ -374,10 +371,7 @@ class TestServiceValidation:
             mock_client.logout.return_value = None
             mock_client_cls.return_value = mock_client
 
-            try:
-                await handle_import_daily(call_obj)
-            except ServiceValidationError:
-                pytest.fail("ServiceValidationError raised for start_date == end_date")
+            await handle_import_daily(call_obj)
 
     async def test_daily_valid_range_no_validation_error(self):
         """A valid past date range does not raise ServiceValidationError and calls downstream APIs with correct args."""
@@ -408,10 +402,7 @@ class TestServiceValidation:
             mock_client.logout.return_value = None
             mock_client_cls.return_value = mock_client
 
-            try:
-                await handle_import_daily(call_obj)
-            except ServiceValidationError:
-                pytest.fail("ServiceValidationError raised for a valid date range")
+            await handle_import_daily(call_obj)
 
             mock_client_cls.assert_called_once_with("test_user", "test_pass")
             mock_client.get_usage_data.assert_called_once_with(
