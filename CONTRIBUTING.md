@@ -1,10 +1,10 @@
 # Contributing to ha-acwd
 
-Thanks for your interest in contributing! This guide covers everything you need to set up a local development environment and submit changes.
+This guide covers setting up a local development environment and submitting changes.
 
 ## Prerequisites
 
-- **Python 3.14** — required by the test framework (`pytest-homeassistant-custom-component`)
+- **Python 3.14**, required by the test framework (`pytest-homeassistant-custom-component`)
 
 Check your Python version:
 
@@ -14,7 +14,7 @@ python3 --version
 
 If you need Python 3.14, install it via [pyenv](https://github.com/pyenv/pyenv), your system package manager, or [python.org](https://www.python.org/downloads/).
 
-This repo includes a `.python-version` file, so if you have pyenv installed, running `pyenv install 3.14` is enough — pyenv will auto-select 3.14 whenever you're in the project directory.
+This repo includes a `.python-version` file, so with pyenv installed, running `pyenv install 3.14` is enough. pyenv selects 3.14 whenever you're in the project directory.
 
 ## Development Setup
 
@@ -29,7 +29,7 @@ cd ha-acwd
 
 ### 2. Create a virtual environment
 
-Always use a virtual environment to isolate project dependencies from your system Python:
+Use a virtual environment to keep project dependencies separate from your system Python:
 
 ```bash
 python3 -m venv .venv
@@ -48,7 +48,7 @@ source .venv/bin/activate
 .venv\Scripts\Activate.ps1
 ```
 
-Your terminal prompt should now show `(.venv)` indicating the virtual environment is active. You'll need to activate it each time you open a new terminal.
+Your terminal prompt should now show `(.venv)`. You'll need to activate it each time you open a new terminal.
 
 ### 3. Install dependencies
 
@@ -56,11 +56,11 @@ Your terminal prompt should now show `(.venv)` indicating the virtual environmen
 pip install -r requirements.txt -r requirements-test.txt
 ```
 
-This installs both runtime dependencies (`beautifulsoup4`) and test dependencies (`pytest`, `pytest-homeassistant-custom-component`, `freezegun`, etc.).
+This installs the runtime dependency (`beautifulsoup4`) and the test dependencies (`pytest-homeassistant-custom-component`, `pytest-mock`, `freezegun`).
 
 ## Running Tests
 
-All test configuration lives in `pyproject.toml` — no extra flags needed:
+All test configuration lives in `pyproject.toml`, so no extra flags are needed:
 
 ```bash
 pytest
@@ -72,11 +72,10 @@ This runs the full suite with coverage reporting. To run a specific test file:
 pytest tests/test_acwd_api.py -v
 ```
 
-To run tests by marker:
+To run only the unit tests (no network, no HA core):
 
 ```bash
-pytest -m unit         # Unit tests (no network, no HA core)
-pytest -m integration  # Integration tests requiring HA fixtures
+pytest -m unit
 ```
 
 See [TESTING.md](TESTING.md) for details on the integration test script (`test_login.py`) that tests against the live ACWD portal.
@@ -106,14 +105,24 @@ Configuration lives in `pyproject.toml` under `[tool.mutmut]`.
 
 ## Linting and Formatting
 
-This project uses [Ruff](https://docs.astral.sh/ruff/) for linting and formatting. Run both before submitting a PR:
+This project uses [Ruff](https://docs.astral.sh/ruff/) for linting and formatting. Install it in your virtual environment, then run both before submitting a PR:
 
 ```bash
+pip install ruff
 python -m ruff check --fix .
 python -m ruff format .
 ```
 
 Ruff configuration is in `pyproject.toml`.
+
+To run the same checks on every commit (Ruff plus whitespace, YAML and JSON checks), install [pre-commit](https://pre-commit.com/):
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+This step is optional. pre-commit.ci runs these hooks on every pull request and pushes any fixes to your branch.
 
 ## Submitting Changes
 
@@ -167,6 +176,6 @@ tests/
 ## Code Style
 
 - Use lazy `%s` formatting for logging (not f-strings) per ruff rule G004
-- Use constants from `const.py` — avoid magic strings
+- Use constants from `const.py` instead of magic strings
 - Use helpers from `helpers.py` for date/time parsing and API response handling
 - Always log out in `finally` blocks when using the API client

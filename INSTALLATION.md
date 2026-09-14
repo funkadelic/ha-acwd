@@ -2,7 +2,7 @@
 
 ## Quick Install (Easiest Method)
 
-**The fastest way to install is using the "My Home Assistant" link:**
+The fastest way to install is the "My Home Assistant" link:
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=funkadelic&repository=ha-acwd&category=integration)
 
@@ -45,8 +45,8 @@ After installing via either method above:
 1. Go to **Settings → Devices & Services**
 2. Click **"+ Add Integration"**
 3. Search for **"ACWD Water Usage"**
-4. Enter your ACWD portal credentials (stored securely in Home Assistant's encrypted credential storage):
-   - **Email**: Your ACWD portal email address
+4. Enter your ACWD portal credentials (saved in Home Assistant's integration settings):
+   - **Email Address**: Your ACWD portal email address
    - **Password**: Your ACWD portal password
 5. Click **"Submit"**
 
@@ -55,19 +55,19 @@ After installing via either method above:
 1. **Download the Integration**
 
    ```bash
-   cd /config
-   mkdir -p custom_components
-   cd custom_components
-   git clone https://github.com/funkadelic/ha-acwd.git acwd
+   cd /tmp
+   git clone https://github.com/funkadelic/ha-acwd.git
+   mkdir -p /config/custom_components
+   cp -r ha-acwd/custom_components/acwd /config/custom_components/
    ```
 
 2. **Or Download ZIP**
-   - Download the latest release
+   - Download `acwd.zip` from the latest release
    - Extract to `/config/custom_components/acwd/`
 
 3. **Restart Home Assistant**
 
-4. **Configure** (same as step 3 above)
+4. **Configure** (see [Configuration](#configuration))
 
 ## Energy Dashboard Configuration
 
@@ -92,32 +92,29 @@ The integration creates the following entities:
 
 ## Granular Hourly Data
 
-The integration automatically imports hourly water usage data into Home Assistant's long-term statistics database. This provides **hourly breakdowns** in the Energy Dashboard based on ACWD's batch update schedule.
+The integration imports hourly water usage into Home Assistant's long-term statistics. The Energy Dashboard shows it broken down by hour, following ACWD's batch update schedule.
 
 ### How It Works
 
-1. **First-Time Setup**: On initial installation, the integration automatically imports **yesterday's complete hourly data**. This provides immediate feedback that the integration is working.
-2. **Hourly Polling**: The integration checks for new data every hour and imports whatever ACWD has released
-3. **Morning Completion**: Between midnight and noon, the integration re-imports **yesterday's data** to capture the final hours (9 PM - midnight) that become available around 8 AM
-4. **Energy Dashboard Integration**: The hourly data appears in the Energy Dashboard, allowing you to see water usage broken down by hour
-5. **Long-term Storage**: Data is stored in Home Assistant's statistics database, separate from regular sensor states
-6. **Smart Duplicate Handling**: Re-importing the same hour automatically replaces the old value - no duplicates created
-7. **Cumulative Sum Tracking**: The integration correctly maintains cumulative water usage totals across day boundaries, ensuring accurate historical tracking
+1. On first setup, the integration imports yesterday's complete hourly data.
+2. Every hour, it checks for new data and imports whatever ACWD has released.
+3. Between midnight and noon, it re-imports yesterday's data to pick up the final hours (9 PM - midnight), which become available around 8 AM.
+4. The hourly data appears in the Energy Dashboard, broken down by hour.
+5. Usage is stored in Home Assistant's statistics database, separate from regular sensor states.
+6. Re-importing an hour replaces the old value instead of adding a duplicate.
+7. Running usage totals carry over from one day to the next.
 
 ### ACWD Data Update Schedule
 
-ACWD releases water usage data in **4 batches per day** (times are consistent within 1-hour windows):
+ACWD releases water usage data in 4 batches per day, each within a 1-hour window:
 
 - **7:00-8:00 AM** - Yesterday's final 3 hours (9 PM - midnight) + Today's first 8 hours (midnight - 7 AM)
 - **12:00-1:00 PM** - Today's next 5 hours (8 AM - 12 PM)
 - **5:00-6:00 PM** - Today's next 5 hours (1 PM - 5 PM)
 - **8:00-9:00 PM** - Today's next 3 hours (6 PM - 8 PM)
-
-**Key points:**
-
 - Each day's data arrives in 4 batches totaling 21 hours (midnight - 8 PM)
 - The final 3 hours (9 PM - midnight) appear the next morning at 7-8 AM
-- Yesterday's complete 24-hour usage typically available by 8 AM daily (based on ACWD's schedule)
+- Yesterday's complete 24-hour usage is typically available by 8 AM
 
 **Example:** At 3 PM Tuesday, you'll see Monday's complete 24 hours + Tuesday's first 13 hours (midnight - noon). Tuesday's 9 PM - midnight won't appear until Wednesday morning at 7-8 AM.
 
@@ -133,7 +130,7 @@ Import hourly or 15-minute interval data for a specific date.
 
 **Parameters:**
 
-- `date`: Date to import (YYYY-MM-DD format)
+- `date`: Date to import (YYYY-MM-DD format, must be before today)
 - `granularity`: Choose `hourly` (default) or `quarter_hourly` (15-minute intervals)
 
 **Example:**
@@ -147,14 +144,13 @@ data:
 
 **Note on 15-Minute Data:**
 
-While the ACWD API provides 15-minute interval data (`granularity: "quarter_hourly"`), the Energy Dashboard displays hourly granularity at finest. The 15-minute data is useful for:
+ACWD provides 15-minute interval data (`granularity: "quarter_hourly"`), but the Energy Dashboard shows hourly totals at most. The 15-minute data is useful for:
 
 - Custom Lovelace cards that use statistics data directly
 - Automations detecting short-duration high-usage events
-- Advanced analysis through the statistics database
-- Future-proofing if HA adds finer granularity support
+- Analysis through the statistics database
 
-For most users, hourly data is sufficient and recommended.
+Most users only need hourly data.
 
 #### Import Daily Data
 
@@ -180,8 +176,7 @@ data:
 
 1. Go to **Settings → Dashboards → Energy**
 2. Click on the **Water** tab
-3. Select a specific date to see hourly breakdown
-4. The Energy Dashboard will display water usage for each hour of that day
+3. Select a specific date to see water usage for each hour of that day
 
 ## Troubleshooting
 
@@ -206,12 +201,7 @@ data:
 
 ## Update Frequency
 
-The integration checks for new data **every hour**. This provides:
-
-- Automatic imports whenever ACWD releases new batches
-- Yesterday's complete data typically captured by 8 AM daily
-- Today's data imported as ACWD releases it throughout the day
-- Energy Dashboard shows water usage based on ACWD's batch schedule
+The integration checks for new data every hour, so each ACWD batch is imported within an hour of its release and yesterday's complete data is usually in by 8 AM.
 
 ## Support
 

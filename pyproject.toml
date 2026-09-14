@@ -57,6 +57,7 @@ select = [
     "B",    # flake8-bugbear
     "SIM",  # flake8-simplify
     "RUF",  # ruff-specific rules
+    "G",    # flake8-logging-format
 ]
 
 [tool.ruff.lint.isort]
