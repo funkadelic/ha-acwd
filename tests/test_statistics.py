@@ -8,13 +8,14 @@ These tests prevent regressions of critical bugs:
 """
 
 from datetime import UTC, datetime
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
 from custom_components.acwd.statistics import (
     _ensure_datetime,
     _find_baseline_in_stats,
+    _get_baseline_sum,
     async_import_hourly_statistics,
 )
 from tests.helpers import (
@@ -310,6 +311,17 @@ class TestFindBaselineInStats:
         ]
         assert _find_baseline_in_stats(stats, target) == 100
 
+    def test_stat_exactly_at_target_is_not_used_as_baseline(self):
+        """A stat timestamped exactly at target_date_start is not 'before' it."""
+        target = datetime(2025, 12, 10, 8, 0, 0, tzinfo=UTC)
+        stats = [{"start": target, "sum": 999}]
+        assert _find_baseline_in_stats(stats, target) is None
+
+    def test_zero_sum_is_not_replaced_by_default(self):
+        target = datetime(2025, 12, 10, 8, 0, 0, tzinfo=UTC)
+        stats = [{"start": datetime(2025, 12, 10, 7, 0, 0, tzinfo=UTC), "sum": 0}]
+        assert _find_baseline_in_stats(stats, target) == 0
+
 
 @pytest.mark.unit
 @pytest.mark.asyncio
@@ -350,6 +362,118 @@ class TestGetBaselineSum:
 
         first_hour_usage = sample_hourly_data_dec_10_partial["objUsageGenerationResultSetTwo"][0]["UsageValue"]
         assert statistics[0]["sum"] == pytest.approx(first_hour_usage, rel=0.01)
+
+    async def test_initial_lookup_uses_expected_recorder_call_args(self, mock_hass, mock_get_instance, statistic_id):
+        """get_instance and the first get_last_statistics call use the documented arguments."""
+        target = datetime(2025, 12, 10, 8, 0, 0, tzinfo=UTC)
+        mock_get_last_stats = Mock(return_value={})
+
+        with (
+            patch("custom_components.acwd.statistics.get_instance", mock_get_instance),
+            patch("custom_components.acwd.statistics.get_last_statistics", mock_get_last_stats),
+        ):
+            result = await _get_baseline_sum(mock_hass, statistic_id, target)
+
+        assert result == 0.0
+        mock_get_instance.assert_called_once_with(mock_hass)
+        mock_get_last_stats.assert_called_once_with(mock_hass, 1, statistic_id, True, {"sum"})
+
+    async def test_no_extended_lookup_when_first_stat_precedes_target(self, mock_hass, mock_get_instance, statistic_id):
+        """Only one recorder call is made when the initial stat already precedes target_date_start."""
+        target = datetime(2025, 12, 10, 8, 0, 0, tzinfo=UTC)
+        yesterday = datetime(2025, 12, 10, 7, 0, 0, tzinfo=UTC)
+        mock_get_last_stats = Mock(return_value={statistic_id: [{"start": yesterday, "sum": 931.18}]})
+
+        with (
+            patch("custom_components.acwd.statistics.get_instance", mock_get_instance),
+            patch("custom_components.acwd.statistics.get_last_statistics", mock_get_last_stats),
+        ):
+            result = await _get_baseline_sum(mock_hass, statistic_id, target)
+
+        assert result == 931.18
+        assert mock_get_last_stats.call_count == 1
+
+    async def test_stat_exactly_at_target_triggers_extended_lookup(self, mock_hass, mock_get_instance, statistic_id):
+        """A last stat timestamped exactly at target_date_start is not used directly as baseline."""
+        target = datetime(2025, 12, 10, 8, 0, 0, tzinfo=UTC)
+        mock_get_last_stats = Mock(return_value={statistic_id: [{"start": target, "sum": 999.0}]})
+
+        with (
+            patch("custom_components.acwd.statistics.get_instance", mock_get_instance),
+            patch("custom_components.acwd.statistics.get_last_statistics", mock_get_last_stats),
+        ):
+            result = await _get_baseline_sum(mock_hass, statistic_id, target)
+
+        assert result == 0.0
+        assert mock_get_last_stats.call_count == 2
+
+    async def test_extended_lookup_uses_default_48_and_expected_call_args(self, mock_hass, mock_get_instance, statistic_id):
+        """Extended lookback defaults to 48 records with the same recorder call shape."""
+        target = datetime(2025, 12, 10, 8, 0, 0, tzinfo=UTC)
+        today_stat = datetime(2025, 12, 10, 16, 0, 0, tzinfo=UTC)
+        calls = {"n": 0}
+
+        def _get_last_stats(*args, **kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return {statistic_id: [{"start": today_stat, "sum": 900.0}]}
+            return {}
+
+        mock_get_last_stats = Mock(side_effect=_get_last_stats)
+
+        with (
+            patch("custom_components.acwd.statistics.get_instance", mock_get_instance),
+            patch("custom_components.acwd.statistics.get_last_statistics", mock_get_last_stats),
+        ):
+            result = await _get_baseline_sum(mock_hass, statistic_id, target)
+
+        assert result == 0.0
+        assert mock_get_last_stats.call_args_list[1].args == (mock_hass, 48, statistic_id, True, {"sum"})
+        assert mock_get_instance.call_count == 2
+        mock_get_instance.assert_called_with(mock_hass)
+
+    async def test_baseline_sum_of_zero_is_preserved(self, mock_hass, mock_get_instance, statistic_id):
+        """A real baseline sum of exactly 0.0 is not replaced by a truthy default."""
+        target = datetime(2025, 12, 10, 8, 0, 0, tzinfo=UTC)
+        yesterday = datetime(2025, 12, 10, 7, 0, 0, tzinfo=UTC)
+        mock_get_last_stats = Mock(return_value={statistic_id: [{"start": yesterday, "sum": 0.0}]})
+
+        with (
+            patch("custom_components.acwd.statistics.get_instance", mock_get_instance),
+            patch("custom_components.acwd.statistics.get_last_statistics", mock_get_last_stats),
+        ):
+            result = await _get_baseline_sum(mock_hass, statistic_id, target)
+
+        assert result == 0.0
+
+    async def test_extended_search_with_no_match_returns_zero_not_none(self, mock_hass, mock_get_instance, statistic_id):
+        """When the extended lookback finds nothing before target, the result is 0.0, not None."""
+        target = datetime(2025, 12, 10, 8, 0, 0, tzinfo=UTC)
+        today_stat = datetime(2025, 12, 10, 9, 0, 0, tzinfo=UTC)
+        later_stat = datetime(2025, 12, 10, 10, 0, 0, tzinfo=UTC)
+        calls = {"n": 0}
+
+        def _get_last_stats(*args, **kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return {statistic_id: [{"start": today_stat, "sum": 500.0}]}
+            return {
+                statistic_id: [
+                    {"start": today_stat, "sum": 500.0},
+                    {"start": later_stat, "sum": 600.0},
+                ]
+            }
+
+        mock_get_last_stats = Mock(side_effect=_get_last_stats)
+
+        with (
+            patch("custom_components.acwd.statistics.get_instance", mock_get_instance),
+            patch("custom_components.acwd.statistics.get_last_statistics", mock_get_last_stats),
+        ):
+            result = await _get_baseline_sum(mock_hass, statistic_id, target)
+
+        assert result == 0.0
+        assert isinstance(result, float)
 
 
 @pytest.mark.unit
