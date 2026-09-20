@@ -21,7 +21,7 @@ markers = [
 # Kept out of requirements-test.txt so CI never installs it. Major capped because
 # mutmut 4 could change the [tool.mutmut] format without failing loudly.
 [dependency-groups]
-mutation = ["mutmut>=3.7,<4"]
+mutation = ["mutmut>=3.8.0,<4"]
 
 # Mutation testing, run by hand. --no-cov skips coverage collection and the HTML
 # report on every mutant run.
