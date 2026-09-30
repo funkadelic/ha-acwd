@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.37](https://github.com/funkadelic/ha-acwd/compare/v1.0.36...v1.0.37) (2026-09-25)
+
+
+### Changed
+
+* group dependabot updates and add a release cooldown ([#113](https://github.com/funkadelic/ha-acwd/issues/113)) ([63a3852](https://github.com/funkadelic/ha-acwd/commit/63a3852e1e2a14e14e8b74d4a970a2fc42246405))
+* pass the app token's client-id instead of the deprecated app-id ([#115](https://github.com/funkadelic/ha-acwd/issues/115)) ([7ebf5da](https://github.com/funkadelic/ha-acwd/commit/7ebf5daec3d3958be7c1c31b3f0f873ff9fb8740))
+* update mutmut requirement from &lt;4,&gt;=3.7 to &gt;=3.8.0,&lt;4 ([#111](https://github.com/funkadelic/ha-acwd/issues/111)) ([5683ad3](https://github.com/funkadelic/ha-acwd/commit/5683ad35eaa70834cb28727115988292ff83b909))
+* update pytest-homeassistant-custom-component requirement ([#112](https://github.com/funkadelic/ha-acwd/issues/112)) ([0043925](https://github.com/funkadelic/ha-acwd/commit/0043925ce3ce3388492a40f53ec831dcf96390fc))
+
 ## [1.0.36](https://github.com/funkadelic/ha-acwd/compare/v1.0.35...v1.0.36) (2026-09-14)
 
 ### What's new
