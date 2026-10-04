@@ -29,6 +29,9 @@ updates:
     cooldown:
       default-days: 5
       semver-major-days: 14
+    # Pinned to the version Home Assistant ships; bump by hand when it changes.
+    ignore:
+      - dependency-name: "beautifulsoup4"
     # One PR for minor and patch bumps; majors still arrive one PR each.
     groups:
       pip:
