@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.37](https://github.com/funkadelic/ha-acwd/compare/v1.0.36...v1.0.37) (2026-10-06)
+
+
+### Fixed
+
+* lower beautifulsoup4 floor to match home assistant's pin ([#120](https://github.com/funkadelic/ha-acwd/issues/120)) ([0daff9a](https://github.com/funkadelic/ha-acwd/commit/0daff9addd0cccb8411aedf30d2587e9ca5a6e06))
+
+
+### Changed
+
+* bump home-assistant/actions/hassfest ([#118](https://github.com/funkadelic/ha-acwd/issues/118)) ([3c998f9](https://github.com/funkadelic/ha-acwd/commit/3c998f9130e41d8e78ca47d324c05c051967a4ae))
+* group dependabot updates and add a release cooldown ([#113](https://github.com/funkadelic/ha-acwd/issues/113)) ([63a3852](https://github.com/funkadelic/ha-acwd/commit/63a3852e1e2a14e14e8b74d4a970a2fc42246405))
+* pass the app token's client-id instead of the deprecated app-id ([#115](https://github.com/funkadelic/ha-acwd/issues/115)) ([7ebf5da](https://github.com/funkadelic/ha-acwd/commit/7ebf5daec3d3958be7c1c31b3f0f873ff9fb8740))
+* pre-commit autoupdate ([#121](https://github.com/funkadelic/ha-acwd/issues/121)) ([25134d5](https://github.com/funkadelic/ha-acwd/commit/25134d578f5f449af1e51c3a091a36910362153c))
+* update mutmut requirement from &lt;4,&gt;=3.7 to &gt;=3.8.0,&lt;4 ([#111](https://github.com/funkadelic/ha-acwd/issues/111)) ([5683ad3](https://github.com/funkadelic/ha-acwd/commit/5683ad35eaa70834cb28727115988292ff83b909))
+* update pytest-homeassistant-custom-component requirement ([#112](https://github.com/funkadelic/ha-acwd/issues/112)) ([0043925](https://github.com/funkadelic/ha-acwd/commit/0043925ce3ce3388492a40f53ec831dcf96390fc))
+* update pytest-homeassistant-custom-component requirement ([#116](https://github.com/funkadelic/ha-acwd/issues/116)) ([9c6746a](https://github.com/funkadelic/ha-acwd/commit/9c6746a92366ad93824e9d3b0c6d206ef98465c3))
+* update pytest-homeassistant-custom-component requirement ([#119](https://github.com/funkadelic/ha-acwd/issues/119)) ([2c844cb](https://github.com/funkadelic/ha-acwd/commit/2c844cbb5e17b08e1ef5bb60e8c637b20c72cf19))
+* update pytest-mock requirement from &gt;=3.15.1 to &gt;=3.16.0 ([#117](https://github.com/funkadelic/ha-acwd/issues/117)) ([8be8c7c](https://github.com/funkadelic/ha-acwd/commit/8be8c7cb7c616015678b010ed294e135a0e3ad3d))
+
 ## [1.0.36](https://github.com/funkadelic/ha-acwd/compare/v1.0.35...v1.0.36) (2026-09-14)
 
 ### What's new
