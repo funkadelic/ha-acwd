@@ -1,0 +1,27 @@
+tests/test_sensor.py
+  s_abc1ee1d008d63::t_e8f9257edb89ec 52-53,63-64,80,86-87,91,150-151,182-183,234-235,266-267,298-299
+  s_abc1ee1d008d63::t_6bbad8197c115e 3,6-7,9,19,318-319,321,333-403
+custom_components/acwd/sensor.py
+  s_abc1ee1d008d63::t_3cd2d8b7a84624 14-15
+  s_abc1ee1d008d63::t_dda9f11643e20d 37-39
+  s_abc1ee1d008d63::t_1104a65ecf88ea 85-88,91-92
+  s_abc1ee1d008d63::t_effce0d8e6e6d9 114,168,196,250,278
+  s_abc1ee1d008d63::t_60c5daf966fbe2 52-75
+  s_abc1ee1d008d63::t_62d77150603370 24-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "893c97ce0468fe2895c0cefca1fdcf407d2b9aa1",
+  "prompts": {},
+  "sessions": {
+    "s_abc1ee1d008d63": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bbd9c984-bc4f-4fed-93a6-e4d1953a925e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Norman Yee <155019+funkadelic@users.noreply.github.com>"
+    }
+  }
+}
