@@ -355,17 +355,12 @@ async def _async_import_initial_yesterday_data(hass: HomeAssistant, coordinator:
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload a config entry."""
+    """Unload a config entry.
+
+    Services stay registered: async_setup registers them once per HA run, and a reload does not call it again.
+    """
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
-
-        # Check if this was the last loaded entry
-        other_loaded_entries = [
-            _entry for _entry in hass.config_entries.async_loaded_entries(DOMAIN) if _entry.entry_id != entry.entry_id
-        ]
-        if not other_loaded_entries:
-            hass.services.async_remove(DOMAIN, SERVICE_IMPORT_HOURLY)
-            hass.services.async_remove(DOMAIN, SERVICE_IMPORT_DAILY)
 
     return unload_ok
 
