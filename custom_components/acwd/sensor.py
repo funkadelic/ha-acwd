@@ -64,11 +64,17 @@ def _migrate_unknown_account_ids(hass: HomeAssistant, config_entry: ConfigEntry,
             ent_reg.async_remove(stale_entity_id)
         ent_reg.async_update_entity(entity.entity_id, new_unique_id=new_unique_id)
 
+    # Scan this entry's devices: async_get_device is deprecated, and its replacement is missing from older HA.
     dev_reg = dr.async_get(hass)
-    unknown_device = dev_reg.async_get_device(identifiers={(DOMAIN, UNKNOWN_DEVICE_ID)})
+    devices = {
+        identifier: device
+        for device in dr.async_entries_for_config_entry(dev_reg, config_entry.entry_id)
+        for identifier in device.identifiers
+    }
+    unknown_device = devices.get((DOMAIN, UNKNOWN_DEVICE_ID))
     if unknown_device is None:
         return
-    if stale_device := dev_reg.async_get_device(identifiers={(DOMAIN, account_number)}):
+    if stale_device := devices.get((DOMAIN, account_number)):
         dev_reg.async_remove_device(stale_device.id)
     dev_reg.async_update_device(unknown_device.id, new_identifiers={(DOMAIN, account_number)})
 
