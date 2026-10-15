@@ -1,0 +1,19 @@
+custom_components/acwd/sensor.py
+  s_abc1ee1d008d63::t_dc8d3899311d60 67,69-74,77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "592d1a8587928c107df148512cb1f76fe7e85fd3",
+  "prompts": {},
+  "sessions": {
+    "s_abc1ee1d008d63": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bbd9c984-bc4f-4fed-93a6-e4d1953a925e",
+        "model": "unknown"
+      },
+      "human_author": "Norman Yee <155019+funkadelic@users.noreply.github.com>"
+    }
+  }
+}
