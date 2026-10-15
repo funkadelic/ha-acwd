@@ -39,9 +39,9 @@ class TestOptionsFlow:
         assert result["type"] == "create_entry"
         assert result["data"] == {"rate_per_unit": 6.10}
 
-    @pytest.mark.parametrize("rate", [0, -1.5, "abc", None])
+    @pytest.mark.parametrize("rate", [0, -1.5, "abc", None, "inf"])
     async def test_invalid_rate_is_rejected(self, mock_hass, rate):
-        """Zero, negative, and non-numeric rates re-show the form with an error."""
+        """Zero, negative, infinite, and non-numeric rates re-show the form with an error."""
         result = await _make_flow(mock_hass).async_step_init({"rate_per_unit": rate})
 
         assert result["type"] == "form"

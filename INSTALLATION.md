@@ -1,5 +1,7 @@
 # Installation Guide
 
+Requires Home Assistant 2025.11.0 or newer, whichever installation method you use.
+
 ## Quick Install (Easiest Method)
 
 The fastest way to install is the "My Home Assistant" link:

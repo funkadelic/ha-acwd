@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any
 
 import requests
@@ -118,7 +119,7 @@ class OptionsFlow(config_entries.OptionsFlow):
                 rate = float(user_input[CONF_RATE_PER_UNIT])
             except TypeError, ValueError:
                 rate = 0.0
-            if rate > 0:
+            if rate > 0 and math.isfinite(rate):
                 return self.async_create_entry(data={CONF_RATE_PER_UNIT: rate})
             errors[CONF_RATE_PER_UNIT] = "invalid_rate"
 

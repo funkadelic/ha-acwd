@@ -46,7 +46,7 @@ The integration updates every hour and imports hourly water usage for the Energy
 
 ## Water Cost
 
-Alongside usage, the integration imports an hourly cost statistic, **ACWD Water Hourly Cost - Meter xxxxxxxxx**. Each hour's cost is its usage in ACWD billing units (1 unit = 748 gallons) times your rate. Amounts use the currency set in Home Assistant's general settings.
+Alongside usage, the integration imports an hourly cost statistic, **ACWD Water Hourly Cost - Meter xxxxxxxxx**. Each hour's cost is its usage in ACWD billing units (1 unit = 748 gallons) times your rate. The rate is in US dollars and is not converted, so Home Assistant's currency (in its general settings) should be USD.
 
 The cost covers water use only. It does not include the bi-monthly meter service charge, so it will be lower than the amount you are billed. As of March 1, 2026, that charge is $68.95 for typical residential meters (5/8 and 3/4 inch) and higher for larger meters. ACWD can change it, so check [ACWD's water rates](https://acwd.org/115/Water-Rates) for the current amount.
 
@@ -56,7 +56,7 @@ To show it in the Energy Dashboard:
 2. Choose **Use an entity tracking the total costs**
 3. Select **ACWD Water Hourly Cost - Meter xxxxxxxxx**
 
-The rate defaults to $5.38 per unit, ACWD's rate for customers inside the district effective March 1, 2026. Customers outside the district pay more per unit. To change the rate, for example if you are outside the district or a drought surcharge applies, go to **Settings → Devices & Services → ACWD Water Usage → Configure** and enter the new rate per unit. The next hourly update re-prices today's hours, and yesterday's too if it's before noon, since the integration keeps re-importing yesterday until then. Older days keep the rate they were imported with.
+The rate defaults to $5.38 per unit, ACWD's rate for customers inside the district effective March 1, 2026. Customers outside the district pay more per unit. To change the rate, for example if you are outside the district or a drought surcharge applies, go to **Settings → Devices & Services → ACWD Water Usage → Configure** and enter the new rate per unit. The next hourly update re-prices today's hours. Yesterday's hours are re-priced too when an update runs before noon or the integration starts (a Home Assistant restart or an integration reload), since both re-import yesterday. Older days keep the rate they were imported with, unless you re-import them with the `acwd.import_hourly_data` service.
 
 Cost history starts the day before you install or upgrade.
 

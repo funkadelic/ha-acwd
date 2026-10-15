@@ -113,3 +113,15 @@ class TestHourlyCost:
         await _import(mock_hass, mock_get_instance, {}, date(2026, 3, 2), pst_timezone, 5.38)
 
         mock_recorder_instance.async_block_till_done.assert_awaited_once()
+
+    async def test_rate_change_reprices_reimported_day_from_prior_baseline(self, mock_hass, mock_get_instance, pst_timezone):
+        """Re-importing today at a new rate re-prices today's hours and keeps yesterday's final sum as the base."""
+        prev_11pm = datetime(2026, 3, 2, 7, tzinfo=UTC)
+        today_1am = datetime(2026, 3, 2, 9, tzinfo=UTC)
+        history = {COST_ID: [{"start": today_1am, "sum": 108.07}, {"start": prev_11pm, "sum": 100.0}]}
+
+        writes = await _import(mock_hass, mock_get_instance, history, date(2026, 3, 2), pst_timezone, 6.00)
+
+        cost = writes[COST_ID][1]
+        assert [s["state"] for s in cost] == pytest.approx([6.00, 3.00])
+        assert [s["sum"] for s in cost] == pytest.approx([106.00, 109.00])
