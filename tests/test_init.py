@@ -123,31 +123,25 @@ class TestServiceRegistration:
 
 
 # ---------------------------------------------------------------------------
-# SRVC-02: Service unregistration on last entry removal
+# Unload keeps services registered
 # ---------------------------------------------------------------------------
 
 
 class TestServiceUnregistration:
-    """Tests for SRVC-02: services removed when last config entry is unloaded."""
+    """Unloading never removes services, so they survive an integration reload."""
 
-    async def test_last_entry_removes_services(self):
-        """When the last entry is removed, both services are unregistered."""
+    async def test_last_entry_keeps_services(self):
+        """Unloading the last entry drops its coordinator but leaves both services registered."""
         hass = _make_mock_hass()
         entry = _make_mock_entry("entry_a")
         coordinator = _make_mock_coordinator(entry)
 
         hass.data[DOMAIN] = {entry.entry_id: coordinator}
-        # No remaining loaded entries after this one is removed.
-        hass.config_entries.async_loaded_entries = Mock(return_value=[])
 
         await async_unload_entry(hass, entry)
 
         hass.config_entries.async_unload_platforms.assert_called_once_with(entry, PLATFORMS)
-        hass.config_entries.async_loaded_entries.assert_called_once_with(DOMAIN)
-        assert hass.services.async_remove.call_count == 2
-        removed = {c.args for c in hass.services.async_remove.call_args_list}
-        assert (DOMAIN, SERVICE_IMPORT_HOURLY) in removed
-        assert (DOMAIN, SERVICE_IMPORT_DAILY) in removed
+        hass.services.async_remove.assert_not_called()
         assert entry.entry_id not in hass.data.get(DOMAIN, {})
 
     async def test_unload_with_no_domain_data_does_not_raise(self):
@@ -174,26 +168,6 @@ class TestServiceUnregistration:
 
         assert result is False
         assert entry.entry_id in hass.data[DOMAIN]
-        hass.services.async_remove.assert_not_called()
-
-    async def test_non_last_entry_keeps_services(self):
-        """When other entries remain, services are NOT unregistered."""
-        hass = _make_mock_hass()
-        entry_a = _make_mock_entry("entry_a")
-        entry_b = _make_mock_entry("entry_b")
-
-        coordinator_a = _make_mock_coordinator(entry_a)
-        coordinator_b = _make_mock_coordinator(entry_b)
-
-        hass.data[DOMAIN] = {
-            entry_a.entry_id: coordinator_a,
-            entry_b.entry_id: coordinator_b,
-        }
-        # One entry still loaded after entry_a is removed.
-        hass.config_entries.async_loaded_entries = Mock(return_value=[entry_b])
-
-        await async_unload_entry(hass, entry_a)
-
         hass.services.async_remove.assert_not_called()
 
 
