@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, call, patch
 import pytest
 import requests
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.util import dt as dt_util
 
 from custom_components.acwd import (
     DOMAIN,
@@ -228,7 +229,7 @@ class TestServiceValidation:
         coordinator = _make_mock_coordinator(entry)
         hass.data[DOMAIN] = {entry.entry_id: coordinator}
 
-        today = datetime.date.today()
+        today = dt_util.now().date()  # HA clock, as the handler uses; the local date differs near midnight UTC
         call = MagicMock()
         call.hass = hass
         call.data = {"date": today, "granularity": "hourly"}
