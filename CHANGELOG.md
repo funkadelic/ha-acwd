@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.37](https://github.com/funkadelic/ha-acwd/compare/v1.0.36...v1.0.37) (2026-10-15)
 
+### What's new
+
+* ACWD sensors now show your account name, for example "ACWD - JANE DOE Current Cycle Usage" instead of "ACWD Water - ACWD Water Current Cycle Usage". Entity IDs and history stay the same, and the integration removes the unavailable copies of these sensors that older versions left behind.
+* The "Import hourly water usage data" and "Import daily water usage data" actions stay available after you reload the integration. Before, they disappeared until Home Assistant restarted.
+
 
 ### Fixed
 
