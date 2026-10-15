@@ -1,0 +1,63 @@
+INSTALLATION.md
+  s_55bb81d4b0fbff::t_b6791b1af99b5f 21
+tests/test_init.py
+  s_55bb81d4b0fbff::t_f38655b97eae6a 27,269-271,1026-1028,1728-1730,1844-1846
+  s_55bb81d4b0fbff::t_b49b8529ce2d35 124-144
+README.md
+  s_55bb81d4b0fbff::t_addcdb57b7ba4b 49,57,59
+  s_55bb81d4b0fbff::t_5d5b0a9e5d0dfc 47-48,50-56,58,60
+  s_55bb81d4b0fbff::t_b6791b1af99b5f 105
+custom_components/acwd/statistics.py
+  s_55bb81d4b0fbff::t_f38655b97eae6a 200
+  s_55bb81d4b0fbff::t_ea6c985798966f 22,119,131,197-199
+  s_55bb81d4b0fbff::t_a7de3d975ec04e 202-204
+  s_55bb81d4b0fbff::t_e0c6dc0a94bdc5 201
+tests/helpers.py
+  s_55bb81d4b0fbff::t_f98fd5a5622abe 29
+tests/test_statistics_extended.py
+  s_55bb81d4b0fbff::t_0f2dc51177378a 223,237
+custom_components/acwd/__init__.py
+  s_55bb81d4b0fbff::t_e74745aa49fbfb 20,101-105
+  s_55bb81d4b0fbff::t_f38655b97eae6a 171,340,495,553
+  s_55bb81d4b0fbff::t_a7de3d975ec04e 272-274
+custom_components/acwd/config_flow.py
+  s_55bb81d4b0fbff::t_f38655b97eae6a 119
+  s_55bb81d4b0fbff::t_40cadeb84e636c 12,17,65-70,110-118,120-129
+  s_55bb81d4b0fbff::t_a7f634fd850f0d 130-132
+custom_components/acwd/cost.py
+  s_55bb81d4b0fbff::t_a21752e591c908 1-35
+custom_components/acwd/const.py
+  s_55bb81d4b0fbff::t_ea6c985798966f 8,12
+custom_components/acwd/strings.json
+  s_55bb81d4b0fbff::t_40cadeb84e636c 22-25,27-35
+  s_55bb81d4b0fbff::t_addcdb57b7ba4b 26
+tests/test_cost.py
+  s_55bb81d4b0fbff::t_addcdb57b7ba4b 58
+  s_55bb81d4b0fbff::t_b49b8529ce2d35 110-115
+  s_55bb81d4b0fbff::t_be446d21aa7bc4 1-57,59-109
+hacs.json
+  s_55bb81d4b0fbff::t_b6791b1af99b5f 4
+tests/conftest.py
+  s_55bb81d4b0fbff::t_a7de3d975ec04e 4,45
+custom_components/acwd/translations/en.json
+  s_55bb81d4b0fbff::t_40cadeb84e636c 21-25,27-34
+  s_55bb81d4b0fbff::t_addcdb57b7ba4b 26
+tests/test_options_flow.py
+  s_55bb81d4b0fbff::t_7ecd30cc9407f0 1-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "31b12f5206b2e4d8ee578e18b419d7313e8149d4",
+  "prompts": {},
+  "sessions": {
+    "s_55bb81d4b0fbff": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c417e6dc-c8f6-4d41-9323-625822bbc4d9",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Norman Yee <155019+funkadelic@users.noreply.github.com>"
+    }
+  }
+}
