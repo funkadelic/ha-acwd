@@ -11,6 +11,8 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfVolume
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -18,6 +20,10 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN, HCF_TO_GALLONS
 
 _LOGGER = logging.getLogger(__name__)
+
+# Fallbacks when the config entry has no unique_id; older versions also used them when user_info was empty.
+UNKNOWN_ACCOUNT_ID = "unknown"
+UNKNOWN_DEVICE_ID = "Unknown"
 
 
 async def async_setup_entry(
@@ -27,6 +33,9 @@ async def async_setup_entry(
 ) -> None:
     """Set up ACWD sensors based on a config entry."""
     coordinator = hass.data[DOMAIN][config_entry.entry_id]
+
+    if config_entry.unique_id:
+        _migrate_unknown_account_ids(hass, config_entry, config_entry.unique_id)
 
     # Create sensors
     entities = [
@@ -40,6 +49,36 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
+def _migrate_unknown_account_ids(hass: HomeAssistant, config_entry: ConfigEntry, account_number: str) -> None:
+    """Move sensors and their device off the fallback IDs that older versions created.
+
+    Entities from before that bug may still hold the real IDs; the current entities win and the stale ones are removed.
+    """
+    ent_reg = er.async_get(hass)
+    prefix = f"{UNKNOWN_ACCOUNT_ID}_"
+    for entity in er.async_entries_for_config_entry(ent_reg, config_entry.entry_id):
+        if not entity.unique_id.startswith(prefix):
+            continue
+        new_unique_id = f"{account_number}_{entity.unique_id.removeprefix(prefix)}"
+        if stale_entity_id := ent_reg.async_get_entity_id(entity.domain, DOMAIN, new_unique_id):
+            ent_reg.async_remove(stale_entity_id)
+        ent_reg.async_update_entity(entity.entity_id, new_unique_id=new_unique_id)
+
+    # Scan this entry's devices: async_get_device is deprecated, and its replacement is missing from older HA.
+    dev_reg = dr.async_get(hass)
+    devices = {
+        identifier: device
+        for device in dr.async_entries_for_config_entry(dev_reg, config_entry.entry_id)
+        for identifier in device.identifiers
+    }
+    unknown_device = devices.get((DOMAIN, UNKNOWN_DEVICE_ID))
+    if unknown_device is None:
+        return
+    if stale_device := devices.get((DOMAIN, account_number)):
+        dev_reg.async_remove_device(stale_device.id)
+    dev_reg.async_update_device(unknown_device.id, new_identifiers={(DOMAIN, account_number)})
+
+
 class ACWDSensorBase(CoordinatorEntity, SensorEntity):
     """Base class for ACWD sensors."""
 
@@ -49,13 +88,14 @@ class ACWDSensorBase(CoordinatorEntity, SensorEntity):
         self._config_entry = config_entry
         self._attr_has_entity_name = True
 
-        # Device info
-        account_number = coordinator.client.user_info.get("AccountNumber", "Unknown")
-        account_name = coordinator.client.user_info.get("Name", "ACWD Water")
+        # The config entry's unique_id is the account number. client.user_info is cleared on logout,
+        # which runs before the sensors are created.
+        account_number = config_entry.unique_id
+        self._account_id = account_number or UNKNOWN_ACCOUNT_ID
 
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, str(account_number))},
-            name=f"ACWD Water - {account_name}",
+            identifiers={(DOMAIN, account_number or UNKNOWN_DEVICE_ID)},
+            name=config_entry.title,
             manufacturer="Alameda County Water District",
             model="Water Meter",
             configuration_url="https://portal.acwd.org/portal/",
@@ -77,8 +117,7 @@ class ACWDCurrentUsageSensor(ACWDSensorBase):
     def __init__(self, coordinator, config_entry):
         """Initialize the sensor."""
         super().__init__(coordinator, config_entry)
-        account_number = coordinator.client.user_info.get("AccountNumber", "unknown")
-        self._attr_unique_id = f"{account_number}_current_usage"
+        self._attr_unique_id = f"{self._account_id}_current_usage"
         self._attr_name = "Current Cycle Usage"
         self._attr_translation_key = "current_usage"
 
@@ -132,8 +171,7 @@ class ACWDCurrentCycleSensor(ACWDSensorBase):
     def __init__(self, coordinator, config_entry):
         """Initialize the sensor."""
         super().__init__(coordinator, config_entry)
-        account_number = coordinator.client.user_info.get("AccountNumber", "unknown")
-        self._attr_unique_id = f"{account_number}_current_cycle_projected"
+        self._attr_unique_id = f"{self._account_id}_current_cycle_projected"
         self._attr_name = "Current Cycle Projected"
 
     @property
@@ -161,8 +199,7 @@ class ACWDLastBillingCycleSensor(ACWDSensorBase):
     def __init__(self, coordinator, config_entry):
         """Initialize the sensor."""
         super().__init__(coordinator, config_entry)
-        account_number = coordinator.client.user_info.get("AccountNumber", "unknown")
-        self._attr_unique_id = f"{account_number}_last_billing_cycle"
+        self._attr_unique_id = f"{self._account_id}_last_billing_cycle"
         self._attr_name = "Last Billing Cycle"
 
     @property
@@ -216,8 +253,7 @@ class ACWDAverageSensor(ACWDSensorBase):
     def __init__(self, coordinator, config_entry):
         """Initialize the sensor."""
         super().__init__(coordinator, config_entry)
-        account_number = coordinator.client.user_info.get("AccountNumber", "unknown")
-        self._attr_unique_id = f"{account_number}_average_usage"
+        self._attr_unique_id = f"{self._account_id}_average_usage"
         self._attr_name = "Average Usage"
 
     @property
@@ -245,8 +281,7 @@ class ACWDHighestSensor(ACWDSensorBase):
     def __init__(self, coordinator, config_entry):
         """Initialize the sensor."""
         super().__init__(coordinator, config_entry)
-        account_number = coordinator.client.user_info.get("AccountNumber", "unknown")
-        self._attr_unique_id = f"{account_number}_highest_usage"
+        self._attr_unique_id = f"{self._account_id}_highest_usage"
         self._attr_name = "Highest Usage Ever"
 
     @property
