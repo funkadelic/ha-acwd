@@ -23,7 +23,7 @@
     "step": {
       "init": {
         "title": "Water rate",
-        "description": "Price in USD per ACWD billing unit (748 gallons). The hourly cost statistic uses this rate. A new rate re-prices today, and yesterday if it's before noon, on the next update. Older days keep the rate they were imported with.",
+        "description": "Price in USD per ACWD billing unit (748 gallons). The hourly cost statistic uses this rate. A new rate re-prices today, and yesterday if it's before noon, on the next update. Older days keep the rate they were imported with. The cost excludes the meter service charge and other fixed charges.",
         "data": {
           "rate_per_unit": "Rate per unit (USD)"
         }
