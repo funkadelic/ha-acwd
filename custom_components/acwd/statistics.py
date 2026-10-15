@@ -19,6 +19,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
+from .cost import build_cost_statistics, cost_metadata
 from .helpers import local_midnight, parse_date_long, parse_time_12hr
 
 _LOGGER = logging.getLogger(__name__)
@@ -115,6 +116,7 @@ async def async_import_hourly_statistics(
     meter_number: str,
     hourly_data: list[dict[str, Any]],
     date: datetime,
+    rate_per_unit: float | None = None,
 ) -> None:
     """Import hourly water usage data as statistics.
 
@@ -126,6 +128,7 @@ async def async_import_hourly_statistics(
         meter_number: Water meter number
         hourly_data: List of hourly usage records from ACWD API
         date: The date for which this hourly data applies
+        rate_per_unit: USD per 748 gallons; when set, also imports the hourly cost statistic
     """
     statistic_id = f"{DOMAIN}:{meter_number}_hourly_usage"
 
@@ -190,6 +193,14 @@ async def async_import_hourly_statistics(
     if statistics:
         async_add_external_statistics(hass, metadata, statistics)
         _LOGGER.info("Imported %d hourly statistics for %s", len(statistics), date.date())
+
+        if rate_per_unit is not None:
+            cost_meta = cost_metadata(meter_number)
+            cost_baseline = await _get_baseline_sum(hass, cost_meta["statistic_id"], target_date_start)
+            async_add_external_statistics(hass, cost_meta, build_cost_statistics(statistics, cost_baseline, rate_per_unit))
+
+        # The writes are only queued; wait for them so the next import (yesterday, then today) reads these sums.
+        await get_instance(hass).async_block_till_done()
 
 
 async def async_import_quarter_hourly_statistics(

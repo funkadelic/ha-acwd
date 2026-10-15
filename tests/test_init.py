@@ -24,7 +24,7 @@ from custom_components.acwd import (
     handle_import_daily,
     handle_import_hourly,
 )
-from custom_components.acwd.const import DATE_FORMAT_SLASH_MDY
+from custom_components.acwd.const import DATE_FORMAT_SLASH_MDY, DEFAULT_RATE_PER_UNIT
 from tests.helpers import make_mock_coordinator as _make_mock_coordinator
 from tests.helpers import make_mock_entry as _make_mock_entry
 from tests.helpers import make_mock_hass as _make_mock_hass
@@ -120,6 +120,27 @@ class TestServiceRegistration:
         assert hass.data[DOMAIN][entry.entry_id] is mock_coord
         hass.config_entries.async_forward_entry_setups.assert_called_once_with(entry, PLATFORMS)
         mock_initial_import.assert_called_once_with(hass, mock_coord)
+
+    async def test_async_setup_entry_imports_yesterday_before_first_refresh(self):
+        """Yesterday lands before the first refresh imports today, so today's sums continue from yesterday's."""
+        hass = _make_mock_hass()
+        order = []
+
+        with (
+            patch("custom_components.acwd.ACWDClient"),
+            patch("custom_components.acwd.ACWDDataUpdateCoordinator") as mock_coord_cls,
+            patch(
+                "custom_components.acwd._async_import_initial_yesterday_data",
+                new_callable=AsyncMock,
+                side_effect=lambda *_: order.append("yesterday"),
+            ),
+        ):
+            mock_coord_cls.return_value.async_config_entry_first_refresh = AsyncMock(
+                side_effect=lambda: order.append("first_refresh")
+            )
+            await async_setup_entry(hass, _make_mock_entry())
+
+        assert order == ["yesterday", "first_refresh"]
 
 
 # ---------------------------------------------------------------------------
@@ -245,7 +266,9 @@ class TestServiceValidation:
             mock_client_cls.assert_called_once_with("test_user", "test_pass")
             mock_client.get_usage_data.assert_called_once_with("H", None, None, past_date.strftime(DATE_FORMAT_SLASH_MDY), "H")
             mock_midnight.assert_called_once_with(past_date)
-            mock_import.assert_called_once_with(hass, "230057301", hourly_records, mock_midnight.return_value)
+            mock_import.assert_called_once_with(
+                hass, "230057301", hourly_records, mock_midnight.return_value, DEFAULT_RATE_PER_UNIT
+            )
             mock_client.logout.assert_called_once()
 
     async def test_entry_id_selects_matching_coordinator_credentials(self):
@@ -1000,7 +1023,9 @@ class TestAsyncImportInitialYesterdayData:
                 "H", None, None, expected_yesterday.strftime(DATE_FORMAT_SLASH_MDY), "H"
             )
             mock_midnight.assert_called_once_with(expected_yesterday)
-            mock_import.assert_called_once_with(hass, "230057301", hourly_records, mock_midnight.return_value)
+            mock_import.assert_called_once_with(
+                hass, "230057301", hourly_records, mock_midnight.return_value, DEFAULT_RATE_PER_UNIT
+            )
 
     async def test_login_failure_returns_without_raising(self):
         """Login failure returns gracefully without raising."""
@@ -1700,7 +1725,9 @@ class TestCoordinatorImportTodayHourlyData:
                 "H", None, None, today.date().strftime(DATE_FORMAT_SLASH_MDY), "H"
             )
             mock_midnight.assert_called_once_with(today.date())
-            mock_import.assert_called_once_with(coord.hass, "230057301", hourly_records, mock_midnight.return_value)
+            mock_import.assert_called_once_with(
+                coord.hass, "230057301", hourly_records, mock_midnight.return_value, DEFAULT_RATE_PER_UNIT
+            )
 
     async def test_last_nonzero_hour_logged_correctly(self):
         """The latest non-zero-usage hour and count are found via reverse scan, not the first or last record."""
@@ -1814,7 +1841,9 @@ class TestCoordinatorImportYesterdayCompleteData:
                 "H", None, None, expected_yesterday.strftime(DATE_FORMAT_SLASH_MDY), "H"
             )
             mock_midnight.assert_called_once_with(expected_yesterday)
-            mock_import.assert_called_once_with(coord.hass, "230057301", hourly_records, mock_midnight.return_value)
+            mock_import.assert_called_once_with(
+                coord.hass, "230057301", hourly_records, mock_midnight.return_value, DEFAULT_RATE_PER_UNIT
+            )
 
     async def test_skips_after_morning_hours(self):
         """Skips import when current hour >= MORNING_IMPORT_END_HOUR."""

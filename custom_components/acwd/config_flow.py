@@ -9,12 +9,12 @@ import requests
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 
 from .acwd_api import ACWDClient
-from .const import DOMAIN
+from .const import CONF_RATE_PER_UNIT, DEFAULT_RATE_PER_UNIT, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -62,6 +62,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> OptionsFlow:
+        """Return the options flow."""
+        return OptionsFlow()
+
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
@@ -98,6 +104,29 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=STEP_USER_DATA_SCHEMA,
             errors=errors,
             description_placeholders={},
+        )
+
+
+class OptionsFlow(config_entries.OptionsFlow):
+    """Let the user set the water rate used for the cost statistic."""
+
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Show and validate the rate form."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                rate = float(user_input[CONF_RATE_PER_UNIT])
+            except TypeError, ValueError:
+                rate = 0.0
+            if rate > 0:
+                return self.async_create_entry(data={CONF_RATE_PER_UNIT: rate})
+            errors[CONF_RATE_PER_UNIT] = "invalid_rate"
+
+        current = self.config_entry.options.get(CONF_RATE_PER_UNIT, DEFAULT_RATE_PER_UNIT)
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema({vol.Required(CONF_RATE_PER_UNIT, default=current): vol.Coerce(float)}),
+            errors=errors,
         )
 
 

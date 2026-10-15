@@ -26,6 +26,7 @@ def make_mock_entry(entry_id="test_entry_id"):
     entry = MagicMock()
     entry.entry_id = entry_id
     entry.data = {"username": "test_user", "password": "test_pass"}  # NOSONAR
+    entry.options = {}
     return entry
 
 

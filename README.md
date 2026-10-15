@@ -44,6 +44,20 @@ After ACWD deployed [AMI (Advanced Metering Infrastructure) smart meters](https:
 
 The integration updates every hour and imports hourly water usage for the Energy Dashboard.
 
+## Water Cost
+
+Alongside usage, the integration imports an hourly cost statistic, **ACWD Water Hourly Cost - Meter xxxxxxxxx**. Each hour's cost is its usage in ACWD billing units (1 unit = 748 gallons) times your rate. Amounts use the currency set in Home Assistant's general settings. The fixed meter service charge is not included.
+
+To show it in the Energy Dashboard:
+
+1. Go to **Settings → Dashboards → Energy** and edit your ACWD water source
+2. Choose **Use an entity tracking the total costs**
+3. Select **ACWD Water Hourly Cost - Meter xxxxxxxxx**
+
+The rate defaults to $5.38 per unit (ACWD's rate effective March 1, 2026). To change it, for example when a drought surcharge applies, go to **Settings → Devices & Services → ACWD Water Usage → Configure** and enter the new rate per unit. The next hourly update re-prices today's hours, and yesterday's too if it's before noon, since the integration keeps re-importing yesterday until then. Older days keep the rate they were imported with.
+
+Cost history starts the day before you install or upgrade.
+
 ## Installation
 
 See [INSTALLATION.md](INSTALLATION.md) for complete setup instructions including:
@@ -88,7 +102,7 @@ This is an unofficial tool and is not affiliated with or endorsed by ACWD. Use a
 [coverage-badge]: https://img.shields.io/codecov/c/github/funkadelic/ha-acwd?logo=codecov
 [release-badge]: https://img.shields.io/github/v/release/funkadelic/ha-acwd
 [hacs-badge]: https://img.shields.io/badge/HACS-Default-orange
-[ha-badge]: https://img.shields.io/badge/Home%20Assistant-2025.4+-blue
+[ha-badge]: https://img.shields.io/badge/Home%20Assistant-2025.11+-blue
 
 [build-link]: https://github.com/funkadelic/ha-acwd/actions/workflows/tests.yml
 [coverage-link]: https://codecov.io/gh/funkadelic/ha-acwd

@@ -220,6 +220,7 @@ class TestHourlyEdgeCases:
     async def test_baseline_sum_called_with_expected_args(
         self,
         mock_hass,
+        mock_get_instance,
         meter_number,
         pst_timezone,
     ):
@@ -233,6 +234,7 @@ class TestHourlyEdgeCases:
 
         with (
             patch("custom_components.acwd.statistics._get_baseline_sum", mock_baseline),
+            patch("custom_components.acwd.statistics.get_instance", mock_get_instance),
             patch("custom_components.acwd.statistics.async_add_external_statistics", mock_add_stats),
             patch("custom_components.acwd.statistics.dt_util.get_default_time_zone", return_value=pst_timezone),
         ):

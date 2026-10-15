@@ -17,7 +17,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .acwd_api import ACWDClient
-from .const import DATE_FORMAT_SLASH_MDY, DOMAIN
+from .const import CONF_RATE_PER_UNIT, DATE_FORMAT_SLASH_MDY, DEFAULT_RATE_PER_UNIT, DOMAIN
 from .helpers import local_midnight
 from .statistics import (
     async_import_daily_statistics,
@@ -98,6 +98,11 @@ def _get_coordinator(domain_data: dict, entry_id: str | None):
     raise ServiceValidationError(f"Multiple ACWD entries configured. Specify entry_id. Available: {available}")
 
 
+def _rate_per_unit(entry: ConfigEntry) -> float:
+    """Return the configured water rate (USD per 748 gallons)."""
+    return entry.options.get(CONF_RATE_PER_UNIT, DEFAULT_RATE_PER_UNIT)
+
+
 async def handle_import_hourly(call: ServiceCall) -> None:
     """Handle the import_hourly_data service call."""
     hass = call.hass
@@ -163,7 +168,7 @@ async def handle_import_hourly(call: ServiceCall) -> None:
         if granularity == "quarter_hourly":
             await async_import_quarter_hourly_statistics(hass, meter_number, hourly_records, date_dt)
         else:
-            await async_import_hourly_statistics(hass, meter_number, hourly_records, date_dt)
+            await async_import_hourly_statistics(hass, meter_number, hourly_records, date_dt, _rate_per_unit(coordinator.entry))
 
         _LOGGER.info("Successfully imported %s data for %s", granularity, date)
 
@@ -264,6 +269,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Create update coordinator
     coordinator = ACWDDataUpdateCoordinator(hass, client, entry)
 
+    # Import yesterday first so the first refresh's import of today continues from yesterday's final sums
+    await _async_import_initial_yesterday_data(hass, coordinator)
+
     # Fetch initial data
     await coordinator.async_config_entry_first_refresh()
 
@@ -271,9 +279,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Set up platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
-    # Import yesterday's data on first setup to provide immediate feedback
-    await _async_import_initial_yesterday_data(hass, coordinator)
 
     return True
 
@@ -332,7 +337,7 @@ async def _async_import_initial_yesterday_data(hass: HomeAssistant, coordinator:
 
         # Import into statistics
         date_dt = local_midnight(yesterday)  # timezone-aware to prevent UTC baseline bugs
-        await async_import_hourly_statistics(hass, meter_number, hourly_records, date_dt)
+        await async_import_hourly_statistics(hass, meter_number, hourly_records, date_dt, _rate_per_unit(coordinator.entry))
 
         _LOGGER.info(
             "Initial setup: Successfully imported %d hours for %s",
@@ -487,7 +492,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
 
             # Import into statistics (duplicates are automatically handled)
             date_dt = local_midnight(today)  # timezone-aware to prevent UTC baseline bugs
-            await async_import_hourly_statistics(self.hass, meter_number, hourly_records, date_dt)
+            await async_import_hourly_statistics(self.hass, meter_number, hourly_records, date_dt, _rate_per_unit(self.entry))
 
             _LOGGER.info("Imported %s hourly records for %s", len(hourly_records), today)
 
@@ -545,7 +550,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
 
             # Import into statistics (duplicates are automatically handled)
             date_dt = local_midnight(yesterday)  # timezone-aware to prevent UTC baseline bugs
-            await async_import_hourly_statistics(self.hass, meter_number, hourly_records, date_dt)
+            await async_import_hourly_statistics(self.hass, meter_number, hourly_records, date_dt, _rate_per_unit(self.entry))
 
             _LOGGER.info(
                 "Early morning import: Updated %s hourly records for %s",
