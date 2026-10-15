@@ -48,7 +48,7 @@ The integration updates every hour and imports hourly water usage for the Energy
 
 Alongside usage, the integration imports an hourly cost statistic, **ACWD Water Hourly Cost - Meter xxxxxxxxx**. Each hour's cost is its usage in ACWD billing units (1 unit = 748 gallons) times your rate. Amounts use the currency set in Home Assistant's general settings.
 
-The cost covers water use only. It does not include the bi-monthly meter service charge, so it will be lower than the amount you are billed.
+The cost covers water use only. It does not include the bi-monthly meter service charge, so it will be lower than the amount you are billed. As of March 1, 2026, that charge is $68.95 for typical residential meters (5/8 and 3/4 inch) and higher for larger meters. ACWD can change it, so check [ACWD's water rates](https://acwd.org/115/Water-Rates) for the current amount.
 
 To show it in the Energy Dashboard:
 
