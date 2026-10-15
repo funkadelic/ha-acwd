@@ -1,0 +1,14 @@
+custom_components/acwd/acwd_api.py
+  h_705b7232b9f49b 35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "338c2bd347ca8bf2a3dbd377ef85cda83c946e0a",
+  "prompts": {},
+  "humans": {
+    "h_705b7232b9f49b": {
+      "author": "Norman Yee <155019+funkadelic@users.noreply.github.com>"
+    }
+  }
+}
