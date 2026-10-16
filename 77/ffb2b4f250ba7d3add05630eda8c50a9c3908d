@@ -1,0 +1,21 @@
+INSTALLATION.md
+  s_e0a4c13e79cfa1::t_a3c9faaa27363d 96,137
+README.md
+  s_e0a4c13e79cfa1::t_a3c9faaa27363d 45,108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "77ffb2b4f250ba7d3add05630eda8c50a9c3908d",
+  "prompts": {},
+  "sessions": {
+    "s_e0a4c13e79cfa1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6c8f166c-0f92-4fdb-b31c-1f65927f9065",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Norman Yee <155019+funkadelic@users.noreply.github.com>"
+    }
+  }
+}
