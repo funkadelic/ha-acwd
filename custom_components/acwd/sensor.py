@@ -52,7 +52,8 @@ async def async_setup_entry(
 def _migrate_unknown_account_ids(hass: HomeAssistant, config_entry: ConfigEntry, account_number: str) -> None:
     """Move sensors and their device off the fallback IDs that older versions created.
 
-    Entities from before that bug may still hold the real IDs; the current entities win and the stale ones are removed.
+    Entities from before that bug may still hold the real IDs; the current entities win and the stale ones are removed,
+    handing their entity_id to the survivor so templates and automations that reference it keep working.
     """
     ent_reg = er.async_get(hass)
     prefix = f"{UNKNOWN_ACCOUNT_ID}_"
@@ -60,9 +61,11 @@ def _migrate_unknown_account_ids(hass: HomeAssistant, config_entry: ConfigEntry,
         if not entity.unique_id.startswith(prefix):
             continue
         new_unique_id = f"{account_number}_{entity.unique_id.removeprefix(prefix)}"
+        new_entity_id = entity.entity_id
         if stale_entity_id := ent_reg.async_get_entity_id(entity.domain, DOMAIN, new_unique_id):
             ent_reg.async_remove(stale_entity_id)
-        ent_reg.async_update_entity(entity.entity_id, new_unique_id=new_unique_id)
+            new_entity_id = stale_entity_id
+        ent_reg.async_update_entity(entity.entity_id, new_unique_id=new_unique_id, new_entity_id=new_entity_id)
 
     # Scan this entry's devices: async_get_device is deprecated, and its replacement is missing from older HA.
     dev_reg = dr.async_get(hass)
