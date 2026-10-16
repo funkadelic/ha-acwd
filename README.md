@@ -19,7 +19,7 @@ After ACWD deployed [AMI (Advanced Metering Infrastructure) smart meters](https:
 **What you get:**
 
 - Hourly water usage data in the Energy Dashboard
-- Regular updates throughout the day (ACWD updates in batches 4x daily)
+- Regular updates throughout the day (ACWD updates in batches 4x on weekdays, 2x on weekends)
 - Historical statistics and long-term tracking
 - Usage arrives in ACWD's daily batches, so it runs a few hours behind rather than live like Flume
 

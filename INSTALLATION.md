@@ -85,13 +85,24 @@ After installation, add the hourly water usage and cost statistics to your Energ
 
 The integration creates the following entities:
 
-| Entity | Description | Unit |
-|--------|-------------|------|
-| Current Billing Cycle Usage | Water used in current billing cycle | Gallons |
-| Current Billing Cycle Projected | Projected total for current billing cycle | Gallons |
-| Last Billing Cycle Usage | Previous billing cycle usage | Gallons |
-| Average Usage | Historical average per billing cycle | Gallons |
-| Highest Usage Ever | Peak usage record | Gallons |
+| Entity | Entity ID | Description | Unit |
+|--------|-----------|-------------|------|
+| Current Billing Cycle Usage | `sensor.acwd_<account_name>_current_billing_cycle_usage` | Water used in current billing cycle | Gallons |
+| Current Billing Cycle Projected | `sensor.acwd_<account_name>_current_billing_cycle_projected` | Projected total for current billing cycle | Gallons |
+| Last Billing Cycle Usage | `sensor.acwd_<account_name>_last_billing_cycle_usage` | Previous billing cycle usage | Gallons |
+| Average Usage | `sensor.acwd_<account_name>_average_usage` | Historical average per billing cycle | Gallons |
+| Highest Usage Ever | `sensor.acwd_<account_name>_highest_usage_ever` | Peak usage record | Gallons |
+
+`<account_name>` is the name on your ACWD account, lowercased with spaces as underscores. Home Assistant sets entity IDs when the integration is first added, so older installs may have different ones.
+
+It also stores these long-term statistics:
+
+| Statistic | Created by | Unit |
+|-----------|------------|------|
+| ACWD Water Hourly Usage - Meter xxxxxxxxx | Hourly updates and the hourly import service | Gallons |
+| ACWD Water Hourly Cost - Meter xxxxxxxxx | Hourly updates and the hourly import service (see the README's [Water Cost](README.md#water-cost)) | US dollars |
+| ACWD Water 15-Min Usage - Meter xxxxxxxxx | The hourly import service with 15-minute granularity | Gallons |
+| ACWD Water Daily Usage - Meter xxxxxxxxx | The daily import service | Gallons |
 
 ## Granular Hourly Data
 
@@ -101,7 +112,7 @@ The integration imports hourly water usage into Home Assistant's long-term stati
 
 1. On first setup, the integration imports yesterday's complete hourly data.
 2. Every hour, it checks for new data and imports whatever ACWD has released.
-3. Between midnight and noon, it re-imports yesterday's data to pick up the final hours (9 PM - midnight), which become available around 8 AM.
+3. Between midnight and noon, it re-imports yesterday's data to pick up its final hours, which become available around 8 AM.
 4. The hourly data appears in the Energy Dashboard, broken down by hour.
 5. Usage is stored in Home Assistant's statistics database, separate from regular sensor states.
 6. Re-importing an hour replaces the old value instead of adding a duplicate.
@@ -109,7 +120,7 @@ The integration imports hourly water usage into Home Assistant's long-term stati
 
 ### ACWD Data Update Schedule
 
-ACWD releases water usage data in 4 batches per day, each within a 1-hour window:
+On weekdays, ACWD releases water usage data in 4 batches per day, each within a 1-hour window:
 
 - **7:00-8:00 AM** - Yesterday's final 3 hours (9 PM - midnight) + Today's first 8 hours (midnight - 7 AM)
 - **12:00-1:00 PM** - Today's next 5 hours (8 AM - 12 PM)
@@ -120,6 +131,13 @@ ACWD releases water usage data in 4 batches per day, each within a 1-hour window
 - Yesterday's complete 24-hour usage is typically available by 8 AM
 
 **Example:** At 3 PM Tuesday, you'll see Monday's complete 24 hours + Tuesday's first 13 hours (midnight - noon). Tuesday's 9 PM - midnight won't appear until Wednesday morning at 7-8 AM.
+
+On weekends, there are only 2 batches:
+
+- **7:00-8:00 AM** - Same as weekdays
+- **Around 7:00 PM** - Today's next 12 hours (8 AM - 7 PM)
+- Nothing arrives between them, so Saturday and Sunday afternoons stay empty until evening
+- The final 4 hours (8 PM - midnight) appear the next morning at 7-8 AM
 
 ### Manual Data Import Services
 
@@ -196,7 +214,7 @@ data:
 
 ### No data showing
 
-- ACWD releases data in batches 4 times per day (see schedule above)
+- ACWD releases data in batches 4 times per weekday and twice per weekend day (see schedule above)
 - Data for current time may not be available yet depending on batch schedule
 - Check integration logs for "Latest available data" messages
 - Wait up to 1 hour for next automatic import
