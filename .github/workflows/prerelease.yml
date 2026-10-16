@@ -16,8 +16,8 @@ permissions:
   contents: write
 
 concurrency:
-  # Serialize on the tag, so two branches can't race to create the same one.
-  group: prerelease-${{ inputs.version }}
+  # One run at a time, so the tag check and release creation can't race another run.
+  group: prerelease
   cancel-in-progress: false
 
 jobs:
@@ -92,10 +92,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # If creation fails partway, remove the release and tag so a rerun isn't blocked.
+          # If the asset upload fails, remove the release and tag this run created so a rerun isn't blocked.
+          created=0
           cleanup() {
-            echo "::warning::Pre-release creation failed; removing $TAG so a rerun starts clean."
-            gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+            if [ "$created" -eq 1 ]; then
+              echo "::warning::Pre-release upload failed; removing $TAG so a rerun starts clean."
+              gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+            fi
           }
           trap cleanup ERR
           gh release create "$TAG" \
@@ -105,6 +108,7 @@ jobs:
             --title "$TAG (pre-release)" \
             --notes "Test build from \`$REF_NAME\`. Not a production release.
 
-          To install it in HACS: open ACWD Water Usage, use the three-dot menu, choose Redownload, then \"Need a different version?\" and pick this release. Stable users are not notified." \
-            acwd.zip acwd.zip.sha256
+          To install it in HACS: open ACWD Water Usage, use the three-dot menu, choose Redownload, then \"Need a different version?\" and pick this release. Stable users are not notified."
+          created=1
+          gh release upload "$TAG" acwd.zip acwd.zip.sha256
           trap - ERR
