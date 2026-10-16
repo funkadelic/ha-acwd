@@ -144,7 +144,7 @@ class TestACWDCurrentUsageSensor:
 
     def test_name_and_translation_key(self, mock_coordinator, mock_config_entry):
         sensor = ACWDCurrentUsageSensor(mock_coordinator, mock_config_entry)
-        assert sensor._attr_name == "Current Cycle Usage"
+        assert sensor._attr_name == "Current Billing Cycle Usage"
         assert sensor._attr_translation_key == "current_usage"
 
     def test_unique_id_defaults_when_entry_has_no_unique_id(self, mock_coordinator, mock_config_entry):
@@ -177,7 +177,7 @@ class TestACWDCurrentCycleSensor:
     def test_unique_id_and_name(self, mock_coordinator, mock_config_entry):
         sensor = ACWDCurrentCycleSensor(mock_coordinator, mock_config_entry)
         assert sensor.unique_id == "12345_current_cycle_projected"
-        assert sensor._attr_name == "Current Cycle Projected"
+        assert sensor._attr_name == "Current Billing Cycle Projected"
 
     def test_unique_id_defaults_when_entry_has_no_unique_id(self, mock_coordinator, mock_config_entry):
         mock_config_entry.unique_id = None
@@ -229,7 +229,7 @@ class TestACWDLastBillingCycleSensor:
     def test_unique_id_and_name(self, mock_coordinator, mock_config_entry):
         sensor = ACWDLastBillingCycleSensor(mock_coordinator, mock_config_entry)
         assert sensor.unique_id == "12345_last_billing_cycle"
-        assert sensor._attr_name == "Last Billing Cycle"
+        assert sensor._attr_name == "Last Billing Cycle Usage"
 
     def test_unique_id_defaults_when_entry_has_no_unique_id(self, mock_coordinator, mock_config_entry):
         mock_config_entry.unique_id = None

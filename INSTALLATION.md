@@ -87,9 +87,9 @@ The integration creates the following entities:
 
 | Entity | Description | Unit |
 |--------|-------------|------|
-| Current Cycle Usage | Water used in current billing cycle | Gallons |
-| Current Cycle Projected | Projected total for current billing cycle | Gallons |
-| Last Billing Cycle | Previous billing cycle usage | Gallons |
+| Current Billing Cycle Usage | Water used in current billing cycle | Gallons |
+| Current Billing Cycle Projected | Projected total for current billing cycle | Gallons |
+| Last Billing Cycle Usage | Previous billing cycle usage | Gallons |
 | Average Usage | Historical average per billing cycle | Gallons |
 | Highest Usage Ever | Peak usage record | Gallons |
 

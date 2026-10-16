@@ -34,13 +34,15 @@ After ACWD deployed [AMI (Advanced Metering Infrastructure) smart meters](https:
 
 ## Available Entities
 
-| Entity | Description | Unit |
-| ------ | ----------- | ---- |
-| Current Cycle Usage | Water used in current billing cycle | Gallons |
-| Current Cycle Projected | Projected total for current billing cycle | Gallons |
-| Last Billing Cycle | Previous billing cycle usage | Gallons |
-| Average Usage | Historical average per billing cycle | Gallons |
-| Highest Usage Ever | Peak usage record | Gallons |
+| Entity | Entity ID | Description | Unit |
+| ------ | --------- | ----------- | ---- |
+| Current Billing Cycle Usage | `sensor.acwd_<account_name>_current_billing_cycle_usage` | Water used in current billing cycle | Gallons |
+| Current Billing Cycle Projected | `sensor.acwd_<account_name>_current_billing_cycle_projected` | Projected total for current billing cycle | Gallons |
+| Last Billing Cycle Usage | `sensor.acwd_<account_name>_last_billing_cycle_usage` | Previous billing cycle usage | Gallons |
+| Average Usage | `sensor.acwd_<account_name>_average_usage` | Historical average per billing cycle | Gallons |
+| Highest Usage Ever | `sensor.acwd_<account_name>_highest_usage_ever` | Peak usage record | Gallons |
+
+`<account_name>` is the name on your ACWD account, lowercased with spaces as underscores. Home Assistant sets entity IDs when the integration is first added, so older installs may have different ones.
 
 The integration updates every hour and imports hourly water usage for the Energy Dashboard.
 
