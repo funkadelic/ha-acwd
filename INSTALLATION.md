@@ -1,6 +1,6 @@
 # Installation Guide
 
-Requires Home Assistant 2025.11.0 or newer, whichever installation method you use.
+Requires Home Assistant 2026.3.0 or newer, whichever installation method you use.
 
 ## Quick Install (Easiest Method)
 
@@ -20,7 +20,7 @@ Then restart Home Assistant and proceed to [Configuration](#configuration).
 
 ### Prerequisites
 
-- Home Assistant 2025.11.0 or newer
+- Home Assistant 2026.3.0 or newer
 - HACS installed
 
 ### Steps

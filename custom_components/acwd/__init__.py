@@ -269,10 +269,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Create update coordinator
     coordinator = ACWDDataUpdateCoordinator(hass, client, entry)
 
-    # Import yesterday first so the first refresh's import of today continues from yesterday's final sums
-    await _async_import_initial_yesterday_data(hass, coordinator)
-
-    # Fetch initial data
+    # Fetch initial data (the first refresh also imports yesterday, then today)
     await coordinator.async_config_entry_first_refresh()
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
@@ -281,82 +278,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
-
-
-async def _async_import_initial_yesterday_data(hass: HomeAssistant, coordinator: ACWDDataUpdateCoordinator) -> None:
-    """Import yesterday's data on first setup to provide immediate feedback to users.
-
-    This is a one-time import that runs when the integration is first installed.
-    It gives users immediate data to see in the Energy Dashboard.
-    """
-    from .acwd_api import ACWDClient
-
-    username = coordinator.entry.data.get(CONF_USERNAME)
-    password = coordinator.entry.data.get(CONF_PASSWORD)
-    fresh_client = ACWDClient(username, password)
-
-    try:
-        yesterday = (dt_util.now() - timedelta(days=1)).date()
-        _LOGGER.info("Initial setup: Importing yesterday's data (%s)", yesterday)
-
-        # Login
-        logged_in = await hass.async_add_executor_job(fresh_client.login)
-        if not logged_in:
-            _LOGGER.warning("Initial import: %s", ERROR_LOGIN_FAILED)
-            return
-
-        # Format date for API
-        date_str = yesterday.strftime(DATE_FORMAT_SLASH_MDY)
-
-        # Fetch hourly data
-        data = await hass.async_add_executor_job(
-            fresh_client.get_usage_data,
-            "H",  # mode
-            None,  # date_from
-            None,  # date_to
-            date_str,  # str_date
-            "H",  # hourly_type
-        )
-
-        if not data:
-            _LOGGER.debug("Initial import: No data returned for %s", yesterday)
-            return
-
-        # Get meter number
-        meter_number = fresh_client.meter_number
-        if not meter_number:
-            _LOGGER.debug("Initial import: Meter number not available")
-            return
-
-        # Extract hourly records
-        hourly_records = data.get("objUsageGenerationResultSetTwo", [])
-
-        if not hourly_records:
-            _LOGGER.debug("Initial import: No hourly records for %s", yesterday)
-            return
-
-        # Import into statistics
-        date_dt = local_midnight(yesterday)  # timezone-aware to prevent UTC baseline bugs
-        await async_import_hourly_statistics(hass, meter_number, hourly_records, date_dt, _rate_per_unit(coordinator.entry))
-
-        _LOGGER.info(
-            "Initial setup: Successfully imported %d hours for %s",
-            len(hourly_records),
-            yesterday,
-        )
-
-    except (requests.Timeout, requests.ConnectionError) as err:
-        _LOGGER.warning(
-            "Initial import: Network error communicating with ACWD portal: %s (will be retried on the next update cycle)",
-            err,
-        )
-    except Exception as err:
-        _LOGGER.warning("Initial import failed (non-critical): %s", err)
-    finally:
-        try:
-            await hass.async_add_executor_job(fresh_client.logout)
-        except Exception as logout_err:
-            _LOGGER.debug("Logout failed after initial import: %s", logout_err)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -378,6 +299,7 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
         self.client = client
         self.entry = entry
         self._last_hourly_import_date = None
+        self._first_update = True
 
         super().__init__(
             hass,
@@ -407,8 +329,8 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
 
             # Yesterday catch-up MUST run before today's import — otherwise today's baseline
             # anchors against an incomplete yesterday, producing negative midnight buckets.
-            await self._import_yesterday_complete_data()
-            await self._import_today_hourly_data()
+            yesterday_sums = await self._import_yesterday_complete_data()
+            await self._import_today_hourly_data(yesterday_sums)
 
             return data
 
@@ -427,8 +349,11 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
             except Exception as logout_err:
                 _LOGGER.debug("Logout failed after coordinator update: %s", logout_err)
 
-    async def _import_today_hourly_data(self) -> None:
+    async def _import_today_hourly_data(self, yesterday_sums: tuple[float, float | None] | None = None) -> None:
         """Automatically import today's hourly data into statistics.
+
+        yesterday_sums, when this update just imported yesterday, are its final sums. Today continues
+        from them because the recorder may not have saved yesterday's rows yet.
 
         Imports today's partial data every hour (accounting for variable ACWD delay).
         The statistics system automatically handles duplicates by replacing data
@@ -492,26 +417,32 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
 
             # Import into statistics (duplicates are automatically handled)
             date_dt = local_midnight(today)  # timezone-aware to prevent UTC baseline bugs
-            await async_import_hourly_statistics(self.hass, meter_number, hourly_records, date_dt, _rate_per_unit(self.entry))
+            await async_import_hourly_statistics(
+                self.hass, meter_number, hourly_records, date_dt, _rate_per_unit(self.entry), yesterday_sums
+            )
 
             _LOGGER.info("Imported %s hourly records for %s", len(hourly_records), today)
 
         except Exception as err:
             _LOGGER.warning("Failed to auto-import hourly data for %s: %s", today, err)
 
-    async def _import_yesterday_complete_data(self) -> None:
+    async def _import_yesterday_complete_data(self) -> tuple[float, float | None] | None:
         """Import yesterday's complete data during morning hours (0-12 PM).
 
         This catches yesterday's final hours (typically 9 PM - 11 PM) that only
         become available after midnight due to ACWD's 3-4 hour reporting delay.
 
-        Only runs between midnight and noon to avoid unnecessary API calls.
+        Only runs between midnight and noon to avoid unnecessary API calls, plus the
+        first update after setup so a new install gets yesterday's data.
+
+        Returns yesterday's final (usage, cost) sums, or None if nothing was imported.
         """
         current_hour = dt_util.now().hour
 
-        # Only run during morning hours (0-12 PM)
-        if current_hour >= MORNING_IMPORT_END_HOUR:
+        # The first update always imports yesterday so today's import continues from yesterday's final sums
+        if current_hour >= MORNING_IMPORT_END_HOUR and not self._first_update:
             return
+        self._first_update = False
 
         yesterday = (dt_util.now() - timedelta(days=1)).date()
 
@@ -550,13 +481,16 @@ class ACWDDataUpdateCoordinator(DataUpdateCoordinator):
 
             # Import into statistics (duplicates are automatically handled)
             date_dt = local_midnight(yesterday)  # timezone-aware to prevent UTC baseline bugs
-            await async_import_hourly_statistics(self.hass, meter_number, hourly_records, date_dt, _rate_per_unit(self.entry))
+            sums = await async_import_hourly_statistics(
+                self.hass, meter_number, hourly_records, date_dt, _rate_per_unit(self.entry)
+            )
 
             _LOGGER.info(
                 "Early morning import: Updated %s hourly records for %s",
                 len(hourly_records),
                 yesterday,
             )
+            return sums
 
         except Exception as err:
             _LOGGER.warning("Failed to import complete yesterday data for %s: %s", yesterday, err)

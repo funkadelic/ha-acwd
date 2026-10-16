@@ -115,10 +115,7 @@ class OptionsFlow(config_entries.OptionsFlow):
         """Show and validate the rate form."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            try:
-                rate = float(user_input[CONF_RATE_PER_UNIT])
-            except TypeError, ValueError:
-                rate = 0.0
+            rate = user_input[CONF_RATE_PER_UNIT]
             if rate > 0 and math.isfinite(rate):
                 return self.async_create_entry(data={CONF_RATE_PER_UNIT: rate})
             errors[CONF_RATE_PER_UNIT] = "invalid_rate"

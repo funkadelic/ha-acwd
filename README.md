@@ -56,7 +56,7 @@ To show it in the Energy Dashboard:
 2. Choose **Use an entity tracking the total costs**
 3. Select **ACWD Water Hourly Cost - Meter xxxxxxxxx**
 
-The rate defaults to $5.38 per unit, ACWD's rate for customers inside the district effective March 1, 2026. Customers outside the district pay more per unit. To change the rate, for example if you are outside the district or a drought surcharge applies, go to **Settings → Devices & Services → ACWD Water Usage → Configure** and enter the new rate per unit. The next hourly update re-prices today's hours. Yesterday's hours are re-priced too when an update runs before noon or the integration starts (a Home Assistant restart or an integration reload), since both re-import yesterday. Older days keep the rate they were imported with, unless you re-import them with the `acwd.import_hourly_data` service.
+The rate defaults to $5.38 per unit, ACWD's rate for customers inside the district effective March 1, 2026. Customers outside the district pay more per unit. To change the rate, for example if you are outside the district or a drought surcharge applies, go to **Settings → Devices & Services → ACWD Water Usage → Configure** and enter the new rate per unit. The next hourly update re-prices today's hours. Yesterday's hours are re-priced too when an update runs before noon or the integration starts (a Home Assistant restart or an integration reload), since both re-import yesterday. Older days keep the rate they were imported with.
 
 Cost history starts the day before you install or upgrade.
 
@@ -104,7 +104,7 @@ This is an unofficial tool and is not affiliated with or endorsed by ACWD. Use a
 [coverage-badge]: https://img.shields.io/codecov/c/github/funkadelic/ha-acwd?logo=codecov
 [release-badge]: https://img.shields.io/github/v/release/funkadelic/ha-acwd
 [hacs-badge]: https://img.shields.io/badge/HACS-Default-orange
-[ha-badge]: https://img.shields.io/badge/Home%20Assistant-2025.11+-blue
+[ha-badge]: https://img.shields.io/badge/Home%20Assistant-2026.3+-blue
 
 [build-link]: https://github.com/funkadelic/ha-acwd/actions/workflows/tests.yml
 [coverage-link]: https://codecov.io/gh/funkadelic/ha-acwd

@@ -78,13 +78,7 @@ class TestServiceRegistration:
         hass = _make_mock_hass()
         entry = _make_mock_entry()
 
-        with (
-            patch("custom_components.acwd.ACWDDataUpdateCoordinator") as mock_coord_cls,
-            patch(
-                "custom_components.acwd._async_import_initial_yesterday_data",
-                new_callable=AsyncMock,
-            ),
-        ):
+        with patch("custom_components.acwd.ACWDDataUpdateCoordinator") as mock_coord_cls:
             mock_coord = MagicMock()
             mock_coord.async_config_entry_first_refresh = AsyncMock()
             mock_coord_cls.return_value = mock_coord
@@ -101,10 +95,6 @@ class TestServiceRegistration:
         with (
             patch("custom_components.acwd.ACWDClient") as mock_client_cls,
             patch("custom_components.acwd.ACWDDataUpdateCoordinator") as mock_coord_cls,
-            patch(
-                "custom_components.acwd._async_import_initial_yesterday_data",
-                new_callable=AsyncMock,
-            ) as mock_initial_import,
         ):
             mock_client = MagicMock()
             mock_client_cls.return_value = mock_client
@@ -119,28 +109,6 @@ class TestServiceRegistration:
         mock_coord_cls.assert_called_once_with(hass, mock_client, entry)
         assert hass.data[DOMAIN][entry.entry_id] is mock_coord
         hass.config_entries.async_forward_entry_setups.assert_called_once_with(entry, PLATFORMS)
-        mock_initial_import.assert_called_once_with(hass, mock_coord)
-
-    async def test_async_setup_entry_imports_yesterday_before_first_refresh(self):
-        """Yesterday lands before the first refresh imports today, so today's sums continue from yesterday's."""
-        hass = _make_mock_hass()
-        order = []
-
-        with (
-            patch("custom_components.acwd.ACWDClient"),
-            patch("custom_components.acwd.ACWDDataUpdateCoordinator") as mock_coord_cls,
-            patch(
-                "custom_components.acwd._async_import_initial_yesterday_data",
-                new_callable=AsyncMock,
-                side_effect=lambda *_: order.append("yesterday"),
-            ),
-        ):
-            mock_coord_cls.return_value.async_config_entry_first_refresh = AsyncMock(
-                side_effect=lambda: order.append("first_refresh")
-            )
-            await async_setup_entry(hass, _make_mock_entry())
-
-        assert order == ["yesterday", "first_refresh"]
 
 
 # ---------------------------------------------------------------------------
@@ -978,378 +946,6 @@ class TestHandleImportDailyEdgeCases:
 
 
 # ---------------------------------------------------------------------------
-# _async_import_initial_yesterday_data
-# ---------------------------------------------------------------------------
-
-
-class TestAsyncImportInitialYesterdayData:
-    """Tests for _async_import_initial_yesterday_data."""
-
-    async def test_happy_path_imports_statistics(self):
-        """Happy path: login, data returned, hourly records exist, imports statistics with correct args."""
-        from custom_components.acwd import _async_import_initial_yesterday_data
-
-        hass = _make_mock_hass()
-        entry = _make_mock_entry()
-        coordinator = _make_mock_coordinator(entry)
-        hourly_records = [{"Hourly": "12:00 AM", "UsageValue": 2.0}]
-
-        mock_client = MagicMock()
-        mock_client.login.return_value = True
-        mock_client.get_usage_data.return_value = {"objUsageGenerationResultSetTwo": hourly_records}
-        mock_client.meter_number = "230057301"
-        mock_client.logout.return_value = None
-
-        with (
-            patch(
-                "custom_components.acwd.acwd_api.ACWDClient",
-                return_value=mock_client,
-            ) as mock_client_cls,
-            patch(
-                "custom_components.acwd.async_import_hourly_statistics",
-                new_callable=AsyncMock,
-            ) as mock_import,
-            patch("custom_components.acwd.dt_util") as mock_dt_util,
-            patch("custom_components.acwd.local_midnight") as mock_midnight,
-        ):
-            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
-            mock_midnight.return_value = datetime.datetime(2025, 12, 9, 0, 0, 0)
-
-            await _async_import_initial_yesterday_data(hass, coordinator)
-
-            expected_yesterday = datetime.date(2025, 12, 9)
-            mock_client_cls.assert_called_once_with("test_user", "test_pass")
-            mock_client.get_usage_data.assert_called_once_with(
-                "H", None, None, expected_yesterday.strftime(DATE_FORMAT_SLASH_MDY), "H"
-            )
-            mock_midnight.assert_called_once_with(expected_yesterday)
-            mock_import.assert_called_once_with(
-                hass, "230057301", hourly_records, mock_midnight.return_value, DEFAULT_RATE_PER_UNIT
-            )
-
-    async def test_login_failure_returns_without_raising(self):
-        """Login failure returns gracefully without raising."""
-        from custom_components.acwd import _async_import_initial_yesterday_data
-
-        hass = _make_mock_hass()
-        entry = _make_mock_entry()
-        coordinator = _make_mock_coordinator(entry)
-
-        mock_client = MagicMock()
-        mock_client.login.return_value = False
-
-        with (
-            patch(
-                "custom_components.acwd.acwd_api.ACWDClient",
-                return_value=mock_client,
-            ),
-            patch(
-                "custom_components.acwd.async_import_hourly_statistics",
-                new_callable=AsyncMock,
-            ) as mock_import,
-            patch("custom_components.acwd.dt_util") as mock_dt_util,
-        ):
-            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
-
-            await _async_import_initial_yesterday_data(hass, coordinator)
-
-            mock_import.assert_not_called()
-
-    async def test_no_data_returns_gracefully(self):
-        """No data returned from API returns gracefully."""
-        from custom_components.acwd import _async_import_initial_yesterday_data
-
-        hass = _make_mock_hass()
-        entry = _make_mock_entry()
-        coordinator = _make_mock_coordinator(entry)
-
-        mock_client = MagicMock()
-        mock_client.login.return_value = True
-        mock_client.get_usage_data.return_value = None
-        mock_client.logout.return_value = None
-
-        with (
-            patch(
-                "custom_components.acwd.acwd_api.ACWDClient",
-                return_value=mock_client,
-            ),
-            patch(
-                "custom_components.acwd.async_import_hourly_statistics",
-                new_callable=AsyncMock,
-            ) as mock_import,
-            patch("custom_components.acwd.dt_util") as mock_dt_util,
-        ):
-            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
-
-            await _async_import_initial_yesterday_data(hass, coordinator)
-
-            mock_import.assert_not_called()
-
-    async def test_no_meter_number_returns_gracefully(self):
-        """No meter number available returns gracefully."""
-        from custom_components.acwd import _async_import_initial_yesterday_data
-
-        hass = _make_mock_hass()
-        entry = _make_mock_entry()
-        coordinator = _make_mock_coordinator(entry)
-
-        mock_client = MagicMock()
-        mock_client.login.return_value = True
-        mock_client.get_usage_data.return_value = {
-            "objUsageGenerationResultSetTwo": [
-                {"Hourly": "12:00 AM", "UsageValue": 2.0},
-            ]
-        }
-        mock_client.meter_number = None
-        mock_client.logout.return_value = None
-
-        with (
-            patch(
-                "custom_components.acwd.acwd_api.ACWDClient",
-                return_value=mock_client,
-            ),
-            patch(
-                "custom_components.acwd.async_import_hourly_statistics",
-                new_callable=AsyncMock,
-            ) as mock_import,
-            patch("custom_components.acwd.dt_util") as mock_dt_util,
-        ):
-            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
-
-            await _async_import_initial_yesterday_data(hass, coordinator)
-
-            mock_import.assert_not_called()
-
-    async def test_no_hourly_records_returns_gracefully(self):
-        """Empty hourly records list returns gracefully."""
-        from custom_components.acwd import _async_import_initial_yesterday_data
-
-        hass = _make_mock_hass()
-        entry = _make_mock_entry()
-        coordinator = _make_mock_coordinator(entry)
-
-        mock_client = MagicMock()
-        mock_client.login.return_value = True
-        mock_client.get_usage_data.return_value = {"objUsageGenerationResultSetTwo": []}
-        mock_client.meter_number = "230057301"
-        mock_client.logout.return_value = None
-
-        with (
-            patch(
-                "custom_components.acwd.acwd_api.ACWDClient",
-                return_value=mock_client,
-            ),
-            patch(
-                "custom_components.acwd.async_import_hourly_statistics",
-                new_callable=AsyncMock,
-            ) as mock_import,
-            patch("custom_components.acwd.dt_util") as mock_dt_util,
-        ):
-            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
-
-            await _async_import_initial_yesterday_data(hass, coordinator)
-
-            mock_import.assert_not_called()
-
-    async def test_exception_caught_and_logged(self):
-        """Exception during initial import is caught (non-critical)."""
-        from custom_components.acwd import _async_import_initial_yesterday_data
-
-        hass = _make_mock_hass()
-        entry = _make_mock_entry()
-        coordinator = _make_mock_coordinator(entry)
-
-        mock_client = MagicMock()
-        mock_client.login.side_effect = RuntimeError("boom")
-
-        with (
-            patch(
-                "custom_components.acwd.acwd_api.ACWDClient",
-                return_value=mock_client,
-            ),
-            patch("custom_components.acwd.dt_util") as mock_dt_util,
-        ):
-            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
-
-            # Should not raise
-            await _async_import_initial_yesterday_data(hass, coordinator)
-
-    async def test_logout_called_on_exception(self):
-        """Logout is called via finally even when login raises RuntimeError."""
-        from custom_components.acwd import _async_import_initial_yesterday_data
-
-        hass = _make_mock_hass()
-        entry = _make_mock_entry()
-        coordinator = _make_mock_coordinator(entry)
-
-        mock_client = MagicMock()
-        mock_client.login.side_effect = RuntimeError("boom")
-        mock_client.logout.return_value = None
-
-        with (
-            patch(
-                "custom_components.acwd.acwd_api.ACWDClient",
-                return_value=mock_client,
-            ),
-            patch("custom_components.acwd.dt_util") as mock_dt_util,
-        ):
-            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
-
-            await _async_import_initial_yesterday_data(hass, coordinator)
-
-            mock_client.logout.assert_called_once()
-
-    async def test_logout_called_on_happy_path(self):
-        """Logout is called via finally on the happy path."""
-        from custom_components.acwd import _async_import_initial_yesterday_data
-
-        hass = _make_mock_hass()
-        entry = _make_mock_entry()
-        coordinator = _make_mock_coordinator(entry)
-
-        mock_client = MagicMock()
-        mock_client.login.return_value = True
-        mock_client.get_usage_data.return_value = {
-            "objUsageGenerationResultSetTwo": [
-                {"Hourly": "12:00 AM", "UsageValue": 2.0},
-            ]
-        }
-        mock_client.meter_number = "230057301"
-        mock_client.logout.return_value = None
-
-        with (
-            patch(
-                "custom_components.acwd.acwd_api.ACWDClient",
-                return_value=mock_client,
-            ),
-            patch(
-                "custom_components.acwd.async_import_hourly_statistics",
-                new_callable=AsyncMock,
-            ),
-            patch("custom_components.acwd.dt_util") as mock_dt_util,
-            patch("custom_components.acwd.local_midnight") as mock_midnight,
-        ):
-            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
-            mock_midnight.return_value = datetime.datetime(2025, 12, 9, 0, 0, 0)
-
-            await _async_import_initial_yesterday_data(hass, coordinator)
-
-            assert mock_client.logout.call_count == 1
-
-    async def test_logout_called_when_get_usage_data_fails(self):
-        """Logout is called via finally when get_usage_data raises RuntimeError."""
-        from custom_components.acwd import _async_import_initial_yesterday_data
-
-        hass = _make_mock_hass()
-        entry = _make_mock_entry()
-        coordinator = _make_mock_coordinator(entry)
-
-        mock_client = MagicMock()
-        mock_client.login.return_value = True
-        mock_client.get_usage_data.side_effect = RuntimeError("api error")
-        mock_client.logout.return_value = None
-
-        with (
-            patch(
-                "custom_components.acwd.acwd_api.ACWDClient",
-                return_value=mock_client,
-            ),
-            patch("custom_components.acwd.dt_util") as mock_dt_util,
-        ):
-            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
-
-            await _async_import_initial_yesterday_data(hass, coordinator)
-
-            mock_client.logout.assert_called_once()
-
-    async def test_transient_timeout_logs_network_warning(self):
-        """requests.Timeout logs warning with 'Network error' and 'retried on the next update cycle'."""
-        from custom_components.acwd import _async_import_initial_yesterday_data
-
-        hass = _make_mock_hass()
-        entry = _make_mock_entry()
-        coordinator = _make_mock_coordinator(entry)
-
-        mock_client = MagicMock()
-        mock_client.login.side_effect = requests.Timeout("timed out")
-        mock_client.logout.return_value = None
-
-        with (
-            patch(
-                "custom_components.acwd.acwd_api.ACWDClient",
-                return_value=mock_client,
-            ),
-            patch("custom_components.acwd.dt_util") as mock_dt_util,
-            patch("custom_components.acwd._LOGGER") as mock_logger,
-        ):
-            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
-
-            await _async_import_initial_yesterday_data(hass, coordinator)
-
-            warning_calls = mock_logger.warning.call_args_list
-            assert any(
-                "Network error" in str(call) and "retried on the next update cycle" in str(call) for call in warning_calls
-            ), f"Expected network warning not found. Calls: {warning_calls}"
-            mock_client.logout.assert_called_once()
-
-    async def test_transient_connection_error_logs_network_warning(self):
-        """requests.ConnectionError logs warning with 'Network error' and 'retried on the next update cycle'."""
-        from custom_components.acwd import _async_import_initial_yesterday_data
-
-        hass = _make_mock_hass()
-        entry = _make_mock_entry()
-        coordinator = _make_mock_coordinator(entry)
-
-        mock_client = MagicMock()
-        mock_client.login.side_effect = requests.ConnectionError("refused")
-        mock_client.logout.return_value = None
-
-        with (
-            patch(
-                "custom_components.acwd.acwd_api.ACWDClient",
-                return_value=mock_client,
-            ),
-            patch("custom_components.acwd.dt_util") as mock_dt_util,
-            patch("custom_components.acwd._LOGGER") as mock_logger,
-        ):
-            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
-
-            await _async_import_initial_yesterday_data(hass, coordinator)
-
-            warning_calls = mock_logger.warning.call_args_list
-            assert any(
-                "Network error" in str(call) and "retried on the next update cycle" in str(call) for call in warning_calls
-            ), f"Expected network warning not found. Calls: {warning_calls}"
-            mock_client.logout.assert_called_once()
-
-    async def test_logout_failure_in_finally_is_silenced(self):
-        """Logout failure in finally block is logged at debug level and does not propagate."""
-        from custom_components.acwd import _async_import_initial_yesterday_data
-
-        hass = _make_mock_hass()
-        entry = _make_mock_entry()
-        coordinator = _make_mock_coordinator(entry)
-
-        mock_client = MagicMock()
-        mock_client.login.side_effect = RuntimeError("boom")
-        mock_client.logout.side_effect = RuntimeError("logout failed")
-
-        with (
-            patch(
-                "custom_components.acwd.acwd_api.ACWDClient",
-                return_value=mock_client,
-            ),
-            patch("custom_components.acwd.dt_util") as mock_dt_util,
-        ):
-            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
-
-            # Must not raise despite both login and logout failing
-            await _async_import_initial_yesterday_data(hass, coordinator)
-
-            mock_client.logout.assert_called_once()
-
-
-# ---------------------------------------------------------------------------
 # ACWDDataUpdateCoordinator._async_update_data
 # ---------------------------------------------------------------------------
 
@@ -1537,7 +1133,7 @@ class TestCoordinatorAsyncUpdateData:
         coord.client.logout.assert_called_once()
 
     async def test_yesterday_import_runs_before_today_import(self):
-        """Regression: yesterday catch-up must precede today's import so today's midnight baseline is correct."""
+        """Yesterday's import runs first and today's import continues from the sums it returned."""
         coord = self._make_coordinator()
         coord.client.login.return_value = True
         coord.client.get_usage_data.return_value = {"summary": "data"}
@@ -1547,16 +1143,17 @@ class TestCoordinatorAsyncUpdateData:
 
         async def mock_yesterday():
             call_order.append("yesterday")
+            return (931.18, 6.70)
 
-        async def mock_today():
-            call_order.append("today")
+        async def mock_today(yesterday_sums):
+            call_order.append(("today", yesterday_sums))
 
         coord._import_yesterday_complete_data = mock_yesterday
         coord._import_today_hourly_data = mock_today
 
         await coord._async_update_data()
 
-        assert call_order == ["yesterday", "today"], (
+        assert call_order == ["yesterday", ("today", (931.18, 6.70))], (
             "yesterday catch-up must run before today's partial import to ensure "
             "today's baseline is anchored against the fully-updated yesterday final sum. "
             f"Actual order: {call_order}"
@@ -1726,7 +1323,7 @@ class TestCoordinatorImportTodayHourlyData:
             )
             mock_midnight.assert_called_once_with(today.date())
             mock_import.assert_called_once_with(
-                coord.hass, "230057301", hourly_records, mock_midnight.return_value, DEFAULT_RATE_PER_UNIT
+                coord.hass, "230057301", hourly_records, mock_midnight.return_value, DEFAULT_RATE_PER_UNIT, None
             )
 
     async def test_last_nonzero_hour_logged_correctly(self):
@@ -1810,9 +1407,28 @@ class TestCoordinatorImportYesterdayCompleteData:
             client=client,
             entry=entry,
             _last_hourly_import_date=None,
+            _first_update=False,
         )
         coord._import_yesterday_complete_data = ACWDDataUpdateCoordinator._import_yesterday_complete_data.__get__(coord)
         return coord
+
+    async def test_first_update_imports_yesterday_after_noon(self):
+        """The first update after setup imports yesterday even after noon; later afternoon updates skip it."""
+        coord = self._make_coordinator()
+        coord._first_update = True
+        coord.client.get_usage_data.return_value = {"objUsageGenerationResultSetTwo": [{"Hourly": "12:00 AM", "UsageValue": 2.0}]}
+        coord.client.meter_number = "230057301"
+
+        with (
+            patch("custom_components.acwd.dt_util") as mock_dt_util,
+            patch("custom_components.acwd.async_import_hourly_statistics", new_callable=AsyncMock) as mock_import,
+        ):
+            mock_dt_util.now.return_value = datetime.datetime(2025, 12, 10, 14, 0, 0)
+
+            await coord._import_yesterday_complete_data()
+            await coord._import_yesterday_complete_data()
+
+        mock_import.assert_called_once()
 
     async def test_runs_during_morning_hours(self):
         """Runs import when current hour < MORNING_IMPORT_END_HOUR, using yesterday's date throughout."""

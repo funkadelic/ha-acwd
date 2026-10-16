@@ -1,7 +1,7 @@
 """Shared pytest fixtures and configuration for ACWD tests."""
 
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, Mock
+from unittest.mock import MagicMock, Mock
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -42,7 +42,6 @@ def mock_recorder_instance():
         return func(*args, **kwargs)
 
     instance.async_add_executor_job = _async_executor
-    instance.async_block_till_done = AsyncMock()
     return instance
 
 

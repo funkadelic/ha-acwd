@@ -27,12 +27,18 @@ def _history(by_id):
     return _get_last_stats
 
 
-async def _import(hass, get_instance, history, day, tz, rate):
+async def _import(hass, get_instance, history, day, tz, rate, previous_sums=None):
     """Import RECORDS for day and return {statistic_id: (metadata, statistics)} for each write."""
+    writes, _ = await _import_with_result(hass, get_instance, history, day, tz, rate, previous_sums)
+    return writes
+
+
+async def _import_with_result(hass, get_instance, history, day, tz, rate, previous_sums=None):
+    """Import RECORDS for day and return (writes, the import's returned final sums)."""
     add = Mock()
     with patch_statistics(get_instance, add, _history(history), tz):
-        await async_import_hourly_statistics(hass, METER, RECORDS, make_date_dt(day, tz), rate)
-    return {call.args[1]["statistic_id"]: (call.args[1], call.args[2]) for call in add.call_args_list}
+        result = await async_import_hourly_statistics(hass, METER, RECORDS, make_date_dt(day, tz), rate, previous_sums)
+    return {call.args[1]["statistic_id"]: (call.args[1], call.args[2]) for call in add.call_args_list}, result
 
 
 @pytest.mark.unit
@@ -108,12 +114,6 @@ class TestHourlyCost:
         assert [s["sum"] for s in day2_cost] == pytest.approx([8.07 + 6.00, 8.07 + 9.00])
         assert day2_cost[0]["start"] - day1_cost[-1]["start"] == timedelta(hours=23)
 
-    async def test_import_waits_for_recorder_commit(self, mock_hass, mock_get_instance, mock_recorder_instance, pst_timezone):
-        """The import returns only after the recorder commits, so the next import reads these sums."""
-        await _import(mock_hass, mock_get_instance, {}, date(2026, 3, 2), pst_timezone, 5.38)
-
-        mock_recorder_instance.async_block_till_done.assert_awaited_once()
-
     async def test_rate_change_reprices_reimported_day_from_prior_baseline(self, mock_hass, mock_get_instance, pst_timezone):
         """Re-importing today at a new rate re-prices today's hours and keeps yesterday's final sum as the base."""
         prev_11pm = datetime(2026, 3, 2, 7, tzinfo=UTC)
@@ -125,3 +125,29 @@ class TestHourlyCost:
         cost = writes[COST_ID][1]
         assert [s["state"] for s in cost] == pytest.approx([6.00, 3.00])
         assert [s["sum"] for s in cost] == pytest.approx([106.00, 109.00])
+
+    async def test_next_day_continues_from_returned_sums_before_recorder_saves(self, mock_hass, mock_get_instance, pst_timezone):
+        """Today continues from yesterday's returned sums even when the recorder has saved nothing yet."""
+        _, yesterday_sums = await _import_with_result(mock_hass, mock_get_instance, {}, date(2026, 3, 2), pst_timezone, 5.38)
+
+        writes = await _import(mock_hass, mock_get_instance, {}, date(2026, 3, 3), pst_timezone, 5.38, yesterday_sums)
+
+        assert yesterday_sums == pytest.approx((1122, 8.07))
+        assert [s["sum"] for s in writes[USAGE_ID][1]] == [1870, 2244]
+        assert [s["sum"] for s in writes[COST_ID][1]] == pytest.approx([13.45, 16.14])
+
+    async def test_missing_cost_sum_falls_back_to_stored_cost(self, mock_hass, mock_get_instance, pst_timezone):
+        """If the previous import carried no cost sum, cost resumes from the stored cost statistic."""
+        prev_11pm = datetime(2026, 3, 2, 7, tzinfo=UTC)
+        history = {COST_ID: [{"start": prev_11pm, "sum": 100.0}]}
+
+        writes = await _import(mock_hass, mock_get_instance, history, date(2026, 3, 2), pst_timezone, 5.38, (1000, None))
+
+        assert [s["sum"] for s in writes[USAGE_ID][1]] == [1748, 2122]
+        assert [s["sum"] for s in writes[COST_ID][1]] == pytest.approx([105.38, 108.07])
+
+    async def test_import_without_rate_returns_no_cost_sum(self, mock_hass, mock_get_instance, pst_timezone):
+        """Without a rate, the import returns the usage sum and no cost sum."""
+        _, result = await _import_with_result(mock_hass, mock_get_instance, {}, date(2026, 3, 2), pst_timezone, None)
+
+        assert result == (1122, None)
