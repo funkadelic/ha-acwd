@@ -1,0 +1,48 @@
+custom_components/acwd/translations/en.json
+  s_55bb81d4b0fbff::t_b7b9f21be64708 26
+tests/conftest.py
+  s_55bb81d4b0fbff::t_f6da20838e672f 4
+hacs.json
+  s_55bb81d4b0fbff::t_b7b9f21be64708 4
+custom_components/acwd/statistics.py
+  s_55bb81d4b0fbff::t_b6fa7b605a4974 120-121,133-137,162-165,202-206,208-213,215-217,219
+custom_components/acwd/config_flow.py
+  s_55bb81d4b0fbff::t_a990e05213b293 118
+custom_components/acwd/strings.json
+  s_55bb81d4b0fbff::t_b7b9f21be64708 26
+INSTALLATION.md
+  s_55bb81d4b0fbff::t_b7b9f21be64708 3,23
+tests/test_init.py
+  s_55bb81d4b0fbff::t_0cc9a06d495dab 81
+  s_55bb81d4b0fbff::t_3c674a6afbc3a0 1326
+  s_55bb81d4b0fbff::t_5c9de2335c3bc1 1410,1415-1431
+  s_55bb81d4b0fbff::t_743a3086a38db1 1136,1146,1148-1149,1156
+  s_55bb81d4b0fbff::t_131b9c4a616ea0 1432
+README.md
+  s_55bb81d4b0fbff::t_b7b9f21be64708 59,107
+tests/test_options_flow.py
+  s_55bb81d4b0fbff::t_5c9de2335c3bc1 3,7,38-42,47,49,54-61
+tests/test_cost.py
+  s_55bb81d4b0fbff::t_3c674a6afbc3a0 30,32-37,40-41,128-153
+custom_components/acwd/__init__.py
+  s_55bb81d4b0fbff::t_f6da20838e672f 437-438,493
+  s_55bb81d4b0fbff::t_b6fa7b605a4974 332-333,352,355-357,420-422,429,484-486
+  s_55bb81d4b0fbff::t_0901bb205e21bc 435-436,442
+  s_55bb81d4b0fbff::t_a990e05213b293 272,302,443,445
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9f256e5e33ed3ac9653788311485735b3eaab758",
+  "prompts": {},
+  "sessions": {
+    "s_55bb81d4b0fbff": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c417e6dc-c8f6-4d41-9323-625822bbc4d9",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Norman Yee <155019+funkadelic@users.noreply.github.com>"
+    }
+  }
+}
