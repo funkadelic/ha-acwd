@@ -1,7 +1,7 @@
 {
   "name": "ACWD Water Usage",
   "country": "US",
-  "homeassistant": "2025.4.0",
+  "homeassistant": "2026.3.0",
   "filename": "acwd.zip",
   "zip_release": true
 }

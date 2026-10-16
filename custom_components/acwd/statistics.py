@@ -19,6 +19,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
+from .cost import build_cost_statistics, cost_metadata
 from .helpers import local_midnight, parse_date_long, parse_time_12hr
 
 _LOGGER = logging.getLogger(__name__)
@@ -115,7 +116,9 @@ async def async_import_hourly_statistics(
     meter_number: str,
     hourly_data: list[dict[str, Any]],
     date: datetime,
-) -> None:
+    rate_per_unit: float | None = None,
+    previous_sums: tuple[float, float | None] | None = None,
+) -> tuple[float, float | None] | None:
     """Import hourly water usage data as statistics.
 
     This function imports hourly water usage data into Home Assistant's
@@ -126,6 +129,12 @@ async def async_import_hourly_statistics(
         meter_number: Water meter number
         hourly_data: List of hourly usage records from ACWD API
         date: The date for which this hourly data applies
+        rate_per_unit: USD per 748 gallons; when set, also imports the hourly cost statistic
+        previous_sums: the previous day's final (usage, cost) sums from an import in the same update, used
+            instead of reading them back from the recorder, which may not have saved them yet
+
+    Returns:
+        This day's final (usage, cost) sums, or None if nothing was imported
     """
     statistic_id = f"{DOMAIN}:{meter_number}_hourly_usage"
 
@@ -150,7 +159,10 @@ async def async_import_hourly_statistics(
     target_date_start = dt_util.as_utc(target_date_midnight_local)
 
     # Start cumulative sum from last known value before the target date
-    last_sum = await _get_baseline_sum(hass, statistic_id, target_date_start)
+    if previous_sums is not None:
+        last_sum = previous_sums[0]
+    else:
+        last_sum = await _get_baseline_sum(hass, statistic_id, target_date_start)
 
     # Convert hourly data to statistics
     statistics: list[StatisticData] = []
@@ -187,9 +199,24 @@ async def async_import_hourly_statistics(
         )
 
     # Import the statistics
-    if statistics:
-        async_add_external_statistics(hass, metadata, statistics)
-        _LOGGER.info("Imported %d hourly statistics for %s", len(statistics), date.date())
+    if not statistics:
+        return None
+
+    async_add_external_statistics(hass, metadata, statistics)
+    _LOGGER.info("Imported %d hourly statistics for %s", len(statistics), date.date())
+
+    cost_sum = None
+    if rate_per_unit is not None:
+        cost_meta = cost_metadata(meter_number)
+        if previous_sums is not None and previous_sums[1] is not None:
+            cost_baseline = previous_sums[1]
+        else:
+            cost_baseline = await _get_baseline_sum(hass, cost_meta["statistic_id"], target_date_start)
+        costs = build_cost_statistics(statistics, cost_baseline, rate_per_unit)
+        async_add_external_statistics(hass, cost_meta, costs)
+        cost_sum = costs[-1]["sum"]
+
+    return cumulative_sum, cost_sum
 
 
 async def async_import_quarter_hourly_statistics(

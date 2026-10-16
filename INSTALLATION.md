@@ -1,5 +1,7 @@
 # Installation Guide
 
+Requires Home Assistant 2026.3.0 or newer, whichever installation method you use.
+
 ## Quick Install (Easiest Method)
 
 The fastest way to install is the "My Home Assistant" link:
@@ -18,7 +20,7 @@ Then restart Home Assistant and proceed to [Configuration](#configuration).
 
 ### Prerequisites
 
-- Home Assistant 2025.4.0 or newer
+- Home Assistant 2026.3.0 or newer
 - HACS installed
 
 ### Steps
@@ -71,12 +73,13 @@ After installing via either method above:
 
 ## Energy Dashboard Configuration
 
-After installation, add the hourly water usage statistic to your Energy Dashboard:
+After installation, add the hourly water usage and cost statistics to your Energy Dashboard:
 
 1. Go to **Settings → Dashboards → Energy**
-2. Under "Water Consumption", click "Add Water Source"
+2. Under "Water Consumption", click "Add Water Source" (or edit your existing ACWD water source)
 3. Select **"ACWD Water Hourly Usage - Meter XXXXXXXXX"** (where XXXXXXXXX is your actual AMI meter number)
-4. Click "Save"
+4. To track cost, choose **"Use an entity tracking the total costs"** and select **"ACWD Water Hourly Cost - Meter XXXXXXXXX"**. See the README's [Water Cost](README.md#water-cost) section for the rate and what the cost includes.
+5. Click "Save"
 
 ## Available Entities
 

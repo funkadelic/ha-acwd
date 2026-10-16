@@ -5,9 +5,11 @@ DOMAIN = "acwd"
 
 # -- Configuration ---------------------------------------------------------
 CONF_ACCOUNT_NUMBER = "account_number"
+CONF_RATE_PER_UNIT = "rate_per_unit"
 
 # -- Default Values --------------------------------------------------------
 DEFAULT_NAME = "ACWD Water"
+DEFAULT_RATE_PER_UNIT = 5.38  # USD per 748-gallon unit, effective March 1, 2026
 
 # -- Units -----------------------------------------------------------------
 UNIT_HCF = "HCF"  # Hundred Cubic Feet
