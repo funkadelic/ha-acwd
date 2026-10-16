@@ -19,7 +19,7 @@ After ACWD deployed [AMI (Advanced Metering Infrastructure) smart meters](https:
 **What you get:**
 
 - Hourly water usage data in the Energy Dashboard
-- Regular updates throughout the day (ACWD updates in batches 4x daily)
+- Regular updates throughout the day (ACWD updates in batches 4x on weekdays, 2x on weekends)
 - Historical statistics and long-term tracking
 - Usage arrives in ACWD's daily batches, so it runs a few hours behind rather than live like Flume
 
@@ -34,15 +34,26 @@ After ACWD deployed [AMI (Advanced Metering Infrastructure) smart meters](https:
 
 ## Available Entities
 
-| Entity | Description | Unit |
-| ------ | ----------- | ---- |
-| Current Cycle Usage | Water used in current billing cycle | Gallons |
-| Current Cycle Projected | Projected total for current billing cycle | Gallons |
-| Last Billing Cycle | Previous billing cycle usage | Gallons |
-| Average Usage | Historical average per billing cycle | Gallons |
-| Highest Usage Ever | Peak usage record | Gallons |
+| Entity | Entity ID | Description | Unit |
+| ------ | --------- | ----------- | ---- |
+| Current Billing Cycle Usage | `sensor.acwd_<account_name>_current_billing_cycle_usage` | Water used in current billing cycle | Gallons |
+| Current Billing Cycle Projected | `sensor.acwd_<account_name>_current_billing_cycle_projected` | Projected total for current billing cycle | Gallons |
+| Last Billing Cycle Usage | `sensor.acwd_<account_name>_last_billing_cycle_usage` | Previous billing cycle usage | Gallons |
+| Average Usage | `sensor.acwd_<account_name>_average_usage` | Historical average per billing cycle | Gallons |
+| Highest Usage Ever | `sensor.acwd_<account_name>_highest_usage_ever` | Peak usage record | Gallons |
+
+`<account_name>` is the name on your ACWD account, lowercased with spaces as underscores. Home Assistant sets entity IDs when the integration is first added and keeps them through upgrades, so older installs can have IDs with older names, such as `..._current_cycle_usage`. Find yours under **Settings → Devices & services → Entities** by searching for ACWD.
 
 The integration updates every hour and imports hourly water usage for the Energy Dashboard.
+
+It also stores these long-term statistics:
+
+| Statistic | Created by | Unit |
+| --------- | ---------- | ---- |
+| ACWD Water Hourly Usage - Meter xxxxxxxxx | Hourly updates and the hourly import service | Gallons |
+| ACWD Water Hourly Cost - Meter xxxxxxxxx | Hourly updates and the hourly import service (see [Water Cost](#water-cost)) | US dollars |
+| ACWD Water 15-Min Usage - Meter xxxxxxxxx | The hourly import service with 15-minute granularity | Gallons |
+| ACWD Water Daily Usage - Meter xxxxxxxxx | The daily import service | Gallons |
 
 ## Water Cost
 
@@ -80,7 +91,7 @@ See [INSTALLATION.md](INSTALLATION.md) for complete setup instructions including
 
 ## Data Availability
 
-ACWD releases usage data in 4 batches per day, each within a 1-hour window:
+On weekdays, ACWD releases usage data in 4 batches per day, each within a 1-hour window:
 
 - **7:00-8:00 AM** - Yesterday's final 3 hours (9 PM - midnight) + Today's first 8 hours (midnight - 7 AM)
 - **12:00-1:00 PM** - Today's next 5 hours (8 AM - 12 PM)
@@ -91,6 +102,13 @@ ACWD releases usage data in 4 batches per day, each within a 1-hour window:
 - Yesterday's complete 24-hour usage is typically available by 8 AM
 - The integration checks hourly and automatically imports new data as ACWD releases it
 - Example: At 3 PM Tuesday, you'll see Monday's complete 24 hours + Tuesday's first 13 hours (midnight - noon)
+
+On weekends, there are only 2 batches:
+
+- **7:00-8:00 AM** - Yesterday's final hours + Today's first 8 hours (midnight - 7 AM)
+- **Around 7:00 PM** - Today's next 12 hours (8 AM - 7 PM)
+- Nothing arrives between them, so Saturday and Sunday afternoons stay empty until evening
+- The final 4 hours (8 PM - midnight) appear the next morning at 7-8 AM
 
 ## Contributing
 

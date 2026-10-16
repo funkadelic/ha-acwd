@@ -121,7 +121,7 @@ class ACWDCurrentUsageSensor(ACWDSensorBase):
         """Initialize the sensor."""
         super().__init__(coordinator, config_entry)
         self._attr_unique_id = f"{self._account_id}_current_usage"
-        self._attr_name = "Current Cycle Usage"
+        self._attr_name = "Current Billing Cycle Usage"
         self._attr_translation_key = "current_usage"
 
     @property
@@ -175,7 +175,7 @@ class ACWDCurrentCycleSensor(ACWDSensorBase):
         """Initialize the sensor."""
         super().__init__(coordinator, config_entry)
         self._attr_unique_id = f"{self._account_id}_current_cycle_projected"
-        self._attr_name = "Current Cycle Projected"
+        self._attr_name = "Current Billing Cycle Projected"
 
     @property
     def native_value(self) -> float | None:
@@ -203,7 +203,7 @@ class ACWDLastBillingCycleSensor(ACWDSensorBase):
         """Initialize the sensor."""
         super().__init__(coordinator, config_entry)
         self._attr_unique_id = f"{self._account_id}_last_billing_cycle"
-        self._attr_name = "Last Billing Cycle"
+        self._attr_name = "Last Billing Cycle Usage"
 
     @property
     def native_value(self) -> float | None:
