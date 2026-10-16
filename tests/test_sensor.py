@@ -381,14 +381,16 @@ class TestMigrateUnknownAccountIds:
         assert dev_reg.async_get(unknown_device.id).identifiers == {(DOMAIN, "57784")}
 
     async def test_current_entity_wins_over_stale_one(self, hass):
-        """A stale entity and device already holding the real IDs are removed; the live entity_id is kept."""
+        """A stale entity and device already holding the real IDs are removed; the live entity takes the stale entity_id."""
         entry, ent_reg, dev_reg, unknown_device, live, stale = self._setup(hass, with_stale=True)
 
         _migrate_unknown_account_ids(hass, entry, "57784")
 
-        assert ent_reg.async_get(stale.entity_id) is None
-        assert ent_reg.async_get(live.entity_id).unique_id == "57784_current_usage"
-        assert ent_reg.async_get(live.entity_id).device_id == unknown_device.id
+        assert ent_reg.async_get(live.entity_id) is None
+        migrated = ent_reg.async_get(stale.entity_id)
+        assert migrated.id == live.id
+        assert migrated.unique_id == "57784_current_usage"
+        assert migrated.device_id == unknown_device.id
         assert dev_reg.async_get(unknown_device.id).identifiers == {(DOMAIN, "57784")}
         assert len(dr.async_entries_for_config_entry(dev_reg, entry.entry_id)) == 1
 
