@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.0](https://github.com/funkadelic/ha-acwd/compare/v1.0.37...v1.1.0) (2026-10-16)
 
+### Breaking changes
+
+* Requires Home Assistant 2026.3 or newer. Since v1.0.34 the integration has not loaded on earlier versions, and HACS now blocks installing it on them.
+
+### What's new
+
+* Water cost in the Energy dashboard. A new hourly cost statistic prices your usage at ACWD's per-unit rate ($5.38 by default). To use it, go to Settings → Dashboards → Energy, edit your ACWD water source, choose "Use an entity tracking the total costs" and select "ACWD Water Hourly Cost". To change the rate, go to Settings → Devices & Services → ACWD Water Usage → Configure. The meter service charge is not included.
+* Fixed water usage restarting at zero at midnight after installing or updating in the afternoon.
+
 
 ### Added
 
