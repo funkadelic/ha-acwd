@@ -1,0 +1,114 @@
+name: Pre-release (beta)
+
+# Publish a HACS test build from a feature branch without touching release-please.
+# The version is stamped into manifest.json in the runner only; nothing is committed.
+# Dispatch with "Use workflow from" set to the feature branch.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Pre-release version (e.g. 1.1.0rc1). A leading 'v' is stripped; the tag is v<version>."
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  # One run at a time, so the tag check and release creation can't race another run.
+  group: prerelease
+  cancel-in-progress: false
+
+jobs:
+  prerelease:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse to run against a tag, SHA, or the default branch
+        if: ${{ github.ref_type != 'branch' || github.ref == 'refs/heads/main' }}
+        run: |
+          echo "::error::Pre-releases must be cut from a non-main feature branch. Re-run and pick the branch in 'Use workflow from'."
+          exit 1
+
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Resolve version and tag
+        id: ver
+        env:
+          RAW: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          # Reject control characters so the input can't inject keys into $GITHUB_OUTPUT.
+          if [[ "$RAW" == *$'\n'* || "$RAW" == *$'\r'* ]]; then
+            echo "::error::Version must be a single line with no control characters."
+            exit 1
+          fi
+          VERSION="${RAW#v}"
+          # A bare stable version would collide with the tag release-please creates later.
+          if ! printf '%s' "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+[.-]?(a|b|rc|alpha|beta|dev)\.?[0-9]+$'; then
+            echo "::error::Invalid version '$VERSION'. A pre-release suffix is required, e.g. 1.1.0b1 or 1.1.0rc1."
+            exit 1
+          fi
+          TAG="v$VERSION"
+          # git ls-remote --exit-code: 0 = tag exists, 2 = tag absent, other = query failure.
+          rc=0
+          git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1 || rc=$?
+          if [ "$rc" -eq 0 ]; then
+            echo "::error::Tag $TAG already exists"
+            exit 1
+          elif [ "$rc" -ne 2 ]; then
+            echo "::error::Could not query remote tags (git ls-remote exit $rc)"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Building $TAG from $REF_NAME @ ${GITHUB_SHA::7}"
+
+      - name: Stamp version into manifest.json (runner only)
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp)"
+          jq --arg v "$VERSION" '.version = $v' custom_components/acwd/manifest.json > "$tmp"
+          mv "$tmp" custom_components/acwd/manifest.json
+          grep -q "\"version\": \"${VERSION}\"" custom_components/acwd/manifest.json
+
+      - name: Package integration
+        run: |
+          cd custom_components/acwd
+          zip -r ../../acwd.zip .
+          cd ../..
+          sha256sum acwd.zip > acwd.zip.sha256
+
+      - name: Create pre-release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.ver.outputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # If the asset upload fails, remove the release and tag this run created so a rerun isn't blocked.
+          created=0
+          cleanup() {
+            if [ "$created" -eq 1 ]; then
+              echo "::warning::Pre-release upload failed; removing $TAG so a rerun starts clean."
+              gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+            fi
+          }
+          trap cleanup ERR
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --latest=false \
+            --title "$TAG (pre-release)" \
+            --notes "Test build from \`$REF_NAME\`. Not a production release.
+
+          To install it in HACS: open ACWD Water Usage, use the three-dot menu, choose Redownload, then \"Need a different version?\" and pick this release. Stable users are not notified."
+          created=1
+          gh release upload "$TAG" acwd.zip acwd.zip.sha256
+          trap - ERR
