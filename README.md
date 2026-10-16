@@ -42,7 +42,7 @@ After ACWD deployed [AMI (Advanced Metering Infrastructure) smart meters](https:
 | Average Usage | `sensor.acwd_<account_name>_average_usage` | Historical average per billing cycle | Gallons |
 | Highest Usage Ever | `sensor.acwd_<account_name>_highest_usage_ever` | Peak usage record | Gallons |
 
-`<account_name>` is the name on your ACWD account, lowercased with spaces as underscores. Home Assistant sets entity IDs when the integration is first added, so older installs may have different ones.
+`<account_name>` is the name on your ACWD account, lowercased with spaces as underscores. Home Assistant sets entity IDs when the integration is first added and keeps them through upgrades, so older installs can have IDs with older names, such as `..._current_cycle_usage`. Find yours under **Settings → Devices & services → Entities** by searching for ACWD.
 
 The integration updates every hour and imports hourly water usage for the Energy Dashboard.
 
@@ -105,7 +105,7 @@ On weekdays, ACWD releases usage data in 4 batches per day, each within a 1-hour
 
 On weekends, there are only 2 batches:
 
-- **7:00-8:00 AM** - Same as weekdays
+- **7:00-8:00 AM** - Yesterday's final hours + Today's first 8 hours (midnight - 7 AM)
 - **Around 7:00 PM** - Today's next 12 hours (8 AM - 7 PM)
 - Nothing arrives between them, so Saturday and Sunday afternoons stay empty until evening
 - The final 4 hours (8 PM - midnight) appear the next morning at 7-8 AM
