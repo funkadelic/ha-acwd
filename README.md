@@ -30,7 +30,7 @@ After ACWD deployed [AMI (Advanced Metering Infrastructure) smart meters](https:
 1. **Install via HACS** (see [INSTALLATION.md](INSTALLATION.md) for detailed instructions)
 2. **Add Integration** in Settings → Devices & Services
 3. **Enter your ACWD portal credentials** (saved in Home Assistant's integration settings)
-4. **Add to Energy Dashboard** - Use the "ACWD Water Hourly Usage - Meter xxxxxxxxx" statistic
+4. **Add to Energy Dashboard** - Use the "ACWD Water Hourly Usage - Meter xxxxxxxxx" statistic for consumption and "ACWD Water Hourly Cost - Meter xxxxxxxxx" for cost (see [Water Cost](#water-cost))
 
 ## Available Entities
 
