@@ -44,6 +44,15 @@ After ACWD deployed [AMI (Advanced Metering Infrastructure) smart meters](https:
 
 The integration updates every hour and imports hourly water usage for the Energy Dashboard.
 
+It also stores these long-term statistics:
+
+| Statistic | Created by | Unit |
+| --------- | ---------- | ---- |
+| ACWD Water Hourly Usage - Meter xxxxxxxxx | Hourly updates and the hourly import service | Gallons |
+| ACWD Water Hourly Cost - Meter xxxxxxxxx | Hourly updates and the hourly import service (see [Water Cost](#water-cost)) | US dollars |
+| ACWD Water 15-Min Usage - Meter xxxxxxxxx | The hourly import service with 15-minute granularity | Gallons |
+| ACWD Water Daily Usage - Meter xxxxxxxxx | The daily import service | Gallons |
+
 ## Water Cost
 
 Alongside usage, the integration imports an hourly cost statistic, **ACWD Water Hourly Cost - Meter xxxxxxxxx**. Each hour's cost is its usage in ACWD billing units (1 unit = 748 gallons) times your rate. The rate is in US dollars and is not converted, so Home Assistant's currency (in its general settings) should be USD.
@@ -80,7 +89,7 @@ See [INSTALLATION.md](INSTALLATION.md) for complete setup instructions including
 
 ## Data Availability
 
-ACWD releases usage data in 4 batches per day, each within a 1-hour window:
+On weekdays, ACWD releases usage data in 4 batches per day, each within a 1-hour window:
 
 - **7:00-8:00 AM** - Yesterday's final 3 hours (9 PM - midnight) + Today's first 8 hours (midnight - 7 AM)
 - **12:00-1:00 PM** - Today's next 5 hours (8 AM - 12 PM)
@@ -91,6 +100,13 @@ ACWD releases usage data in 4 batches per day, each within a 1-hour window:
 - Yesterday's complete 24-hour usage is typically available by 8 AM
 - The integration checks hourly and automatically imports new data as ACWD releases it
 - Example: At 3 PM Tuesday, you'll see Monday's complete 24 hours + Tuesday's first 13 hours (midnight - noon)
+
+On weekends, there are only 2 batches:
+
+- **7:00-8:00 AM** - Same as weekdays
+- **Around 7:00 PM** - Today's next 12 hours (8 AM - 7 PM)
+- Nothing arrives between them, so Saturday and Sunday afternoons stay empty until evening
+- The final 4 hours (8 PM - midnight) appear the next morning at 7-8 AM
 
 ## Contributing
 
