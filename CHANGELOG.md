@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0](https://github.com/funkadelic/ha-acwd/compare/v1.0.37...v1.1.0) (2026-10-16)
+
+
+### Added
+
+* add an hourly water cost statistic for the energy dashboard ([#129](https://github.com/funkadelic/ha-acwd/issues/129)) ([6e7ec36](https://github.com/funkadelic/ha-acwd/commit/6e7ec36f84f36137c877118a25ff869792be1e73))
+
+
+### Changed
+
+* add a workflow to publish pre-release builds ([#130](https://github.com/funkadelic/ha-acwd/issues/130)) ([550c1e3](https://github.com/funkadelic/ha-acwd/commit/550c1e32998f9cbdf011ef9c1f073733c084080a))
+
 ## [1.0.37](https://github.com/funkadelic/ha-acwd/compare/v1.0.36...v1.0.37) (2026-10-15)
 
 ### What's new
