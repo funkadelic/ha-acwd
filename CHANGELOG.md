@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1](https://github.com/funkadelic/ha-acwd/compare/v1.1.0...v1.1.1) (2026-10-16)
+
+### What's new
+
+* Three billing cycle sensors have new names: Current Billing Cycle Usage, Current Billing Cycle Projected and Last Billing Cycle Usage (previously Current Cycle Usage, Current Cycle Projected and Last Billing Cycle). Their entity IDs stay the same, so dashboards and automations keep working.
+* Fixed sensors switching to a new entity ID starting with `sensor.acwd_water_acwd_water_` after upgrading. Sensors now keep the entity ID your templates and automations already use.
+
+
+### Fixed
+
+* keep the original entity ids when migrating off the unknown account id ([#132](https://github.com/funkadelic/ha-acwd/issues/132)) ([66ea072](https://github.com/funkadelic/ha-acwd/commit/66ea072b8bf91000a5b55aafb0b9a8363f7b1aee))
+* rename the billing cycle sensors and update the docs ([#133](https://github.com/funkadelic/ha-acwd/issues/133)) ([30fb604](https://github.com/funkadelic/ha-acwd/commit/30fb6045c83e8c71980d97cf833cb543d474c290))
+
 ## [1.1.0](https://github.com/funkadelic/ha-acwd/compare/v1.0.37...v1.1.0) (2026-10-16)
 
 ### Breaking changes
