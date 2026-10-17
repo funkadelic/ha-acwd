@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.1](https://github.com/funkadelic/ha-acwd/compare/v1.1.0...v1.1.1) (2026-10-16)
 
+### What's new
+
+* Three billing cycle sensors have new names: Current Billing Cycle Usage, Current Billing Cycle Projected and Last Billing Cycle Usage (previously Current Cycle Usage, Current Cycle Projected and Last Billing Cycle). Their entity IDs stay the same, so dashboards and automations keep working.
+* Fixed sensors switching to a new entity ID starting with `sensor.acwd_water_acwd_water_` after upgrading. Sensors now keep the entity ID your templates and automations already use.
+
 
 ### Fixed
 
