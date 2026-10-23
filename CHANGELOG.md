@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.2.0](https://github.com/funkadelic/ha-acwd/compare/v1.1.1...v1.2.0) (2026-10-23)
 
 
+### What's new
+
+* The ACWD icon and logo now ship with the integration, so Home Assistant 2026.3 and newer loads them locally instead of fetching them from the Home Assistant brands repository. Thanks to @frenck for the contribution.
+
+
 ### Added
 
 * add local brand assets for home assistant 2026.3 and newer ([#137](https://github.com/funkadelic/ha-acwd/issues/137)) ([3ccd9a6](https://github.com/funkadelic/ha-acwd/commit/3ccd9a6cf590f22e027e01a58faf20708e0b7961))
