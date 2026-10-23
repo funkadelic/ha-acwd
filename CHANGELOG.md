@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0](https://github.com/funkadelic/ha-acwd/compare/v1.1.1...v1.2.0) (2026-10-23)
+
+
+### Added
+
+* add local brand assets for home assistant 2026.3 and newer ([#137](https://github.com/funkadelic/ha-acwd/issues/137)) ([3ccd9a6](https://github.com/funkadelic/ha-acwd/commit/3ccd9a6cf590f22e027e01a58faf20708e0b7961))
+
+
+### Changed
+
+* bump home-assistant/actions/hassfest ([#136](https://github.com/funkadelic/ha-acwd/issues/136)) ([1da08ce](https://github.com/funkadelic/ha-acwd/commit/1da08ce6a09a8143d5760785f5249d98c337a80e))
+* update pytest-homeassistant-custom-component requirement ([#135](https://github.com/funkadelic/ha-acwd/issues/135)) ([288c5aa](https://github.com/funkadelic/ha-acwd/commit/288c5aada2650481410761ef5c1cf1c4e5983fd5))
+
 ## [1.1.1](https://github.com/funkadelic/ha-acwd/compare/v1.1.0...v1.1.1) (2026-10-16)
 
 ### What's new
