@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1](https://github.com/funkadelic/ha-acwd/compare/v1.2.0...v1.2.1) (2026-10-25)
+
+
+### Changed
+
+* update pytest-homeassistant-custom-component requirement ([#139](https://github.com/funkadelic/ha-acwd/issues/139)) ([4d67c87](https://github.com/funkadelic/ha-acwd/commit/4d67c87f97d50d18de4b0cabb0469ea855541c32))
+* update pytest-mock requirement from &gt;=3.16.0 to &gt;=3.17.0 ([#140](https://github.com/funkadelic/ha-acwd/issues/140)) ([98250f5](https://github.com/funkadelic/ha-acwd/commit/98250f5cdedcba4e16d0d908fda11046a0b5124c))
+
 ## [1.2.0](https://github.com/funkadelic/ha-acwd/compare/v1.1.1...v1.2.0) (2026-10-23)
 
 
